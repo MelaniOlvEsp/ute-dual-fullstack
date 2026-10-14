@@ -1,0 +1,480 @@
+{
+  "auth": [
+    {
+      "name": "register",
+      "method": "POST",
+      "path": "/register",
+      "params": [
+        "data"
+      ]
+    },
+    {
+      "name": "login",
+      "method": "POST",
+      "path": "/login",
+      "params": [
+        "data",
+        "_rl"
+      ]
+    },
+    {
+      "name": "me",
+      "method": "GET",
+      "path": "/me",
+      "params": [
+        "user"
+      ]
+    },
+    {
+      "name": "cambiar_password",
+      "method": "POST",
+      "path": "/cambiar-password",
+      "params": [
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "crear_tutor",
+      "method": "POST",
+      "path": "/tutores",
+      "params": [
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "listar_tutores",
+      "method": "GET",
+      "path": "/tutores",
+      "params": [
+        "user"
+      ]
+    },
+    {
+      "name": "eliminar_tutor",
+      "method": "DELETE",
+      "path": "/tutores/{usuario_id}",
+      "params": [
+        "usuario_id",
+        "user"
+      ]
+    },
+    {
+      "name": "password_provisional",
+      "method": "POST",
+      "path": "/alumnos/{matricula}/password-provisional",
+      "params": [
+        "matricula",
+        "user"
+      ]
+    }
+  ],
+  "dual/alumno_dual": [
+    {
+      "name": "subir_reporte",
+      "method": "POST",
+      "path": "/",
+      "params": [
+        "semana",
+        "calificacion_alumno",
+        "fecha_inicio",
+        "fecha_fin",
+        "archivo",
+        "user"
+      ]
+    },
+    {
+      "name": "mis_reportes",
+      "method": "GET",
+      "path": "/mis-reportes",
+      "params": [
+        "cuatrimestre",
+        "user"
+      ]
+    },
+    {
+      "name": "obtener_semana_actual",
+      "method": "GET",
+      "path": "/semana-actual",
+      "params": [
+        "user"
+      ]
+    },
+    {
+      "name": "descargar_reporte_pdf_alumno",
+      "method": "GET",
+      "path": "/reporte/{reporte_id}/pdf",
+      "params": [
+        "reporte_id",
+        "user"
+      ]
+    }
+  ],
+  "dual/coordinador_dual": [
+    {
+      "name": "listar_reportes",
+      "method": "GET",
+      "path": "/reportes",
+      "params": [
+        "estado",
+        "cuatrimestre",
+        "user"
+      ]
+    },
+    {
+      "name": "revisar_reporte",
+      "method": "PATCH",
+      "path": "/reportes/{reporte_id}",
+      "params": [
+        "reporte_id",
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "listar_empresas",
+      "method": "GET",
+      "path": "/empresas",
+      "params": [
+        "user"
+      ]
+    },
+    {
+      "name": "crear_empresa",
+      "method": "POST",
+      "path": "/empresas",
+      "params": [
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "listar_asignaciones",
+      "method": "GET",
+      "path": "/asignaciones",
+      "params": [
+        "cuatrimestre",
+        "user"
+      ]
+    },
+    {
+      "name": "asignar_alumno_empresa",
+      "method": "POST",
+      "path": "/asignaciones",
+      "params": [
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "buscar_alumno",
+      "method": "GET",
+      "path": "/alumnos/{matricula}",
+      "params": [
+        "matricula",
+        "user"
+      ]
+    },
+    {
+      "name": "actualizar_alumno_dual",
+      "method": "PATCH",
+      "path": "/alumnos/{matricula}",
+      "params": [
+        "matricula",
+        "body",
+        "user"
+      ]
+    },
+    {
+      "name": "alumnos_sin_reporte",
+      "method": "GET",
+      "path": "/alumnos-sin-reporte",
+      "params": [
+        "cuatrimestre",
+        "semana",
+        "user"
+      ]
+    },
+    {
+      "name": "alumnos_atrasados",
+      "method": "GET",
+      "path": "/alumnos-atrasados",
+      "params": [
+        "user"
+      ]
+    },
+    {
+      "name": "cuatrimestre_actual",
+      "method": "GET",
+      "path": "/cuatrimestre-actual",
+      "params": [
+        "user"
+      ]
+    },
+    {
+      "name": "abrir_cuatrimestre",
+      "method": "POST",
+      "path": "/abrir-cuatrimestre",
+      "params": [
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "cerrar_cuatrimestre",
+      "method": "POST",
+      "path": "/cierre",
+      "params": [
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "descargar_reporte_pdf_coordinador",
+      "method": "GET",
+      "path": "/reporte/{reporte_id}/pdf",
+      "params": [
+        "reporte_id",
+        "user"
+      ]
+    },
+    {
+      "name": "cargar_firma",
+      "method": "POST",
+      "path": "/firma",
+      "params": [
+        "imagen",
+        "user"
+      ]
+    },
+    {
+      "name": "consultar_firma",
+      "method": "GET",
+      "path": "/firma",
+      "params": [
+        "user"
+      ]
+    }
+  ],
+  "dual/coordinador_carrera": [
+    {
+      "name": "listar_periodos",
+      "method": "GET",
+      "path": "/periodos",
+      "params": [
+        "user"
+      ]
+    },
+    {
+      "name": "listar_alumnos",
+      "method": "GET",
+      "path": "/alumnos",
+      "params": [
+        "cuatrimestre",
+        "grupo",
+        "user"
+      ]
+    },
+    {
+      "name": "expediente_alumno",
+      "method": "GET",
+      "path": "/alumnos/{matricula}/reportes",
+      "params": [
+        "matricula",
+        "cuatrimestre",
+        "user"
+      ]
+    },
+    {
+      "name": "descargar_reporte_pdf_carrera",
+      "method": "GET",
+      "path": "/reporte/{reporte_id}/pdf",
+      "params": [
+        "reporte_id",
+        "user"
+      ]
+    },
+    {
+      "name": "exportar_csv",
+      "method": "GET",
+      "path": "/alumnos/{matricula}/exportar-csv",
+      "params": [
+        "matricula",
+        "cuatrimestre",
+        "user"
+      ]
+    },
+    {
+      "name": "exportar_zip",
+      "method": "GET",
+      "path": "/alumnos/{matricula}/exportar-zip",
+      "params": [
+        "matricula",
+        "cuatrimestre",
+        "user"
+      ]
+    },
+    {
+      "name": "listar_grupos",
+      "method": "GET",
+      "path": "/grupos",
+      "params": [
+        "carrera",
+        "user"
+      ]
+    },
+    {
+      "name": "crear_grupo",
+      "method": "POST",
+      "path": "/grupos",
+      "params": [
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "cargar_alumnos_csv",
+      "method": "POST",
+      "path": "/grupos/{grupo_id}/alumnos",
+      "params": [
+        "grupo_id",
+        "file",
+        "user"
+      ]
+    },
+    {
+      "name": "agregar_alumno_individual",
+      "method": "POST",
+      "path": "/grupos/{grupo_id}/alumnos/individual",
+      "params": [
+        "grupo_id",
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "actualizar_alumno",
+      "method": "PATCH",
+      "path": "/alumnos/{matricula}",
+      "params": [
+        "matricula",
+        "body",
+        "user"
+      ]
+    },
+    {
+      "name": "eliminar_alumno",
+      "method": "DELETE",
+      "path": "/alumnos/{matricula}",
+      "params": [
+        "matricula",
+        "user"
+      ]
+    }
+  ],
+  "foro/publicaciones": [
+    {
+      "name": "crear_publicacion",
+      "method": "POST",
+      "path": "/publicaciones",
+      "params": [
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "listar_publicaciones",
+      "method": "GET",
+      "path": "/publicaciones",
+      "params": [
+        "limit",
+        "user"
+      ]
+    },
+    {
+      "name": "eliminar_publicacion",
+      "method": "DELETE",
+      "path": "/publicaciones/{publicacion_id}",
+      "params": [
+        "publicacion_id",
+        "user"
+      ]
+    },
+    {
+      "name": "reaccionar",
+      "method": "POST",
+      "path": "/publicaciones/{publicacion_id}/reaccion",
+      "params": [
+        "publicacion_id",
+        "data",
+        "user"
+      ]
+    }
+  ],
+  "foro/buzon": [
+    {
+      "name": "enviar_mensaje",
+      "method": "POST",
+      "path": "/",
+      "params": [
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "listar_mensajes",
+      "method": "GET",
+      "path": "/",
+      "params": [
+        "area",
+        "user"
+      ]
+    },
+    {
+      "name": "listar_mios",
+      "method": "GET",
+      "path": "/mios",
+      "params": [
+        "user"
+      ]
+    },
+    {
+      "name": "obtener_mensaje",
+      "method": "GET",
+      "path": "/{mensaje_id}",
+      "params": [
+        "mensaje_id",
+        "user"
+      ]
+    },
+    {
+      "name": "responder_mensaje",
+      "method": "POST",
+      "path": "/{mensaje_id}/respuestas",
+      "params": [
+        "mensaje_id",
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "marcar_leido",
+      "method": "PATCH",
+      "path": "/{mensaje_id}/leido",
+      "params": [
+        "mensaje_id",
+        "user"
+      ]
+    },
+    {
+      "name": "cerrar_mensaje",
+      "method": "PATCH",
+      "path": "/{mensaje_id}/cerrar",
+      "params": [
+        "mensaje_id",
+        "user"
+      ]
+    }
+  ]
+}

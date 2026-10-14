@@ -1,0 +1,64 @@
+# Modelo de datos objetivo
+
+Estado: PROPUESTA técnica. Fuente funcional: RN-01 a RN-29. No ejecutar este documento como migración. Esquema físico, índices y nombres definitivos se concretan en specs. Base inicial vacía.
+
+## Separaciones esenciales
+
+- Período calendario tiene ID y fechas; grado académico es un número del grupo.
+- Incorporación laboral puede cruzar períodos; no crear una empresa/asignación nueva solo por cambiar cuatrimestre.
+- Pertenencia a grupo tiene historia por período.
+- Obligación semanal existe aunque el alumno no entregue.
+- Reporte lógico tiene versiones; documento original y firmado son objetos distintos.
+- Recepción y evaluación tienen estados diferentes.
+
+## Entidades propuestas
+
+| Entidad | Datos y relaciones mínimos | Invariantes |
+|---|---|---|
+| usuarios | ID, correo, hash, rol, matrícula opcional, activo, versión de credenciales | Correo normalizado único; alumno vinculado a matrícula; tres roles, nunca privilegio por nombre de ruta. |
+| alumnos | Matrícula, nombre, autorización de registro | Matrícula única; historial no se borra por baja Dual. |
+| carreras | Código estable, nombre visible, activo | Tres carreras acordadas; códigos oficiales DP-05. |
+| grupos | ID, carrera, grado académico, componentes nomenclatura, cohorte | Nomenclatura derivada de regla aprobada; no usar etiqueta como FK. |
+| periodos | ID, año, bloque, fechas, recepción, evaluación, autores/instantes de cambios | Bloque único por año; fin calendario no cambia por cierre anticipado. |
+| alumno_grupo_periodo | Alumno, grupo, período | Un grupo vigente por alumno/período, con cambios auditados; no reescribir períodos anteriores. |
+| empresas | ID, nombre, activo | Mantener referencias históricas. |
+| incorporaciones_dual | Alumno, empresa, inicio, baja opcional | Inicio ≤ baja; continuidad entre períodos; política de cambio de empresa en spec. |
+| obligaciones_semanales | ID, incorporación, inicio/fin calendario, período resuelto | Una obligación por intervalo; generación idempotente; regla de pertenencia DP-01. |
+| reportes | ID, obligación, versión vigente, estado | Un reporte lógico por obligación; no creado para simular entrega inexistente. |
+| reporte_versiones | Reporte, número, fechas declaradas, nota declarada, archivo original, recepción | Número único por reporte; versiones recibidas inmutables. |
+| revisiones | Versión, tutor, decisión, nota, fechas/nota validadas, instante, archivo firmado | Rechazo con motivo; historial de correcciones; aprobación con firmado disponible. |
+| documentos | ID, proveedor, clave privada, tipo, tamaño, hash, estado | Sin URL pública como identidad; original conservado; metadatos no incluyen tokens. |
+| firmas_tutor | Tutor, documento/imagen y versión | Solo propietario administra; aprobado conserva artefacto firmado histórico. |
+| cierres_alumno_periodo | Alumno, período, suma, cantidad, promedio, cierre | Resultado final reproducible; sin aprobados promedio nulo; snapshot auditado. |
+| versiones_plantilla | ID, Word, PDF, fecha, autor, vigente | Pareja completa publicada atómicamente; versiones anteriores no alteran entregas. |
+| foro_publicaciones/reacciones | Autor, contenido/fecha; reacción por usuario | Mantener permisos existentes hasta decidir moderación. |
+| buzon_mensajes/respuestas | Alumno propietario, asunto, estado, respuestas con autor/fecha | Lectura y respuesta solo propietario/personal; no filtrar datos entre alumnos. |
+| eventos_auditoria | Actor, acción, recurso, instante, cambios pertinentes | Trazabilidad mínima, sin credenciales ni copia indiscriminada de documentos. |
+
+No es obligación crear una tabla por cada nombre: la spec puede combinar elementos cuando conserve las invariantes y simplifique el sistema.
+
+## Relaciones
+
+Alumno → pertenencias por período → grupo/carrera.
+Alumno → incorporaciones → obligaciones → reporte → versiones → revisiones/documentos.
+Período → obligaciones y cierres de calificación.
+Usuario tutor → revisiones/firmas; usuario coordinador → cierres/plantillas.
+Alumno → conversaciones → respuestas.
+
+## Integridad y concurrencia
+
+FK por identificador; no unir por cuatrimestre textual. Nota entera con CHECK 1–10. Fechas de documento ordenadas. Unicidad de obligación y versión. No cascadas que borren expediente por desactivar alumno/tutor.
+
+Generación de semanas y reintentos no duplican obligaciones. Cierre bloquea recepción con validación transaccional; revisión y finalización coordinan bloqueo/versionado. Índices iniciales en FK y búsquedas por período/estado/alumno; medir antes de agregar índices de rendimiento.
+
+Almacenamiento y PostgreSQL no comparten transacción: documento pasa por preparación/confirmación y limpieza de huérfanos por referencia. Nunca borrar original válido por un fallo de reenvío o firma.
+
+## Calendario y historia
+
+Guardar límites calendario y fechas declaradas separados. Una modificación de datos del PDF no debe cambiar inadvertidamente la identidad semanal. DP-01/02 determinan cuándo se permite cambiar período.
+
+No codificar techo universal de 18 semanas de incorporación: una estancia puede durar varios períodos. El ordinal visible puede reiniciarse por período o continuar, pero las fechas e ID son la identidad; fijarlo en C04.
+
+## Diferencia respecto de database/
+
+Los scripts actuales optimizan compatibilidad con una demo: roles JSONB, cuatrimestre textual, un reporte por semana sin versiones. C01 puede conservar JSONB para no refactorizar identidad innecesariamente; C03–C07 incorporan el modelo aprobado de forma incremental. No se necesita backfill de datos reales.

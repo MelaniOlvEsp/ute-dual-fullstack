@@ -1,0 +1,14 @@
+**/.git
+**/.venv
+**/node_modules
+**/.npm-cache
+**/__pycache__
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+**/credentials.json
+**/token.json
+**/uploads
+work
+outputs

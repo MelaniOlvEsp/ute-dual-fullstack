@@ -1,0 +1,12 @@
+# Entorno local y evidencia transitoria
+work/
+**/.venv/
+**/__pycache__/
+**/.npm-cache/
+**/node_modules/
+**/dist/
+**/.env
+**/.env.local
+**/credentials.json
+**/token.json
+**/uploads/

@@ -1,0 +1,79 @@
+name: ute-dual-c01
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ute_dual_c01
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Ejecuta scripts/setup-local.ps1}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Ejecuta scripts/setup-local.ps1}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/init-db.sh:/docker-entrypoint-initdb.d/10-ute-dual.sh:ro
+      - ./database/schema_dual_desde_cero.sql:/opt/ute/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d ute_dual_c01"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    environment: &api-environment
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ute_dual_c01
+      DB_USER: ute_dual_app
+      DB_PASSWORD: ${APP_DB_PASSWORD:?Ejecuta scripts/setup-local.ps1}
+      SECRET_KEY: ${SECRET_KEY:?Ejecuta scripts/setup-local.ps1}
+      C01_LOCAL_COMPOSE: "true"
+      FRONTEND_URL: http://127.0.0.1:${WEB_PORT:-5174}
+      CORS_ORIGINS: http://127.0.0.1:${WEB_PORT:-5174},http://localhost:${WEB_PORT:-5174}
+    ports:
+      - "127.0.0.1:${API_PORT:-8001}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    environment:
+      VITE_API_URL: http://127.0.0.1:${API_PORT:-8001}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-5174}:5173"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  smoke:
+    profiles: ["verification"]
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    environment:
+      <<: *api-environment
+      API_URL: http://api:8000
+    command: ["python", "scripts/smoke_c01.py"]
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

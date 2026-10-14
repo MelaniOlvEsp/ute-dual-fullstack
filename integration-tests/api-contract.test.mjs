@@ -1,0 +1,110 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
+import { createHttpClient } from '../ute-dual-frontend/src/infrastructure/http/httpClient.js'
+import { createAuthRepository } from '../ute-dual-frontend/src/infrastructure/repositories/authRepository.js'
+import { createDualRepository } from '../ute-dual-frontend/src/infrastructure/repositories/dualRepository.js'
+import { createForumRepository } from '../ute-dual-frontend/src/infrastructure/repositories/forumRepository.js'
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const contract = JSON.parse(readFileSync(resolve(root, 'ute-api-clean/tests/route_contract.json'), 'utf8'))
+const prefixes = {
+  auth: '/auth',
+  'dual/alumno_dual': '/dual/alumno',
+  'dual/coordinador_dual': '/dual/tutor',
+  'dual/coordinador_carrera': '/dual/carrera',
+  'foro/publicaciones': '/foro',
+  'foro/buzon': '/foro/buzon'
+}
+const serverRoutes = Object.entries(contract).flatMap(([module, routes]) =>
+  routes.map(({ method, path }) => {
+    const full = prefixes[module] + path
+    const escaped = full.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const matcher = new RegExp('^' + escaped.replace(/\\\{[^}]+\\\}/g, '[^/]+') + '/?$')
+    return { method, full, matcher }
+  })
+)
+const calls = []
+const server = {
+  async fetch(url, options) {
+    const pathname = new URL(url).pathname
+    const matching = serverRoutes.filter(r => r.method === options.method && r.matcher.test(pathname))
+    assert.ok(matching.length > 0, `Missing FastAPI route: ${options.method} ${pathname}`)
+    assert.equal(options.headers.Authorization, 'Bearer token-for-tests')
+    calls.push(`${options.method} ${pathname}`)
+    const binary = pathname.endsWith('/pdf') || pathname.endsWith('/exportar-csv') || pathname.endsWith('/exportar-zip')
+    return new Response(binary ? 'test-bytes' : '{}', { status: 200 })
+  }
+}
+const baseUrl = 'http://127.0.0.1:8000'
+const http = createHttpClient({
+  baseUrl,
+  fetcher: (url, opts) => server.fetch(url, opts),
+  getToken: () => 'token-for-tests',
+  onUnauthorized: () => { throw new Error('Unexpected 401') }
+})
+const auth = createAuthRepository(http)
+const dual = createDualRepository(http, baseUrl)
+const forum = createForumRepository(http)
+
+function sampleArgs(name) {
+  const args = {
+    eliminarTutor: ['00000000-0000-0000-0000-000000000001'],
+    passwordProvisional: ['123456789'],
+    crearTutor: [{nombre: 'Tutor',email:'tutor@ute.edu.mx'}],
+    subirFirma: [new FormData()],
+    studentProfile: [],
+    subirReporte: [new FormData()],
+    misReportes: ['2026-3'],
+    listarReportes: ['estado=Pendiente'],
+    revisarReporte: ['00000000-0000-0000-0000-000000000001', { estado: 'Aprobado' }],
+    crearEmpresa: [{ nombre: 'Empresa' }],
+    asignarEmpresa: [{ matricula: '123456789' }],
+    buscarAlumno: ['123456789'],
+    actualizarAlumnoDual: ['123456789', { alumno_dual: false }],
+    cerrarCuatrimestre: ['2026-3'],
+    abrirCuatrimestre: [{ periodo_label: '2026-3' }],
+    alumnosSinReporte: ['2026-3', 2],
+    listarAlumnos: ['grupo=abc'],
+    expediente: ['123456789', '2026-3'],
+    exportarCSV: ['123456789', '2026-3'],
+    exportarZip: ['123456789', '2026-3'],
+    crearGrupo: [{ carrera: 'TI', cuatrimestre: 3 }],
+    subirAlumnosCSV: ['00000000-0000-0000-0000-000000000001', new FormData()],
+    agregarAlumno: ['00000000-0000-0000-0000-000000000001', { matricula: '123456789', nombre: 'Alumno' }],
+    actualizarAlumno: ['123456789', { nombre: 'Alumno' }],
+    eliminarAlumno: ['123456789'],
+    listarGrupos: ['TI'],
+    reaccionar: ['00000000-0000-0000-0000-000000000001', 'like'],
+    eliminar: ['00000000-0000-0000-0000-000000000001'],
+    enviar: [{ area: 'dual', asunto: 'Prueba', mensaje: 'Prueba' }],
+    listar: ['dual'],
+    detalle: ['00000000-0000-0000-0000-000000000001'],
+    responder: ['00000000-0000-0000-0000-000000000001', 'Respuesta'],
+    marcarLeido: ['00000000-0000-0000-0000-000000000001'],
+    cerrar: ['00000000-0000-0000-0000-000000000001']
+  }
+  return args[name] || [{}]
+}
+
+test('all frontend HTTP repository operations match backend route contracts', async () => {
+  for (const repository of Object.values({auth, dual, posts: forum.posts, mailbox: forum.mailbox})) {
+    for (const [name, operation] of Object.entries(repository)) {
+      if (name.includes('PdfUrl')) {
+        const url = operation('00000000-0000-0000-0000-000000000001')
+        await http.get(url.slice(baseUrl.length), { blob: true })
+        continue
+      }
+      await operation(...sampleArgs(name))
+    }
+  }
+  assert.ok(calls.length >= 44, `Too few operations checked: ${calls.length}`)
+  console.log(`Validated ${calls.length} frontend API calls against ${serverRoutes.length} backend routes`)
+  assert.ok(calls.includes('GET /auth/me'))
+  assert.ok(calls.includes('GET /dual/alumno/mis-reportes'))
+  assert.ok(calls.includes('POST /foro/buzon/'))
+  assert.ok(calls.includes('GET /dual/carrera/alumnos/123456789/exportar-zip'))
+  assert.ok(!calls.some(call => call.includes('/alumnos/me')))
+})

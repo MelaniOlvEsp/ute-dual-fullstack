@@ -1,0 +1,54 @@
+# render.yaml — Deploy para Render.com (free tier)
+services:
+  - type: web
+    name: ute-api
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: APP_NAME
+        value: API Portal UTE
+      - key: SERVER_PORT
+        value: "8000"
+      - key: DB_USER
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_NAME
+        sync: false
+      - key: DB_MIN_SIZE
+        value: "1"
+      - key: DB_MAX_SIZE
+        value: "5"
+      - key: DB_TIMEOUT_QRY
+        value: "5.0"
+      - key: DB_TIMEOUT_CONN
+        value: "45.0"
+      - key: DB_CONNECT
+        value: "true"
+      - key: DB_APPNAME
+        value: ute_api
+      - key: DB_PASSWORD
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "1440"
+      - key: GMAIL_CREDENTIALS_PATH
+        value: credentials.json
+      - key: DRIVE_FOLDER_DUAL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: LOG_FORMAT
+        value: json
+      - key: SENTRY_DSN
+        value: ""
