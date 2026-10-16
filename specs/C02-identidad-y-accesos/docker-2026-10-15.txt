@@ -1,0 +1,144 @@
+ ✔ Image ute-dual-c01-api            Built                                                                          5.1s
+ ✔ Image ute-dual-c01-web            Built                                                                          5.1s
+ ✔ Container ute-dual-c01-postgres-1 Healthy                                                                       14.0s
+ ✔ Container ute-dual-c01-api-1      Healthy                                                                       14.0s
+ ✔ Container ute-dual-c01-web-1      Healthy                                                                       22.6s
+PS C:\Users\PC\Documents\GitHub\ute-dual-fullstack> docker compose exec api python -m unittest discover -s tests -q
+warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+/usr/local/lib/python3.12/site-packages/passlib/utils/__init__.py:854: DeprecationWarning: 'crypt' is deprecated and slated for removal in Python 3.13
+  from crypt import crypt as _crypt
+2026-10-15 18:02:09.979 | INFO     | app.infrastructure.database.postgres:init_pool:28 - Inicializando pool de conexiones a PostgreSQL...
+2026-10-15 18:02:10.100 | INFO     | app.application.use_cases.foro.publicaciones:crear_publicacion:43 - Publicación de foro creada por correo@ute.mx
+----------------------------------------------------------------------
+Ran 41 tests in 0.232s
+
+OK
+PS C:\Users\PC\Documents\GitHub\ute-dual-fullstack> New-Item -ItemType Directory -Force work/c02 | Out-Null
+PS C:\Users\PC\Documents\GitHub\ute-dual-fullstack> docker compose --profile verification run --build --rm smoke python scripts/smoke_c02.py 2>&1 | Tee-Object work/c02/smoke-compose.log
+docker :  Image ute-dual-c01-api Building
+En línea: 1 Carácter: 1
++ docker compose --profile verification run --build --rm smoke python s ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ( Image ute-dual-c01-api Building :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+#1 [internal] load local bake definitions
+#1 reading from stdin 567B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from api.Dockerfile
+#2 transferring dockerfile: 500B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 0.5s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 205B 0.0s done
+#4 DONE 0.0s
+
+#5 [1/7] FROM docker.io/library/python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+#5 resolve docker.io/library/python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 297.06kB 0.1s done
+#6 DONE 0.1s
+
+#7 [3/7] COPY ute-api-backend/requirements.txt ./
+#7 CACHED
+
+#8 [4/7] RUN pip install --no-cache-dir -r requirements.txt
+#8 CACHED
+
+#9 [5/7] COPY ute-api-backend/ ./
+#9 CACHED
+
+#10 [2/7] WORKDIR /workspace/ute-api-backend
+#10 CACHED
+
+#11 [6/7] COPY database/schema_dual_desde_cero.sql /workspace/database/schema_dual_desde_cero.sql
+#11 CACHED
+
+#12 [7/7] RUN useradd --create-home appuser
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:9dd0d44edc576a4504617a0903cfb7c79fe6d222f8490c8e01dafdb809e88e2a done
+#13 exporting config sha256:d766b28cf3a8f3455f16dd832e9ff17ea162836edaf2221e4e9f18e800ac81a4 done
+#13 exporting attestation manifest sha256:5109632c39312bbee0759d2623aff51b22dd55a05bda992afdff69d54f549c7c 0.0s done
+#13 exporting manifest list sha256:76c5d77ce7b724eef4f187f26f98748c6d7b4e816b38b81b1dcdf457d3221f53 0.0s done
+#13 naming to docker.io/library/ute-dual-c01-api:latest done
+#13 unpacking to docker.io/library/ute-dual-c01-api:latest 0.0s done
+#13 DONE 0.1s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image ute-dual-c01-api Built
+ Container ute-dual-c01-postgres-1 Running
+ Container ute-dual-c01-api-1 Running
+ Container ute-dual-c01-postgres-1 Waiting
+ Container ute-dual-c01-postgres-1 Healthy
+ Image ute-dual-c01-smoke Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.04kB done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from api.Dockerfile
+#2 transferring dockerfile: 500B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 0.2s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 205B 0.0s done
+#4 DONE 0.0s
+
+#5 [1/7] FROM docker.io/library/python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+#5 resolve docker.io/library/python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 7.68kB 0.1s done
+#6 DONE 0.1s
+
+#7 [2/7] WORKDIR /workspace/ute-api-backend
+#7 CACHED
+
+#8 [6/7] COPY database/schema_dual_desde_cero.sql /workspace/database/schema_dual_desde_cero.sql
+#8 CACHED
+
+#9 [3/7] COPY ute-api-backend/requirements.txt ./
+#9 CACHED
+
+#10 [4/7] RUN pip install --no-cache-dir -r requirements.txt
+#10 CACHED
+
+#11 [5/7] COPY ute-api-backend/ ./
+#11 CACHED
+
+#12 [7/7] RUN useradd --create-home appuser
+#12 CACHED
+
+#13 exporting to image
+#13 exporting layers done
+#13 exporting manifest sha256:163bb75803022a46bf81d573f49eb2dcf9dfdd661755124f95f8ce7e4ce5cf56 0.0s done
+#13 exporting config sha256:4fcf25299abad2a8ae3ea502fad6057a5f8dfc0ccdfd4d5536e74bb46d6ec3c3 0.0s done
+#13 exporting attestation manifest sha256:d9309cd9dbbc23b3e5fbdfafb5b2b024c06349120c28fecabb862a5ff8d5cd8e 0.0s done
+#13 exporting manifest list sha256:b1e520808a2c389c6de4a184ba4a37f3de9db7bef14f151b1fbf12a680c3033c 0.0s done
+#13 naming to docker.io/library/ute-dual-c01-smoke:latest done
+#13 unpacking to docker.io/library/ute-dual-c01-smoke:latest done
+#13 DONE 0.1s
+
+#14 resolving provenance for metadata file
+#14 DONE 0.0s
+ Image ute-dual-c01-smoke Built
+ Container ute-dual-c01-api-1 Waiting
+ Container ute-dual-c01-api-1 Healthy
+ Container ute-dual-c01-smoke-run-db10f60f1346 Creating
+ Container ute-dual-c01-smoke-run-db10f60f1346 Created
+Coordinador creado; deber├í cambiar la contrase├▒a al ingresar.
+PASS C02: altas concurrentes, registro autorizado, roles, recuperaci├│n, revocaci├│n, aislamiento de objetos y bajas con referencias conservadas. HTTP/PostgreSQL REALES.
+PDF autorizado/proveedor, calendario e historial integral: NO_VERIFICADA. Fixtures sint├®ticos conservados.

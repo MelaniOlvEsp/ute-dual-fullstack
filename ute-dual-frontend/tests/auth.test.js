@@ -43,3 +43,11 @@ test('JWT payload keeps mandatory password-change state', () => {
   assert.equal(decodeSession(`x.${payload}.x`).must_change_password, true)
   assert.throws(() => decodeSession('invalid'), /procesar la sesión/)
 })
+
+// The limit is in UTF-8 bytes; company or role data do not affect validation.
+test('password boundary rejects ASCII and Unicode beyond bcrypt limit', () => {
+  validateRegistration('123456789@ute.edu.mx', 'Aa1' + 'x'.repeat(69))
+  validateRegistration('123456789@ute.edu.mx', 'Aa12' + 'é'.repeat(34))
+  assert.throws(() => validateRegistration('123456789@ute.edu.mx', 'Aa1' + 'x'.repeat(70)), /72 bytes/)
+  assert.throws(() => validateRegistration('123456789@ute.edu.mx', 'Aa1' + 'é'.repeat(35)), /72 bytes/)
+})

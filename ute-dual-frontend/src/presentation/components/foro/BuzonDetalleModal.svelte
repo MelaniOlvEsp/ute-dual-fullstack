@@ -143,7 +143,7 @@
           {#if puedeMarcarLeido && detalle.estado === 'Enviado'}
             <button class="link-orange" on:click={marcarLeido} disabled={procesando}>Marcar como leído</button>
           {/if}
-          {#if detalle.estado !== 'Cerrado'}
+          {#if puedeMarcarLeido && detalle.estado !== 'Cerrado'}
             <button class="link-orange" on:click={cerrarMensaje} disabled={procesando}>Dar por resuelto</button>
           {/if}
         </div>

@@ -241,8 +241,8 @@ async def descargar_reporte_pdf_alumno(
         reporte = dict(row)
         if reporte["matricula"] != matricula:
             raise ApplicationError(
-                status_code=403,
-                detail="Sin acceso a este reporte",
+                status_code=404,
+                detail="Reporte no encontrado",
             )
 
     pdf_bytes = await runtime.services.obtener_pdf_bytes(reporte)

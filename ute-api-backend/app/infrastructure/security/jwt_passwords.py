@@ -15,6 +15,9 @@ def hash_password(password: str) -> str:
 
 # Verificacion de contrasenas de texto plano
 def verify_password(plain: str, hashed: str) -> bool:
+    # Rechazar sufijos que bcrypt truncaría, también durante login.
+    if len(plain.encode("utf-8")) > 72:
+        return False
     return pwd_context.verify(plain, hashed)
 
 

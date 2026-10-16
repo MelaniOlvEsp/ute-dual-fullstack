@@ -5,6 +5,7 @@ QUERIES = {
         SELECT matricula FROM alumnos
         WHERE matricula = %s AND LOWER(email) = %s
           AND registro_dual_autorizado = TRUE
+        FOR UPDATE
     """},
     "auth.account_exists": {"dynamic": None, "sql":
         "SELECT id FROM usuarios WHERE LOWER(email) = %s"},
@@ -13,6 +14,7 @@ QUERIES = {
             (email, password_hash, roles, matricula,
              must_change_password)
         VALUES (%s, %s, '{"alumno":true}'::jsonb, %s, FALSE)
+        ON CONFLICT DO NOTHING RETURNING id
     """},
     "auth.login": {"dynamic": None, "sql": """
         SELECT u.id, u.email, u.password_hash, u.roles, u.matricula,
@@ -62,7 +64,7 @@ QUERIES = {
         FROM usuarios WHERE id = %s AND LOWER(email) = %s AND activo = TRUE
     """},
     "auth.password_current": {"dynamic": None, "sql":
-        "SELECT password_hash FROM usuarios WHERE id = %s"},
+        "SELECT password_hash, credential_version FROM usuarios WHERE id = %s AND activo = TRUE FOR UPDATE"},
     "auth.password_change": {"dynamic": None, "sql": """
         UPDATE usuarios SET password_hash = %s,
             must_change_password = FALSE,
@@ -76,6 +78,7 @@ QUERIES = {
              matricula, must_change_password)
         VALUES (%s, %s, %s, '{"tutor_academico":true}'::jsonb,
                 NULL, TRUE)
+        ON CONFLICT DO NOTHING RETURNING id
     """},
     "auth.list_tutors": {"dynamic": None, "sql": """
         SELECT id, nombre, email, roles FROM usuarios

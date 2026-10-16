@@ -11,6 +11,7 @@ class UserRoles(BaseModel):
 
 
 class RegisterSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     email: EmailStr
     password: str
 
@@ -59,5 +60,6 @@ class UsuarioOut(BaseModel):
 
 
 class CrearTutorInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     nombre: str
     email: EmailStr

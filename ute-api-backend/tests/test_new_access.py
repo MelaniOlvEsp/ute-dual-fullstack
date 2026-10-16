@@ -52,7 +52,7 @@ class NewPermissionsTests(unittest.TestCase):
 
 class NewProcessTests(unittest.IsolatedAsyncioTestCase):
     async def test_registration_of_authorized_student(self):
-        cur = Cursor([{'matricula': '123456789'}, None])
+        cur = Cursor([{'matricula': '123456789'}, None, {'id': 'new-id'}])
         runtime = SimpleNamespace(database=Database(cur), services=SimpleNamespace(
             extraer_matricula=lambda email: email.split('@')[0],
             hash_password=lambda plain: 'hash:' + plain,
@@ -72,7 +72,7 @@ class NewProcessTests(unittest.IsolatedAsyncioTestCase):
         ))
         result = await auth.reset_password_alumno(
             '123456789', {'id': 'tutor'}, runtime=runtime)
-        self.assertGreaterEqual(len(result['password_temporal']), 20)
+        self.assertEqual(len(result['password_temporal']), 12)
         self.assertEqual(cur.calls[-1][0], 'auth.password_temp')
 
     async def test_old_token_rejected_when_version_changes(self):

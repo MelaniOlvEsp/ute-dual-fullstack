@@ -127,8 +127,8 @@ async def obtener_mensaje(mensaje_id, user, *, runtime: RuntimePort):
         msg_acceso = await _obtener_mensaje(cur, mensaje_id)
         if not _puede_participar(roles, msg_acceso, user["id"]):
             raise ApplicationError(
-                status_code=403,
-                detail="No tienes acceso a este mensaje",
+                status_code=404,
+                detail="Mensaje no encontrado",
             )
 
         await cur.execute(
@@ -147,8 +147,8 @@ async def responder_mensaje(mensaje_id, data, user, *, runtime: RuntimePort):
         msg = await _obtener_mensaje(cur, mensaje_id)
         if not _puede_participar(roles, msg, user["id"]):
             raise ApplicationError(
-                status_code=403,
-                detail="No tienes acceso a este mensaje",
+                status_code=404,
+                detail="Mensaje no encontrado",
             )
 
         await cur.execute(
@@ -190,12 +190,14 @@ async def marcar_leido(mensaje_id, user, *, runtime: RuntimePort):
 # Ejecuta las reglas del caso de uso con dependencias inyectadas.
 async def cerrar_mensaje(mensaje_id, user, *, runtime: RuntimePort):
     roles = user.get("roles", {}) or {}
+    if not _puede_leer_area(roles, "dual"):
+        raise ApplicationError(403, "Solo el personal puede cerrar mensajes")
     async with runtime.database.transaction() as cur:
         msg = await _obtener_mensaje(cur, mensaje_id)
         if not _puede_participar(roles, msg, user["id"]):
             raise ApplicationError(
-                status_code=403,
-                detail="No tienes acceso a este mensaje",
+                status_code=404,
+                detail="Mensaje no encontrado",
             )
 
         await cur.execute(

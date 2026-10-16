@@ -15,6 +15,12 @@ def _valid_password(value: str) -> None:
         raise ApplicationError(400, str(exc)) from exc
 
 
+def _temporary_password() -> str:
+    # Doce caracteres fáciles de entregar; el prefijo garantiza la política
+    # y los nueve restantes conservan entropía aleatoria para un solo uso.
+    return "Aa1" + secrets.token_urlsafe(7)[:9]
+
+
 async def register(data, *, runtime):
     # Permite auto-registro solo si el tutor cargó la matrícula.
     email = data.email.lower().strip()
@@ -32,6 +38,8 @@ async def register(data, *, runtime):
         await cur.execute('auth.insert_student', (
             email, runtime.services.hash_password(data.password), matricula
         ))
+        if not await cur.fetchone():
+            raise ApplicationError(409, 'Ya existe una cuenta con este correo o matrícula')
     return {'mensaje': 'Cuenta creada. Ya puedes iniciar sesión.'}
 
 
@@ -123,10 +131,12 @@ async def cambiar_password(data, user, *, runtime):
     async with runtime.database.transaction() as cur:
         await cur.execute('auth.password_current', (user['id'],))
         row = await cur.fetchone()
-        if not row or not runtime.services.verify_password(
+        if not row or row['credential_version'] != user.get('credential_version'):
+            raise ApplicationError(401, 'La sesión ha expirado; inicia de nuevo')
+        if not runtime.services.verify_password(
             data.password_actual, row['password_hash']
         ):
-            raise ApplicationError(401, 'Contraseña actual incorrecta')
+            raise ApplicationError(400, 'Contraseña actual incorrecta')
         await cur.execute('auth.password_change', (
             runtime.services.hash_password(data.password_nueva), user['id']
         ))
@@ -138,7 +148,9 @@ async def crear_tutor(data, coordinator, *, runtime):
     email = data.email.lower().strip()
     if not email.endswith('@ute.edu.mx'):
         raise ApplicationError(400, 'Se requiere correo institucional')
-    password = secrets.token_urlsafe(18)
+    if not data.nombre.strip():
+        raise ApplicationError(400, 'Nombre obligatorio')
+    password = _temporary_password()
     async with runtime.database.transaction() as cur:
         await cur.execute('auth.account_exists', (email,))
         if await cur.fetchone():
@@ -147,6 +159,8 @@ async def crear_tutor(data, coordinator, *, runtime):
             data.nombre.strip(), email,
             runtime.services.hash_password(password),
         ))
+        if not await cur.fetchone():
+            raise ApplicationError(409, 'Este correo ya está registrado')
     return {'mensaje': 'Tutor creado', 'email': email,
             'password_temporal': password}
 
@@ -170,7 +184,7 @@ async def eliminar_tutor(user_id, coordinator, *, runtime):
 
 async def reset_password_alumno(matricula, tutor, *, runtime):
     # La clave se entrega manualmente, sin enviarla por correo.
-    password = secrets.token_urlsafe(18)
+    password = _temporary_password()
     async with runtime.database.transaction() as cur:
         await cur.execute('auth.student_for_reset', (matricula,))
         student = await cur.fetchone()
