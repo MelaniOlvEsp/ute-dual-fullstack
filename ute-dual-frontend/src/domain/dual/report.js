@@ -27,6 +27,38 @@ export function validateGrade(grade) {
   return value
 }
 
+export const OBSERVACION_MAX = 1000
+
+// Decisión del tutor (C06): el rechazo exige observación (RN-14) y las correcciones siguen las
+// mismas reglas que la entrega. El servidor repite estas comprobaciones.
+export function validateReview(review) {
+  if (!['Aprobada', 'Rechazada'].includes(review.decision)) {
+    throw new Error('Selecciona aprobar o rechazar.')
+  }
+  const observacion = String(review.observacion ?? '').trim()
+  if (review.decision === 'Rechazada' && !observacion) {
+    throw new Error('Escribe la observación del rechazo para que el alumno sepa qué corregir.')
+  }
+  if (observacion.length > OBSERVACION_MAX) {
+    throw new Error(`La observación no puede pasar de ${OBSERVACION_MAX} caracteres.`)
+  }
+  if (String(review.nota ?? '').trim() !== '') validateGrade(review.nota)
+  if (review.fechaInicio && review.fechaFin && review.fechaInicio > review.fechaFin) {
+    throw new Error('La fecha de inicio debe ser anterior o igual a la de fin.')
+  }
+}
+
+// Cuerpo de la solicitud: solo los datos presentes; el servidor calcula qué se corrigió.
+export function reviewBody(review) {
+  const body = { decision: review.decision }
+  const observacion = String(review.observacion ?? '').trim()
+  if (observacion) body.observacion = observacion
+  if (String(review.nota ?? '').trim() !== '') body.calificacion = validateGrade(review.nota)
+  if (review.fechaInicio) body.fecha_inicio = review.fechaInicio
+  if (review.fechaFin) body.fecha_fin = review.fechaFin
+  return body
+}
+
 // Revisa datos obligatorios y rangos del reporte semanal. La semana la fija la obligación y
 // solo se exige inicio ≤ fin (DP-12); el tutor verifica que correspondan a la semana.
 export function validateWeeklyReport(report) {

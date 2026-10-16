@@ -28,9 +28,11 @@ class PermissionTest(unittest.TestCase):
         dual = guards(ROOT / 'app/presentation/api/routers/dual/coordinador_dual.py')
         self.assertIn('get_coordinator', dual['cerrar_cuatrimestre'])
         career = guards(ROOT / 'app/presentation/api/routers/dual/coordinador_carrera.py')
-        for name in ('revisar_reporte', 'cargar_firma', 'crear_empresa',
-                     'asignar_alumno_empresa'):
+        for name in ('detalle_reporte', 'revisar_version', 'descargar_version_pdf_tutor',
+                     'cargar_firma', 'crear_empresa', 'asignar_alumno_empresa'):
             self.assertIn('get_coordinador_dual', dual[name])
+        # C06 (MP-08): ni el alumno ni el coordinador revisan, solo el tutor.
+        self.assertNotIn('get_coordinator', dual['revisar_version'])
         for name in ('crear_grupo', 'cargar_alumnos_csv',
                      'agregar_alumno_individual', 'actualizar_alumno',
                      'eliminar_alumno', 'listar_grupos'):

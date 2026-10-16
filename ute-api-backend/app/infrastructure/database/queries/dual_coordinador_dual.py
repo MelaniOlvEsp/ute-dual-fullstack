@@ -11,7 +11,11 @@ QUERIES = {'dual.coordinador_dual.q000': {'dynamic': 'where',
                                        'r.estado, r.nota_agente,\n'
                                        '                r.created_at, '
                                        'r.updated_at, a.nombre, g.carrera,\n'
-                                       '                g.nomenclatura,\n'
+                                       '                g.nomenclatura, r.obligacion_id,\n'
+                                       '                (SELECT max(v.numero) FROM '
+                                       'reporte_versiones v\n'
+                                       '                 WHERE v.reporte_id = r.id) '
+                                       'AS version,\n'
                                        '                (SELECT e2.nombre\n'
                                        '                 FROM alumnos_dual ad2\n'
                                        '                 JOIN empresas e2 '
@@ -30,15 +34,6 @@ QUERIES = {'dual.coordinador_dual.q000': {'dynamic': 'where',
                                        'g.id         = a.grupo_id\n'
                                        '            {where}\n'
                                        '            ORDER BY r.created_at DESC\n'
-                                       '            '},
- 'dual.coordinador_dual.q001': {'dynamic': None,
-                                'sql': '\n'
-                                       '            SELECT id, matricula, '
-                                       'cuatrimestre, semana,\n'
-                                       '                   archivo_pdf_url, '
-                                       'archivo_pdf_local, estado\n'
-                                       '            FROM reportes_dual WHERE id = '
-                                       '%s\n'
                                        '            '},
  'dual.coordinador_dual.q002': {'dynamic': None,
                                 'sql': 'SELECT id, nombre, created_at FROM '
@@ -216,10 +211,7 @@ QUERIES = {'dual.coordinador_dual.q000': {'dynamic': 'where',
                                        'archivo_pdf_local\n'
                                        '            FROM reportes_dual WHERE id = '
                                        '%s\n'
-                                       '            '},
- 'dual.coordinador_dual.update_report': {'dynamic': 'assignments',
-                                         'sql': 'UPDATE reportes_dual SET '
-                                                '{assignments} WHERE id = %s'}}
+                                       '            '}}
 
 QUERIES.update({
     'dual.coordinador_dual.active_incorporation': {

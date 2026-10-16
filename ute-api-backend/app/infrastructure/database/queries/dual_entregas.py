@@ -98,10 +98,14 @@ QUERIES = {
                             CASE WHEN v.numero = u.ultima THEN r.nota_agente END) AS nota_revision,
                    COALESCE(v.revisado_en,
                             CASE WHEN v.numero = u.ultima THEN r.revisado_en END) AS revisado_en,
-                   d.tamano, d.sha256, d.paginas
+                   d.tamano, d.sha256, d.paginas,
+                   (rv.documento_firmado_id IS NOT NULL) AS firmado,
+                   rv.fecha_inicio AS validada_inicio, rv.fecha_fin AS validada_fin,
+                   rv.nota AS validada_nota
             FROM reportes_dual r
             JOIN reporte_versiones v ON v.reporte_id = r.id
             JOIN documentos d ON d.id = v.documento_id
+            LEFT JOIN revisiones rv ON rv.version_id = v.id
             CROSS JOIN LATERAL (SELECT max(x.numero) AS ultima
                                 FROM reporte_versiones x WHERE x.reporte_id = r.id) u
             WHERE r.id = %s AND r.matricula = %s
@@ -111,10 +115,12 @@ QUERIES = {
     "dual.entregas.version_documento": {
         "dynamic": None,
         "sql": """
-            SELECT d.clave
+            SELECT d.clave AS original, ds.clave AS firmado
             FROM reportes_dual r
             JOIN reporte_versiones v ON v.reporte_id = r.id
             JOIN documentos d ON d.id = v.documento_id
+            LEFT JOIN revisiones rv ON rv.version_id = v.id
+            LEFT JOIN documentos ds ON ds.id = rv.documento_firmado_id
             WHERE r.id = %s AND r.matricula = %s AND v.numero = %s
         """,
     },

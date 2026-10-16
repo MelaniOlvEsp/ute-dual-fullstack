@@ -33,6 +33,7 @@ class ServicesPort(Protocol):
     eliminar_pdf_local: Callable[..., Awaitable[Any]]
     obtener_pdf_bytes: Callable[..., Awaitable[bytes]]
     leer_pdf_local: Callable[..., Awaitable[bytes]]
+    estampar_firma: Callable[..., tuple]
 
 
 class RuntimePort(Protocol):

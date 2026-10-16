@@ -1,5 +1,5 @@
 # app/modulos/dual/schemas/reporte_schemas.py
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, StrictInt, field_validator, model_validator
 from typing import Optional
 from datetime import datetime, date
 from uuid import UUID
@@ -31,11 +31,12 @@ class ReporteDualCreate(ReporteDualBase):
     matricula: str
 
 
-# Update Agente: Lo que el Agente Dual puede editar
-class ReporteDualUpdateAgente(BaseModel):
-    estado: Literal['Pendiente', 'Aprobada', 'Rechazada']
-    nota_agente: Optional[str] = None
-    calificacion_alumno: Optional[float] = Field(None, ge=1, le=10)
+# C06: decisión del tutor sobre una versión. La nota corregida es un entero (sin decimales ni
+# booleanos); la validación de rango y de fechas es de dominio (`app.domain.reviews`).
+class RevisionIn(BaseModel):
+    decision: Literal['Aprobada', 'Rechazada']
+    observacion: Optional[str] = None
+    calificacion: Optional[StrictInt] = None
     fecha_inicio: Optional[date] = None
     fecha_fin: Optional[date] = None
 

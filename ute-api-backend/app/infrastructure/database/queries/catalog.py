@@ -10,8 +10,10 @@ from app.infrastructure.database.queries.dual_tutor import QUERIES as DUAL_TUTOR
 from app.infrastructure.database.queries.dual_organization import QUERIES as DUAL_ORGANIZATION
 from app.infrastructure.database.queries.dual_obligaciones import QUERIES as DUAL_OBLIGACIONES
 from app.infrastructure.database.queries.dual_entregas import QUERIES as DUAL_ENTREGAS
+from app.infrastructure.database.queries.dual_revisiones import QUERIES as DUAL_REVISIONES
 
 QUERIES = {
+    **DUAL_REVISIONES,
     **DUAL_TUTOR,
     **DUAL_ORGANIZATION,
     **DUAL_OBLIGACIONES,

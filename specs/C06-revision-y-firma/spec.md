@@ -1,6 +1,7 @@
 # C06 — Revisión y firma
 
-Estado: READY
+Estado: DONE
+Cierre: 2026-10-16
 Fecha: 2026-10-15
 Responsable de aprobación: responsable del proyecto
 Dependencias: C05 DONE (2026-10-15). DP-08 resuelta; DP-02 y DP-07 resueltas el 2026-10-16 (ver Decisiones). Sin decisiones bloqueantes pendientes: DRAFT → READY el 2026-10-16.
@@ -74,33 +75,40 @@ Comportamiento ante fallos/reintentos: aprobar es transaccional y nunca deja una
 
 | AC | Prueba o recorrido | Nivel y datos | Resultado |
 |---|---|---|---|
-| C06-AC1 / AC-12 | Tutor corrige fechas y nota: se conservan previo, nuevo, autor e instante; nota 0, 11, 8.5 e inicio > fin rechazadas; los datos declarados de la versión no cambian | HTTP + PostgreSQL reales | NO_VERIFICADA |
-| C06-AC2 / AC-12, RN-15 | La corrección no mueve obligación ni período (DP-02); con recepción cerrada la revisión sigue permitida | HTTP + PostgreSQL reales | NO_VERIFICADA |
-| C06-AC3 / RN-14 | Rechazo sin observación 422; con observación, el alumno la ve y reenvía como versión nueva; decisión sobre versión obsoleta 409 | HTTP + PostgreSQL reales | NO_VERIFICADA |
-| C06-AC4 / AC-13, RN-16 | Aprobar con firma: original y firmado legibles, ambos conservados y descargables; hash del original intacto | HTTP + PostgreSQL + almacenamiento reales | NO_VERIFICADA |
-| C06-AC5 / AC-13 | Fallo inyectado al firmar o guardar: el reporte no queda aprobado, sin archivo referenciado a medias | Fallos inyectados + verificación real | NO_VERIFICADA |
-| C06-AC6 | Revisión y reenvío simultáneos, dos tutores simultáneos: una decisión, un 409, sin duplicados | HTTP + PostgreSQL con concurrencia | NO_VERIFICADA |
-| C06-AC7 / MP-08, MP-10 | Alumno y coordinador no revisan (403); alumno solo ve y descarga lo propio (404 ajeno); tutor de otra carrera sí revisa; aprobar sin firma cargada 409 | Negativos HTTP reales | NO_VERIFICADA |
-| C06-AC8 / DP-07 | Muestra sintética del PDF firmado revisada visualmente en todas sus páginas y aceptada por el responsable | Revisión visual del PDF | NO_VERIFICADA |
-| C06-AC9 | Bandeja y detalle del tutor y vista del alumno en escritorio y móvil con teclado | Preview visual del build desplegado | NO_VERIFICADA |
+| C06-AC1 / AC-12 | Tutor corrige fechas y nota: se conservan previo, nuevo, autor e instante; nota 0, 11, 8.5 e inicio > fin rechazadas; los datos declarados de la versión no cambian | HTTP + PostgreSQL reales | REAL: PASS (`smoke_c06.py`: corrección de nota 8→9 y de la fecha de inicio guardadas como previo/nuevo; lo declarado queda en 8; 0, 11, 8.5, booleano, texto y fechas invertidas 422 sin documento, archivo ni revisión). SIMULADA: reglas de dominio y casos de uso con dobles |
+| C06-AC2 / AC-12, RN-15 | La corrección no mueve obligación ni período (DP-02); con recepción cerrada la revisión sigue permitida | HTTP + PostgreSQL reales | REAL: PASS (período, semana y ordinal de todas las obligaciones idénticos antes y después de corregir; con el período cerrado el tutor rechaza y el alumno ya no puede reenviar, 409) |
+| C06-AC3 / RN-14 | Rechazo sin observación 422; con observación, el alumno la ve y reenvía como versión nueva; decisión sobre versión obsoleta 409 | HTTP + PostgreSQL reales | REAL: PASS (422 sin observación; la alumna ve la observación y `puede_entregar`; v2 vigente con la decisión de la v1 conservada; decidir la v1 de nuevo 409; la v2 se aprueba con 2 revisiones en total) |
+| C06-AC4 / AC-13, RN-16 | Aprobar con firma: original y firmado legibles, ambos conservados y descargables; hash del original intacto | HTTP + PostgreSQL + almacenamiento reales | REAL: PASS (el original guardado coincide byte a byte y por SHA-256; el firmado es un documento distinto con su propio hash, mismas páginas y mismo texto, con una sola imagen dentro de la celda; tutor, alumno y lecturas heredadas descargan el mismo firmado; reintento idéntico estable y decisión distinta 409) |
+| C06-AC5 / AC-13 | Fallo inyectado al firmar o guardar: el reporte no queda aprobado, sin archivo referenciado a medias | Fallos inyectados + verificación real | REAL: PASS (fallo inyectado al confirmar y al estampar contra la BD real: sin revisión, documento ni archivo nuevos, reporte pendiente y original intacto; la aprobación posterior funciona). Casos de uso con dobles: SIMULADA |
+| C06-AC6 | Revisión y reenvío simultáneos, dos tutores simultáneos: una decisión, un 409, sin duplicados | HTTP + PostgreSQL con concurrencia | REAL: PASS para dos tutores simultáneos sobre la misma versión (un 200 y un 409, una sola revisión, el perdedor no deja archivo). Revisión y reenvío simultáneos no son alcanzables por diseño: reenviar exige un rechazo ya registrado y revisar exige una versión sin decisión; ambos comparten el bloqueo de la obligación |
+| C06-AC7 / MP-08, MP-10 | Alumno y coordinador no revisan (403); alumno solo ve y descarga lo propio (404 ajeno); tutor de otra carrera sí revisa; aprobar sin firma cargada 409 | Negativos HTTP reales | REAL: PASS (alumno y coordinador 403 en detalle, revisión y PDF; sin token 401; alumno ajeno 404; versión o reporte inexistente 404; UUID inválido y `documento` inválido 422; tutor sin firma 409 sin efectos; PATCH heredado retirado). Tutores transversales comprobados con dos tutores del mismo alumno; no se probó con una segunda carrera |
+| C06-AC8 / DP-07 | Muestra sintética del PDF firmado revisada visualmente en todas sus páginas y aceptada por el responsable | Revisión visual del PDF | REAL: PASS. Muestra aceptada por el responsable el 2026-10-16. Estampado verificado sobre una réplica sintética (muestra [muestra-firma-sintetica.png](muestra-firma-sintetica.png)) y sobre el reporte de ejemplo del responsable, solo de forma local: celda localizada y firma dentro de ella, sin tocar el resto. Respaldo con hoja adicional comprobado (3 páginas). La aceptación cubre la muestra sintética; otros formatos usan el respaldo |
+| C06-AC9 | Bandeja y detalle del tutor y vista del alumno en escritorio y móvil con teclado | Preview visual del build desplegado | REAL: PASS parcial (tutor en escritorio y 375 px sin desborde: validación del rechazo sin observación, de la nota decimal, corrección de nota, aprobar y firmar, visor con pestañas original/firmado, historial con corrección; alumno: historial con corrección, rechazo con observación y descargas, petición 200). NO_VERIFICADOS: guardado real de la descarga, tema oscuro, teclado completo y móvil físico |
 
 ## Evidencia de implementación
 
-Sin ejecución: spec en DRAFT. Añadir solo después de implementar, con fecha, entorno, revisión del código y clase REAL/SIMULADA/NO_VERIFICADA.
+Implementado el 2026-10-16 y registrado en [evidencia.md](evidencia.md): smoke C06 con HTTP, PostgreSQL y almacenamiento reales; 132 pruebas de backend (27 nuevas de C06); 28 pruebas JS; 62/62 rutas de contrato; migración 006 en base nueva e idempotente; regresión de los smokes C01–C05; preview visual. Drive no interviene (la aprobación ya no lo usa) y queda NO_VERIFICADO.
+
+Archivos principales: `database/migrations/006_revisiones.sql`, `docker/init-db.sh`, `app/domain/reviews.py`, `app/application/use_cases/dual/revisiones.py`, `app/infrastructure/database/queries/dual_revisiones.py`, `app/infrastructure/documents/signatures.py` (`localizar_celda_firma`, `estampar_firma`), routers y DTO de tutor y alumno, `scripts/smoke_c06.py`, `tests/test_c06_revision.py`, `route_contract.json`, y en el frontend `CoordinadorDual.svelte`, `ReportesDual.svelte`, `FirmaTutor.svelte`, `report.js`, el repositorio y el caso de uso. Retirados: `PATCH /dual/tutor/reportes/{id}`, `revisar_reporte`, sus consultas y la subida del firmado a Drive.
+
+Cambios adyacentes necesarios: `smoke_c05.py` rechaza con la nueva ruta de revisión (la heredada se retiró); el texto de `FirmaTutor` describe el estampado en la celda.
 
 ## Revisión
 
-Veredicto: pendiente.
-Revisor y modalidad: pendiente.
-Hallazgos materiales: no aplica antes de implementación.
+Veredicto: APPROVED (2026-10-16, primera revisión), sin defectos materiales.
+Revisor y modalidad: el mismo agente que implementó (Claude), contra la spec, los requisitos enlazados y el diff real; revisión técnica y visual parcial (se comprobó solo lo cambiado tras el preview: espacio de «Rechazada · observación», estado sin recepción abierta y tabla de versiones en 375 px; el tema oscuro no se pudo comprobar). NO es una revisión independiente.
+Hallazgos materiales: ninguno.
+Observaciones no bloqueantes: (1) la bandeja del tutor no tiene filtro por período (el punto 7 de la spec lo menciona; la API acepta `cuatrimestre`, la barra de filtros no lo ofrece); (2) en `revisar`, el `except BaseException` borra el firmado nuevo también ante un COMMIT ambiguo y no hay ruta para volver a firmar una versión ya revisada; (3) la limpieza de huérfanos sigue sin ejecutarse automáticamente (heredada de C05). Las tres pasan a las limitaciones aceptadas.
 Correcciones y verificación focal: no aplica.
-Limitaciones: Drive y cualquier proveedor externo quedan NO_VERIFICADOS salvo que se usen; no hay validación de la firma de la empresa ni OCR; la firma aplicada es una representación gráfica, no una firma criptográfica; cierre y promedio son de C07.
+Limitaciones: Drive y cualquier proveedor externo NO_VERIFICADOS (la aprobación ya no los usa); no hay validación de la firma de la empresa ni OCR; la firma aplicada es una representación gráfica, no una firma criptográfica; cierre y promedio son de C07. El estampado en la celda se probó con una réplica sintética y con un único reporte de ejemplo del responsable (una hoja); otros formatos, PDF escaneados o páginas giradas usan el respaldo de hoja adicional. La muestra sintética fue aceptada por el responsable el 2026-10-16 (C06-AC8). Los reportes con `obligacion_id` nulo (heredados) se revisan igual, pero ya no existen en datos nuevos. La interfaz de revisión conserva el diseño de pantalla dividida existente; el tema oscuro y la navegación completa por teclado de la pantalla de revisión no se recorrieron.
 
 ## Aprobaciones y cierre
 
 Aprobación de READY: el responsable resolvió DP-02 (la corrección nunca mueve período ni semana) y DP-07 (firma en la celda "Firma" de la fila "Tutor académico") el 2026-10-16 y ordenó pasar C06 a READY sin implementarla.
-Aprobación de implementación: pendiente.
-Aprobación de cierre: pendiente.
-Resumen final: pendiente.
-Siguiente spec: C07 solo después de implementar, revisar y cerrar C06.
-Commit/push: no autorizados salvo indicación explícita.
+Aprobación de implementación: recibida mediante `IMPLEMENT C06` en este chat el 2026-10-16 (READY → IN_PROGRESS el mismo día). Autoriza el alcance de esta spec, contratos, fixtures y documentación afectados; no autoriza C07, commit ni push (el commit de implementación se hace al aprobar el cierre).
+Aprobación de cierre: otorgada por el responsable del proyecto el 2026-10-16 mediante `CLOSE C06 + NEXT SPEC`, sujeta a revisión aprobada y evidencia suficiente. Se verificó: revisión técnica APPROVED sin defectos materiales y evidencia REAL para C06-AC1 a AC8; AC9 REAL parcial (ver [evidencia.md](evidencia.md)). La muestra de firma sintética fue aceptada por el responsable el mismo día.
+Resumen final: revisión por versión del tutor (aprobar con firma o rechazar con observación obligatoria) sobre una versión concreta, con 409 para versión obsoleta, ya revisada o reporte ya decidido y reintento idéntico estable; correcciones de nota entera y fechas con valor previo, nuevo, autor e instante, sin mover obligación, semana ni período (DP-02); firmado como documento derivado distinto del original, estampado en la celda «Firma» de la fila «Tutor académico» (DP-07) con hoja adicional como respaldo, sin depender de Drive; aprobación atómica; descarga de original y firmado para tutor y alumno propio; revisión permitida con la recepción cerrada; revisiones y correcciones inmutables en la base (migración `006_revisiones.sql`); pantalla de revisión del tutor con visor original/firmado, edición de nota y fechas e historial; historial del alumno con correcciones y descargas; contratos, fixtures y documentación actualizados.
+Pruebas: backend 132/132 (27 nuevas; SIMULADA salvo el estampado real de PDF sintéticos); JS 28/28; contrato 62/62; smokes C01–C06 REAL con HTTP, PostgreSQL y almacenamiento reales (el de C06 con concurrencia entre tutores, fallos inyectados y hashes); migración 006 en base nueva e idempotente; preview visual del tutor y la alumna en escritorio y 375 px. Detalle en [evidencia.md](evidencia.md).
+Limitaciones aceptadas al cierre: (1) Drive y cualquier proveedor externo NO_VERIFICADOS (la aprobación ya no los usa); (2) el estampado en la celda se probó con una réplica sintética y un único ejemplo del responsable; otros formatos usan la hoja adicional; (3) sin filtro por período en la bandeja del tutor; (4) COMMIT ambiguo que podría borrar un firmado recién confirmado y limpieza de huérfanos sin ejecución automática; (5) tema oscuro, teclado completo en la revisión, guardado real de la descarga, móvil físico y tutores de otra carrera NO_VERIFICADOS; (6) revisión del mismo agente, no independiente; (7) cierre, finalización y promedio siguen en el diseño anterior hasta C07 (el promedio del expediente aún se calcula sobre el grado como período).
+Siguiente spec: [C07 — Cierre y calificación](../C07-cierre-y-calificacion/spec.md), en DRAFT.
+Commit/push: el commit local de implementación se hace con este cierre por indicación permanente del responsable; no hay push.

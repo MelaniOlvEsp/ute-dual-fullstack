@@ -20,13 +20,6 @@ FILTERS = {
 }
 
 ASSIGNMENTS = {
-    'dual.coordinador_dual.update_report': frozenset({
-        'estado = %s', 'nota_agente = %s', 'updated_at = NOW()',
-        'calificacion_alumno = %s', 'fecha_inicio = %s',
-        'fecha_fin = %s', 'archivo_pdf_url = %s',
-        'archivo_pdf_local = NULL', 'archivo_pdf_url = NULL',
-        'revisado_por = %s', 'revisado_en = NOW()',
-    }),
     'dual.coordinador_carrera.update_student': frozenset({
         'nombre = %s',
     }),

@@ -118,6 +118,7 @@
       "params": [
         "reporte_id",
         "numero",
+        "documento",
         "user"
       ]
     },
@@ -143,12 +144,33 @@
       ]
     },
     {
-      "name": "revisar_reporte",
-      "method": "PATCH",
+      "name": "detalle_reporte",
+      "method": "GET",
       "path": "/reportes/{reporte_id}",
       "params": [
         "reporte_id",
+        "user"
+      ]
+    },
+    {
+      "name": "revisar_version",
+      "method": "POST",
+      "path": "/reportes/{reporte_id}/versiones/{numero}/revision",
+      "params": [
+        "reporte_id",
+        "numero",
         "data",
+        "user"
+      ]
+    },
+    {
+      "name": "descargar_version_pdf_tutor",
+      "method": "GET",
+      "path": "/reportes/{reporte_id}/versiones/{numero}/pdf",
+      "params": [
+        "reporte_id",
+        "numero",
+        "documento",
         "user"
       ]
     },

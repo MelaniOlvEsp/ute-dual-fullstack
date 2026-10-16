@@ -34,6 +34,8 @@ class ServiceAdapter:
     eliminar_pdf_local = staticmethod(dual_reports.eliminar_pdf_local)
     obtener_pdf_bytes = staticmethod(dual_reports.obtener_pdf_bytes)
     leer_pdf_local = staticmethod(dual_reports.leer_pdf_local)
+    # C06: firma estampada en la celda del tutor (respaldo: hoja adicional).
+    estampar_firma = staticmethod(signatures.estampar_firma)
 
 
 @dataclass(frozen=True)

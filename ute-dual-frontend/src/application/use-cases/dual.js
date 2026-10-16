@@ -1,4 +1,4 @@
-import { validateWeeklyReport } from '../../domain/dual/report.js'
+import { validateWeeklyReport, validateReview, reviewBody } from '../../domain/dual/report.js'
 
 // Nombre de descarga generado en el cliente a partir de la etiqueta de la semana (no del archivo).
 const slug = text => String(text || 'semana').toLowerCase().normalize('NFD')
@@ -13,9 +13,15 @@ export function createDualUseCases(repo, fileSaver, formBuilder) {
       validateWeeklyReport(report)
       return repo.entregarObligacion(obligacionId, formBuilder(report))
     },
-    async downloadVersion(reporteId, numero, etiqueta) {
-      const blob = await repo.descargarVersion(reporteId, numero)
-      fileSaver.save(blob, `reporte-${slug(etiqueta)}-v${numero}.pdf`)
+    async downloadVersion(reporteId, numero, etiqueta, documento = 'original') {
+      const blob = await repo.descargarVersion(reporteId, numero, documento)
+      const sufijo = documento === 'firmado' ? '-firmado' : ''
+      fileSaver.save(blob, `reporte-${slug(etiqueta)}-v${numero}${sufijo}.pdf`)
+    },
+    // Decisión del tutor (C06): valida lo que el servidor también exige, sobre una versión concreta.
+    async submitReview(reporteId, numero, review) {
+      validateReview(review)
+      return repo.revisarVersion(reporteId, numero, reviewBody(review))
     },
     async exportarCSV(matricula, periodo) {
       const blob = await repo.exportarCSV(matricula, periodo)

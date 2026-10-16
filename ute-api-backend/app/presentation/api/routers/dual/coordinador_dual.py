@@ -4,7 +4,9 @@ from datetime import date
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
 from pydantic import BaseModel, model_validator
 from app.presentation.api.routers.auth import get_current_user, get_coordinator
-from app.application.dto.reportes import ReporteDualUpdateAgente, EmpresaCreate, EmpresaOut, AsignacionCreate, AsignacionOut, CuatrimestreCerrar, CuatrimestreAbrir, CuatrimestreActualOut
+from typing import Literal
+from app.application.use_cases.dual import revisiones as revisiones_cases
+from app.application.dto.reportes import RevisionIn, EmpresaCreate, EmpresaOut, AsignacionCreate, AsignacionOut, CuatrimestreCerrar, CuatrimestreAbrir, CuatrimestreActualOut
 from app.application.dto.obligaciones import ObligacionOut
 from app.application.use_cases.dual import coordinador_dual as use_cases
 from app.application.use_cases.dual import obligaciones as obligaciones_cases
@@ -43,18 +45,46 @@ async def listar_reportes(
     )
 
 
-# Delega el caso de uso sin mezclar lógica de negocio con HTTP.
-@router.patch("/reportes/{reporte_id}", status_code=status.HTTP_200_OK)
-async def revisar_reporte(
+# C06: revisión por versión (tutor). Detalle, decisión y descarga del original o del firmado.
+@router.get("/reportes/{reporte_id}")
+async def detalle_reporte(reporte_id: UUID, user=Depends(get_coordinador_dual)):
+    return to_http_response(
+        await revisiones_cases.detalle(reporte_id=reporte_id, user=user, runtime=get_runtime())
+    )
+
+
+@router.post("/reportes/{reporte_id}/versiones/{numero}/revision", status_code=status.HTTP_200_OK)
+async def revisar_version(
     reporte_id: UUID,
-    data: ReporteDualUpdateAgente,
+    numero: int,
+    data: RevisionIn,
     user=Depends(get_coordinador_dual),
 ):
     return to_http_response(
-        await use_cases.revisar_reporte(
+        await revisiones_cases.revisar(
             reporte_id=reporte_id,
-            data=data,
+            numero=numero,
+            decision=data.decision,
+            observacion=data.observacion,
+            calificacion=data.calificacion,
+            fecha_inicio=data.fecha_inicio,
+            fecha_fin=data.fecha_fin,
             user=user,
+            runtime=get_runtime(),
+        )
+    )
+
+
+@router.get("/reportes/{reporte_id}/versiones/{numero}/pdf")
+async def descargar_version_pdf_tutor(
+    reporte_id: UUID,
+    numero: int,
+    documento: Literal["original", "firmado"] = "original",
+    user=Depends(get_coordinador_dual),
+):
+    return to_http_response(
+        await revisiones_cases.descargar(
+            reporte_id=reporte_id, numero=numero, documento=documento, user=user,
             runtime=get_runtime(),
         )
     )

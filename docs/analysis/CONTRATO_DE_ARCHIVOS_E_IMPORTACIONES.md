@@ -14,7 +14,7 @@ Implementado en C05: almacenamiento privado local (volumen `dual-uploads`) con c
 
 Imagen PNG/JPEG de tutor propietario. Propuesta límite 1 MB coherente con SQL actual; validar dimensiones/contenido decodificable. La firma aplicada es una representación gráfica, no certificación criptográfica. El documento aprobado debe permanecer legible y conservar firma de empresa.
 
-Ubicación pendiente de muestra visual DP-07. Crear muestra sintética o anonimizada; revisar todas las páginas relevantes. Cambio de firma futura no reescribe firmados anteriores.
+Ubicación (DP-07, resuelta el 2026-10-16): la firma se estampa en la celda vacía de la columna «Firma» en la fila «Tutor académico» de la tabla final del reporte. La celda se localiza por el texto de la fila, el encabezado de la columna y las líneas dibujadas de la tabla, en la última hoja que la contenga. Si no se reconoce el formato (por ejemplo un PDF escaneado), la celda está ocupada o la página está girada, se usa como respaldo una hoja adicional con la firma, el nombre y la fecha de revisión, y la revisión registra qué modo se usó. Se conserva el original y el firmado es un documento distinto; el estampado no cambia el texto del reporte. Se validó con una réplica sintética del formato (muestra en la spec C06) y con el reporte de ejemplo del responsable solo de forma local, sin copiarlo al repositorio. Cambio de firma futura no reescribe firmados anteriores.
 
 ## Plantilla común
 

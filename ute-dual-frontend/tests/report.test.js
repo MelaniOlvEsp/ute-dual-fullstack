@@ -1,6 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { MAX_PDF_BYTES, validateGrade, validateReportFile, validateWeeklyReport } from '../src/domain/dual/report.js'
+import {
+  MAX_PDF_BYTES, OBSERVACION_MAX, reviewBody, validateGrade, validateReportFile, validateReview,
+  validateWeeklyReport
+} from '../src/domain/dual/report.js'
 import { createDualUseCases } from '../src/application/use-cases/dual.js'
 
 const goodReport = {
@@ -52,5 +55,36 @@ test('version download is delegated to the file saver with a safe generated name
     descargarVersion: async () => new Blob(['pdf'])
   }, { save: (blob, name) => saved.push(name) }, report => report)
   await useCases.downloadVersion('rep-1', 3, 'Semana 4')
-  assert.deepEqual(saved, ['reporte-semana-4-v3.pdf'])
+  await useCases.downloadVersion('rep-1', 3, 'Semana 4', 'firmado')
+  assert.deepEqual(saved, ['reporte-semana-4-v3.pdf', 'reporte-semana-4-v3-firmado.pdf'])
+})
+
+test('review: rejection needs an observation and corrections follow the delivery rules (RN-14, AC-12)', () => {
+  validateReview({ decision: 'Aprobada' })
+  validateReview({ decision: 'Rechazada', observacion: ' Falta la firma de la empresa ' })
+  assert.throws(() => validateReview({ decision: 'Rechazada', observacion: '   ' }), /observación del rechazo/)
+  assert.throws(() => validateReview({ decision: 'Pendiente' }), /aprobar o rechazar/)
+  assert.throws(() => validateReview({ decision: 'Aprobada', observacion: 'x'.repeat(OBSERVACION_MAX + 1) }), /1000/)
+  for (const nota of ['0', '11', '8.5']) {
+    assert.throws(() => validateReview({ decision: 'Aprobada', nota }), /entero entre 1 y 10/, nota)
+  }
+  assert.throws(() => validateReview({ decision: 'Aprobada', fechaInicio: '2026-10-17', fechaFin: '2026-10-12' }), /inicio/)
+})
+
+test('review request body carries only what the tutor provided', () => {
+  assert.deepEqual(reviewBody({ decision: 'Aprobada', nota: '', fechaInicio: '', fechaFin: '' }), { decision: 'Aprobada' })
+  assert.deepEqual(
+    reviewBody({ decision: 'Rechazada', observacion: ' Corrige ', nota: '9', fechaInicio: '2026-10-12', fechaFin: '2026-10-16' }),
+    { decision: 'Rechazada', observacion: 'Corrige', calificacion: 9, fecha_inicio: '2026-10-12', fecha_fin: '2026-10-16' })
+})
+
+test('review is validated before reaching the repository and targets a concrete version', async () => {
+  const received = []
+  const useCases = createDualUseCases({
+    revisarVersion: async (id, numero, body) => received.push({ id, numero, body })
+  }, {}, report => report)
+  await useCases.submitReview('rep-1', 2, { decision: 'Rechazada', observacion: 'Falta firma' })
+  assert.deepEqual(received[0], { id: 'rep-1', numero: 2, body: { decision: 'Rechazada', observacion: 'Falta firma' } })
+  await assert.rejects(useCases.submitReview('rep-1', 2, { decision: 'Rechazada' }))
+  assert.equal(received.length, 1)
 })

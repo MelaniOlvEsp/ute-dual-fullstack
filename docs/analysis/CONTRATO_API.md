@@ -1,6 +1,6 @@
 # Contrato API: existente y objetivo
 
-Estado: contrato vivo. C01–C05 describen rutas implementadas (C05 DONE); C06–C10 siguen como diseño propuesto. Fuentes ejecutables: routers en `ute-api-backend/app/presentation/api/routers`, `route_contract.json` y repositorios de `ute-dual-frontend/src/infrastructure/repositories`.
+Estado: contrato vivo. C01–C06 describen rutas implementadas (C05 y C06 DONE); C07–C10 siguen como diseño propuesto. Fuentes ejecutables: routers en `ute-api-backend/app/presentation/api/routers`, `route_contract.json` y repositorios de `ute-dual-frontend/src/infrastructure/repositories`.
 
 ## Inventario actual
 
@@ -10,7 +10,7 @@ Estado: contrato vivo. C01–C05 describen rutas implementadas (C05 DONE); C06�
 | Tutores | POST/GET /auth/tutores; DELETE /auth/tutores/{usuario_id} | Baja lógica y revocación; confirmar contrato compatible. |
 | Recuperación | POST /auth/alumnos/{matricula}/password-provisional | Conservar control tutor y cambio forzoso. |
 | Alumno | GET /dual/alumno/mis-reportes, /obligaciones; POST /obligaciones/{id}/entrega; GET /reportes/{id}/versiones[/{n}/pdf] | Implementado en C04–C05: obligaciones independientes con versiones (retiradas `POST /dual/alumno/` y `GET /semana-actual`). |
-| Revisión | GET/PATCH /dual/tutor/reportes[/{reporte_id}] | Versiones, enteros, trazabilidad y firma; corrección DP-02. |
+| Revisión | GET /dual/tutor/reportes[/{reporte_id}]; POST /reportes/{id}/versiones/{n}/revision; GET /versiones/{n}/pdf | Implementado en C06: revisión por versión, correcciones trazables y firma (retirado el PATCH heredado). |
 | Empresa | /dual/tutor/empresas, /asignaciones, /alumnos/{matricula} | Fecha real de inicio/baja y continuidad entre períodos. |
 | Calendario | /dual/tutor/cuatrimestre-actual, /abrir-cuatrimestre, /cierre | Separar recepción/evaluación y autorización coordinador. |
 | Firma | POST/GET /dual/tutor/firma | Versionar sin alterar firmados históricos. |
@@ -27,7 +27,7 @@ Los prefijos carrera/coordinador_dual heredados no representan roles nuevos. No 
 |---|---|---|---|
 | Consultar obligaciones | período opcional, identidad en sesión | ID, intervalo, estado, atraso (implementado en C04; permiso de entregar y motivo de bloqueo llegan con C05) | C04 |
 | Entregar versión | obligación_id, fechas declaradas, nota entera, PDF multipart | reporte_id, version_id y pendiente de revisión; 201 solo tras persistencia (implementado en C05) | C05 |
-| Revisar versión | version_id, acción, fechas/nota validadas, nota de rechazo, versión esperada | Revisión trazable, sin sobrescribir versión nueva por concurrencia | C06 |
+| Revisar versión | version_id, acción, fechas/nota validadas, nota de rechazo, versión esperada | Revisión trazable, sin sobrescribir versión nueva por concurrencia (implementado en C06) | C06 |
 | Cerrar recepción | periodo_id y confirmación del coordinador | Cierre idempotente con autor/instante, mantiene revisión | C07 |
 | Finalizar evaluación | periodo_id | Falla si hay pendientes; congela resultados atómicamente | C07 |
 | Consultar expediente | alumno autorizado, período opcional | Grupo histórico, aprobados, promedio, cantidad y carácter provisional/final | C08 |
@@ -80,6 +80,16 @@ Estas son operaciones, no rutas definitivas. Antes de implementar cada spec debe
 - `GET /dual/alumno/obligaciones` agrega `reporte_id`, `entrega` (Pendiente, Rechazada, Aprobada o nulo), `version`, `observacion` (si está rechazada), `puede_entregar` y `motivo_bloqueo`. "Recibida" ahora significa que existe un reporte ligado a la obligación (ya no la coincidencia provisional por fecha).
 - Retiradas: `POST /dual/alumno/` (entrega secuencial con semana 1–18 y borrado del rechazado) y `GET /dual/alumno/semana-actual`. `semana` de un reporte es el ordinal de la obligación (sin techo de 18). La aprobación heredada del tutor ya no borra el original.
 - El fixture contractual contiene 60 rutas. [Spec C05](../../specs/C05-entregas-y-versiones/spec.md) y [evidencia C05](../../specs/C05-entregas-y-versiones/evidencia.md).
+
+### Cambios implementados en C06 (DONE)
+
+- `GET /dual/tutor/reportes/{reporte_id}`: detalle para el tutor (todas las carreras): ficha, semana (`semana_inicio`, `semana_fin`), `version_vigente`, `puede_revisar`, `firma_registrada` y `versiones` (más reciente primero) con fechas y nota declaradas, decisión, observación, valores validados (`validada_inicio`, `validada_fin`, `validada_nota`), `correcciones` (campo, previo, nuevo), `firmado` y `firma_modo` (`celda` u `hoja_adicional`). Inexistente 404; alumno y coordinador 403.
+- `POST /dual/tutor/reportes/{reporte_id}/versiones/{numero}/revision` (JSON: `decision` Aprobada o Rechazada, `observacion`, `calificacion` entera, `fecha_inicio`, `fecha_fin`; todo salvo `decision` opcional): decide la versión indicada. 200 con `mensaje`, `estado`, `version`, `repetido` y `firma`. Errores: 422 rechazo sin observación, nota que no sea entero 1–10 (0, 11, 8.5, booleano y texto incluidos), inicio posterior al fin o decisión inválida; 409 si falta la firma registrada del tutor, si la versión ya fue revisada o ya existe una más reciente, o si el reporte ya fue decidido; 404 reporte o versión inexistente; 403 alumno y coordinador (MP-08); 401 sin sesión. Un reintento idéntico devuelve 200 con `repetido: true` sin duplicar. La revisión no depende de que la recepción del período esté abierta (RN-18/RN-19), y las correcciones nunca cambian la obligación, la semana ni el período (DP-02, DP-01).
+- Aprobar guarda un documento firmado nuevo (rol `firmado`, clave del servidor, SHA-256) derivado del original, que se conserva intacto; la firma se estampa en la celda «Firma» de la fila «Tutor académico» (DP-07) y, si el formato no se reconoce o la celda está ocupada, en una hoja adicional. Si algo falla el reporte sigue pendiente y no queda archivo huérfano.
+- `GET /dual/tutor/reportes/{reporte_id}/versiones/{numero}/pdf` y `GET /dual/alumno/reportes/{reporte_id}/versiones/{numero}/pdf`: parámetro `documento` (`original` por defecto o `firmado`; otro valor 422). El firmado de una versión no aprobada 404; el alumno solo accede a lo propio. Las rutas heredadas de lectura de PDF (`/dual/alumno/reporte/{id}/pdf`, `/dual/tutor/reporte/{id}/pdf`, carrera) devuelven el firmado cuando existe.
+- `GET /dual/tutor/reportes` agrega `version` y `obligacion_id`; `GET /dual/alumno/reportes/{id}/versiones` agrega `firmado` y los valores validados.
+- Retirada: `PATCH /dual/tutor/reportes/{reporte_id}` (revisión heredada que sobrescribía datos y subía el firmado a Drive).
+- El fixture contractual contiene 62 rutas. [Spec C06](../../specs/C06-revision-y-firma/spec.md) y [evidencia C06](../../specs/C06-revision-y-firma/evidencia.md).
 
 ### Reglas objetivo generales
 

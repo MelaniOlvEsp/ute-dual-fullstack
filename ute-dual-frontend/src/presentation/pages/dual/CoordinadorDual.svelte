@@ -177,64 +177,92 @@
     }
   }
 
+  // C06: la revisión recae sobre una versión concreta; el detalle trae todas con sus decisiones.
+  let detalle = null
+  let cargandoDetalle = false
+  let documentoVisor = 'original'
+
+  $: versionVigente = detalle?.versiones?.[0] || null
+  $: puedeRevisar = !!detalle?.puede_revisar
+  $: urlVisor = detalle && detalle.version_vigente
+    ? api.dual.versionPdfUrlTutor(detalle.id, verVersion ?? detalle.version_vigente, documentoVisor)
+    : ''
+  let verVersion = null
+
+  function cargarCamposDeVersion(v) {
+    editCalificacion = v ? String(v.validada_nota ?? v.nota) : ''
+    editFechaInicio = v ? (v.validada_inicio || v.fecha_inicio || '') : ''
+    editFechaFin = v ? (v.validada_fin || v.fecha_fin || '') : ''
+  }
+
+  async function cargarDetalle(id) {
+    cargandoDetalle = true
+    try {
+      detalle = await api.dual.detalleReporte(id)
+      verVersion = detalle.version_vigente
+      documentoVisor = 'original'
+      cargarCamposDeVersion(detalle.versiones?.[0])
+    } catch (e) {
+      errorAccion = e.message || 'No se pudo cargar el reporte.'
+    } finally {
+      cargandoDetalle = false
+    }
+  }
+
   function abrirRevision(reporte) {
     seleccionado = reporte
+    detalle = null
     accion = ''
     nota = ''
     exito = ''
     errorAccion = ''
-    editCalificacion = reporte.calificacion_alumno || ''
-    editFechaInicio = reporte.fecha_inicio || ''
-    editFechaFin = reporte.fecha_fin || ''
+    editCalificacion = ''
+    editFechaInicio = ''
+    editFechaFin = ''
     vista = 'revision'
+    cargarDetalle(reporte.id)
   }
 
   function volverBandeja() {
     seleccionado = null
+    detalle = null
     vista = 'bandeja'
     cargarReportes()
   }
 
   async function enviarDecision() {
-    if (!accion) { 
+    if (!accion) {
       errorAccion = 'Selecciona una acción.'
-      return 
-    }
-    if (accion === 'rechazar' && !nota.trim()) {
-      errorAccion = 'Escribe una nota al rechazar.'
       return
     }
     enviando = true
     errorAccion = ''
     exito = ''
     try {
-      const body = { 
-        estado: accion === 'aprobar' ? 'Aprobada' : 'Rechazada' 
-      }
-      if (nota.trim()) body.nota_agente = nota.trim()
-      if (editCalificacion) body.calificacion_alumno = Number(editCalificacion)
-      if (editFechaInicio) body.fecha_inicio = editFechaInicio
-      if (editFechaFin) body.fecha_fin = editFechaFin
-      
-      await api.dual.revisarReporte(seleccionado.id, body)
-      
+      const resultado = await api.dual.submitReview(detalle.id, detalle.version_vigente, {
+        decision: accion === 'aprobar' ? 'Aprobada' : 'Rechazada',
+        observacion: nota,
+        nota: editCalificacion,
+        fechaInicio: editFechaInicio,
+        fechaFin: editFechaFin
+      })
       exito = accion === 'aprobar'
-        ? 'Reporte aprobado correctamente.'
+        ? 'Reporte aprobado y firmado.'
         : 'Reporte rechazado. El alumno podrá reenviar.'
-      seleccionado = {
-        ...seleccionado,
-        estado: accion === 'aprobar' ? 'Aprobada' : 'Rechazada',
-        nota_agente: nota.trim() || seleccionado.nota_agente,
-        calificacion_alumno: editCalificacion || seleccionado.calificacion_alumno,
-        fecha_inicio: editFechaInicio || seleccionado.fecha_inicio,
-        fecha_fin: editFechaFin || seleccionado.fecha_fin
+      if (resultado?.firma === 'hoja_adicional') {
+        exito += ' No se reconoció la celda de firma del formato; se agregó una hoja de firma al final.'
       }
+      await cargarDetalle(detalle.id)
+      if (accion === 'aprobar') documentoVisor = 'firmado'
+      seleccionado = { ...seleccionado, estado: detalle.estado }
     } catch (e) {
       errorAccion = e.message || 'Error al enviar la decisión.'
     } finally {
       enviando = false
     }
   }
+
+  const ETIQUETA_CORRECCION = { nota: 'Nota', fecha_inicio: 'Inicio', fecha_fin: 'Fin' }
 
   async function cargarEmpresas() {
     loadingEmpresas = true
@@ -562,10 +590,18 @@
       <div class="split-layout">
         <div class="panel-pdf">
           <div class="panel-label">Documento del reporte</div>
-          {#if seleccionado.id}
+          {#if cargandoDetalle && !detalle}
+            <LoadingSpinner />
+          {:else if urlVisor}
+            {#if detalle.versiones.some(v => v.numero === verVersion && v.firmado)}
+              <div class="tabs-doc" role="group" aria-label="Documento a mostrar">
+                <button class="tab-doc" class:activo={documentoVisor === 'original'} aria-pressed={documentoVisor === 'original'} on:click={() => documentoVisor = 'original'}>Original del alumno</button>
+                <button class="tab-doc" class:activo={documentoVisor === 'firmado'} aria-pressed={documentoVisor === 'firmado'} on:click={() => documentoVisor = 'firmado'}>Firmado</button>
+              </div>
+            {/if}
             <VisorPDF
-              url={api.dual.reportePdfUrlCoordinador(seleccionado.id)}
-              titulo={`Semana ${seleccionado.semana}`}
+              url={urlVisor}
+              titulo={`Semana ${detalle.semana} · versión ${verVersion}${documentoVisor === 'firmado' ? ' · firmado' : ''}`}
             />
           {:else}
             <div class="no-pdf">No hay un archivo PDF asociado a esta entrega.</div>
@@ -576,17 +612,22 @@
           <div class="panel-label">Revisión del tutor académico</div>
 
           <div class="dato-cal">
-            <p class="dato-label">Nota de la Empresa</p>
-            {#if seleccionado.estado === 'Pendiente'}
-              <input 
-                type="number" 
-                class="input-plain" 
+            <label class="dato-label" for="nota-empresa">Nota de la empresa (entero de 1 a 10)</label>
+            {#if puedeRevisar}
+              <input
+                id="nota-empresa"
+                type="number"
+                inputmode="numeric"
+                class="input-plain"
                 style="font-size: 28px; font-weight: 800; color: var(--orange); text-align: center; margin-top: 8px; width: 100%;"
-                min="1" max="10" step="0.1"
+                min="1" max="10" step="1"
                 bind:value={editCalificacion}
               />
+              {#if versionVigente && editCalificacion !== '' && String(versionVigente.nota) !== String(editCalificacion)}
+                <p class="hint-corr">Declarada por el alumno: {versionVigente.nota}. Se guardará como corrección.</p>
+              {/if}
             {:else}
-              <p class="dato-valor">{seleccionado.calificacion_alumno}</p>
+              <p class="dato-valor">{versionVigente?.validada_nota ?? versionVigente?.nota ?? seleccionado.calificacion_alumno}</p>
             {/if}
           </div>
 
@@ -612,67 +653,97 @@
                 {seleccionado.nomenclatura || seleccionado.cuatrimestre || '—'}
               </span>
               
-              <span class="ficha-key">Periodo</span>
-              {#if seleccionado.estado === 'Pendiente'}
-                <div style="display:flex; gap:8px; flex-direction:column;">
-                  <span class="ficha-val" style="font-weight:600;">Semana {seleccionado.semana}</span>
-                  <div style="display:flex; flex-direction:column; gap:6px;">
-                    <input type="date" title="Fecha de inicio" class="input-plain" style="padding: 4px 8px; font-size:12px;" bind:value={editFechaInicio} />
-                    <input type="date" title="Fecha de fin" class="input-plain" style="padding: 4px 8px; font-size:12px;" bind:value={editFechaFin} />
-                  </div>
+              <span class="ficha-key">Semana</span>
+              <span class="ficha-val" style="font-weight:600;">
+                Semana {detalle?.semana ?? seleccionado.semana}
+                {#if detalle?.semana_inicio}
+                  <span class="ficha-periodo">{formatFechaCivil(detalle.semana_inicio)} – {formatFechaCivil(detalle.semana_fin)}</span>
+                {/if}
+              </span>
+
+              <span class="ficha-key">Fechas del reporte</span>
+              {#if puedeRevisar}
+                <div style="display:flex; gap:6px; flex-direction:column;">
+                  <label class="sr-only" for="fecha-inicio-rev">Fecha de inicio del reporte</label>
+                  <input id="fecha-inicio-rev" type="date" class="input-plain" style="padding: 4px 8px; font-size:12px;" bind:value={editFechaInicio} />
+                  <label class="sr-only" for="fecha-fin-rev">Fecha de fin del reporte</label>
+                  <input id="fecha-fin-rev" type="date" class="input-plain" style="padding: 4px 8px; font-size:12px;" bind:value={editFechaFin} />
+                  <p class="hint-corr">Corregir las fechas no cambia la semana ni el período. Si el alumno entregó en la semana equivocada, recházalo con una observación.</p>
                 </div>
-              {:else}
+              {:else if versionVigente}
                 <span class="ficha-val ficha-periodo">
-                  {#if seleccionado.fecha_inicio && seleccionado.fecha_fin}
-                    {formatFecha(seleccionado.fecha_inicio)} al {formatFecha(seleccionado.fecha_fin)}
-                  {:else}
-                    Semana {seleccionado.semana}
-                  {/if}
+                  {formatFechaCivil(versionVigente.validada_inicio || versionVigente.fecha_inicio)} – {formatFechaCivil(versionVigente.validada_fin || versionVigente.fecha_fin)}
                 </span>
               {/if}
-              
+
               <span class="ficha-key">Entregado</span>
               <span class="ficha-val">{formatFecha(seleccionado.created_at)}</span>
             </div>
           </div>
 
-          {#if seleccionado.nota_agente}
-            <div class="nota-previa">
-              <p class="dato-label">Observaciones registradas</p>
-              <p class="nota-texto">{seleccionado.nota_agente}</p>
+          {#if detalle && detalle.versiones.length}
+            <div class="historial-versiones">
+              <p class="dato-label">Versiones y decisiones</p>
+              <ul class="lista-versiones">
+                {#each detalle.versiones as v (v.numero)}
+                  <li>
+                    <button class="btn-link" class:activo={v.numero === verVersion} aria-current={v.numero === verVersion ? 'true' : undefined}
+                      on:click={() => { verVersion = v.numero; documentoVisor = 'original' }}>
+                      Versión {v.numero}{v.numero === detalle.version_vigente ? ' (vigente)' : ''}
+                    </button>
+                    <span class="ver-estado">
+                      {#if v.decision}{v.decision}{:else}Sin decidir{/if}
+                      · recibida {formatFecha(v.recibido_en)}
+                    </span>
+                    {#if v.observacion}<p class="nota-texto">{v.observacion}</p>{/if}
+                    {#each v.correcciones as c}
+                      <p class="hint-corr">{ETIQUETA_CORRECCION[c.campo] || c.campo}: {c.previo} → {c.nuevo}</p>
+                    {/each}
+                    {#if v.firmado}<p class="hint-corr">Firmado ({v.firma_modo === 'celda' ? 'en la celda del tutor' : 'hoja adicional'}).</p>{/if}
+                  </li>
+                {/each}
+              </ul>
             </div>
           {/if}
 
-          {#if seleccionado.estado === 'Pendiente'}
+          {#if puedeRevisar}
             <div class="acciones-grupo">
               <div class="btn-decision-row">
                 <button
                   class="btn-decision btn-aprobar"
                   class:activo={accion === 'aprobar'}
+                  aria-pressed={accion === 'aprobar'}
+                  disabled={!detalle.firma_registrada}
                   on:click={() => { accion = 'aprobar'; nota = '' }}
                 >
-                  ✓ Aprobar
+                  ✓ Aprobar y firmar
                 </button>
                 <button
                   class="btn-decision btn-rechazar"
                   class:activo={accion === 'rechazar'}
+                  aria-pressed={accion === 'rechazar'}
                   on:click={() => accion = 'rechazar'}
                 >
                   ✕ Rechazar
                 </button>
               </div>
+              {#if !detalle.firma_registrada}
+                <p class="hint-corr" style="margin-top:10px">Para aprobar primero registra tu firma académica en la bandeja.</p>
+              {/if}
 
               {#if accion === 'rechazar' || accion === 'aprobar'}
                 <div style="margin-top:14px; display: flex; flex-direction: column; gap: 4px;">
+                  <label class="dato-label" for="observacion-rev">{accion === 'rechazar' ? 'Observación del rechazo (obligatoria)' : 'Retroalimentación opcional para el alumno'}</label>
                   <textarea
+                    id="observacion-rev"
                     class="input-plain textarea-nota"
-                    placeholder={accion === 'rechazar' ? 'Razón técnica del rechazo (obligatorio)…' : 'Retroalimentación opcional para el alumno…'}
+                    placeholder={accion === 'rechazar' ? 'Qué debe corregir el alumno…' : 'Comentario opcional…'}
                     rows="3"
-                    maxlength="200"
+                    maxlength="1000"
                     bind:value={nota}
                   ></textarea>
                   <div style="text-align: right; font-size: 11px; color: var(--text-disabled); font-weight: 500;">
-                    {nota.length}/200
+                    {nota.length}/1000
                   </div>
                 </div>
               {/if}
@@ -701,11 +772,22 @@
             </div>
           {:else}
             <div class="ya-revisado">
-              <p>Este reporte ya fue evaluado como 
-                <span class="status-final" class:text-verde={seleccionado.estado === 'Aprobada'} class:text-rojo={seleccionado.estado === 'Rechazada'}>
-                  {seleccionado.estado.toLowerCase()}
-                </span>.
-              </p>
+              {#if exito}<p class="exito-msg" role="status">{exito}</p>{/if}
+              {#if detalle}
+                <p>
+                  {#if detalle.estado === 'Pendiente'}
+                    Este reporte espera una nueva versión del alumno.
+                  {:else}
+                    La versión {detalle.version_vigente} fue
+                    <span class="status-final" class:text-verde={detalle.estado === 'Aprobada'} class:text-rojo={detalle.estado === 'Rechazada'}>
+                      {detalle.estado === 'Aprobada' ? 'aprobada' : 'rechazada'}
+                    </span>.
+                    {#if detalle.estado === 'Rechazada'}El alumno puede reenviar mientras la recepción del período esté abierta.{/if}
+                  {/if}
+                </p>
+              {:else if !cargandoDetalle}
+                <p class="error-msg">{errorAccion || 'No se pudo cargar el reporte.'}</p>
+              {/if}
               <button class="btn-outline" style="margin-top:16px; width:100%" on:click={volverBandeja}>
                 Regresar a la lista
               </button>
@@ -1098,6 +1180,17 @@
 
   .nota-previa { margin: 16px 20px 0; padding: 14px; background: rgba(249, 115, 22, 0.04); border: 1px solid var(--border); border-radius: 12px; }
   .nota-texto { font-size: 13px; color: var(--text-secondary); margin: 4px 0 0; line-height: 1.5; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .hint-corr { margin: 4px 0 0; font-size: 11px; line-height: 1.4; color: var(--orange); }
+  .tabs-doc { display: flex; gap: 6px; padding: 8px 0; flex-wrap: wrap; }
+  .tab-doc { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 12px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+  .tab-doc.activo { border-color: var(--orange); color: var(--orange); }
+  .historial-versiones { padding: 16px 20px; border-top: 1px solid var(--border); }
+  .lista-versiones { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .lista-versiones .btn-link { background: none; border: none; padding: 0; color: var(--orange); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+  .lista-versiones .btn-link.activo { color: var(--text-primary); text-decoration: none; cursor: default; }
+  .ver-estado { display: block; font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .btn-decision:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .acciones-grupo { padding: 20px; margin-top: auto; }
   .btn-decision-row { display: flex; gap: 10px; }

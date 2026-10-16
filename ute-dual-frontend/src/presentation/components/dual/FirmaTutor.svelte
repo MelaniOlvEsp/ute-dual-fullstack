@@ -35,7 +35,7 @@
 <section style="background:var(--bg-card);padding:18px;border:1px solid var(--border);border-radius:10px;margin:12px 0 24px">
   <h3>Firma del tutor académico</h3>
   <p>{registrada ? 'Tienes una firma registrada. Puedes reemplazarla.' : 'Adjunta tu firma antes de aprobar reportes.'}</p>
-  <p style="font-size:12px">La imagen se estampará en el PDF del reporte junto a tu nombre y fecha de revisión. No equivale a una firma electrónica certificada.</p>
+  <p style="font-size:12px">La imagen se estampará en la celda de firma de la fila «Tutor académico» del reporte; si el formato no se reconoce, se agrega una hoja de firma con tu nombre y la fecha de revisión. No equivale a una firma electrónica certificada.</p>
   <input aria-label="Imagen de firma" type="file" accept="image/png,image/jpeg" on:change={e => imagen = e.currentTarget.files?.[0] || null} />
   <button class="btn-primary" on:click={guardar} disabled={!imagen || saving}>{saving ? 'Guardando...' : 'Guardar firma'}</button>
   {#if error}<p style="color:var(--error)">{error}</p>{/if}

@@ -16,10 +16,12 @@ Inventario estático del código del 2026-10-14. No acredita ejecución HTTP. A 
 | GET `/dual/alumno/obligaciones` | `get_alumno_dual` | A: matrícula de sesión (C04). |
 | POST `/dual/alumno/obligaciones/{obligacion_id}/entrega` | `get_alumno_dual` | A: solo obligaciones propias; ajena o inexistente 404; período abierto (C05, DP-13). La ruta heredada `POST /dual/alumno/` y `GET /dual/alumno/semana-actual` se retiraron en C05. |
 | GET `/dual/alumno/reportes/{reporte_id}/versiones` | `get_alumno_dual` | A: solo reportes propios; ajeno 404 (C05). |
-| GET `/dual/alumno/reportes/{reporte_id}/versiones/{numero}/pdf` | `get_alumno_dual` | A: solo versiones propias; ajena 404 (C05). |
+| GET `/dual/alumno/reportes/{reporte_id}/versiones/{numero}/pdf` | `get_alumno_dual` | A: solo versiones propias; ajena 404 (C05). `?documento=firmado` solo si la versión fue aprobada (C06). |
 | GET `/dual/alumno/reporte/{reporte_id}/pdf` | `get_alumno_dual` | A: matrícula de sesión; PDF compara propietario antes del proveedor. |
 | GET `/dual/tutor/reportes` | `get_coordinador_dual` | T transversal; firma por usuario. Excepción cierre: C. Abrir período y consultar el período actual: C (corregido en C04 por DP-04; antes de C04 eran de T). |
-| PATCH `/dual/tutor/reportes/{reporte_id}` | `get_coordinador_dual` | T transversal; firma por usuario. Excepción cierre: C. Abrir período y consultar el período actual: C (corregido en C04 por DP-04; antes de C04 eran de T). |
+| GET `/dual/tutor/reportes/{reporte_id}` | `get_coordinador_dual` | T transversal (C06): detalle con versiones, decisiones y correcciones; A y C 403. |
+| POST `/dual/tutor/reportes/{reporte_id}/versiones/{numero}/revision` | `get_coordinador_dual` | T transversal (C06, MP-08): aprobar con firma o rechazar con observación una versión concreta; A y C 403. Sustituye al retirado `PATCH /dual/tutor/reportes/{reporte_id}`. |
+| GET `/dual/tutor/reportes/{reporte_id}/versiones/{numero}/pdf` | `get_coordinador_dual` | T transversal (C06): original o `?documento=firmado` de una versión; A y C 403. |
 | GET `/dual/tutor/empresas` | `get_coordinador_dual` | T transversal; firma por usuario. Excepción cierre: C. Abrir período y consultar el período actual: C (corregido en C04 por DP-04; antes de C04 eran de T). |
 | POST `/dual/tutor/empresas` | `get_coordinador_dual` | T transversal; firma por usuario. Excepción cierre: C. Abrir período y consultar el período actual: C (corregido en C04 por DP-04; antes de C04 eran de T). |
 | GET `/dual/tutor/asignaciones` | `get_coordinador_dual` | T transversal; firma por usuario. Excepción cierre: C. Abrir período y consultar el período actual: C (corregido en C04 por DP-04; antes de C04 eran de T). |

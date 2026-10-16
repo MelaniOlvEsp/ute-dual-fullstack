@@ -248,8 +248,9 @@ def main():
             assert conteos(conn) == con_archivos, "El reintento y el 409 no dejan documentos ni archivos extra"
 
         # ---------- AC3: rechazo, reenvío con versión nueva y decisión anterior conservada ----------
-        expect(client.patch(f"/dual/tutor/reportes/{r_vieja['reporte_id']}", headers=tutor, json={
-            "estado": "Rechazada", "nota_agente": "Falta la firma de la empresa"}), 200)
+        # C06: el rechazo se registra con la ruta de revisión por versión (la ruta PATCH se retiró).
+        expect(client.post(f"/dual/tutor/reportes/{r_vieja['reporte_id']}/versiones/1/revision", headers=tutor, json={
+            "decision": "Rechazada", "observacion": "Falta la firma de la empresa"}), 200)
         rechazada = {o["id"]: o for o in semanas(alumno_a)}[w_vieja["id"]]
         assert rechazada["entrega"] == "Rechazada" and rechazada["observacion"] == "Falta la firma de la empresa"
         assert rechazada["puede_entregar"] is True
@@ -432,7 +433,7 @@ def main():
     print("PASS C05: validación de nota y PDF sin rastro, entrega por obligación sin depender de otras semanas, "
           "versiones inmutables con decisión conservada, original byte a byte, concurrencia, período abierto, "
           "permisos, fallos inyectados y limpieza de huérfanos. HTTP, PostgreSQL y almacenamiento REALES.")
-    print("Drive, móvil físico y revisión del tutor (C06): NO_VERIFICADOS. Datos sintéticos conservados.")
+    print("Drive y móvil físico: NO_VERIFICADOS. Datos sintéticos conservados.")
 
 
 if __name__ == "__main__":

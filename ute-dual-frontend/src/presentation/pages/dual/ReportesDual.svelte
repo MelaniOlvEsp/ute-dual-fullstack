@@ -131,10 +131,10 @@
     }
   }
 
-  async function descargar(o, v) {
+  async function descargar(o, v, documento = 'original') {
     errorVersiones = ''
     try {
-      await api.dual.downloadVersion(o.reporte_id, v.numero, `Semana ${o.ordinal}`)
+      await api.dual.downloadVersion(o.reporte_id, v.numero, `Semana ${o.ordinal}`, documento)
     } catch (e) {
       errorVersiones = e.message || 'No se pudo descargar la versión.'
     }
@@ -284,12 +284,27 @@
                           <tr>
                             <td>v{v.numero}</td>
                             <td>{formatFecha(v.recibido_en)}</td>
-                            <td>{formatFechaCivil(v.fecha_inicio)} – {formatFechaCivil(v.fecha_fin)}</td>
-                            <td>{v.nota}</td>
                             <td>
-                              {#if v.decision}{v.decision}{#if v.nota_revision} · {v.nota_revision}{/if}{:else}Pendiente de revisión{/if}
+                              {formatFechaCivil(v.fecha_inicio)} – {formatFechaCivil(v.fecha_fin)}
+                              {#if v.validada_inicio && (v.validada_inicio !== v.fecha_inicio || v.validada_fin !== v.fecha_fin)}
+                                <span class="corregido">Corregidas por el tutor: {formatFechaCivil(v.validada_inicio)} – {formatFechaCivil(v.validada_fin)}</span>
+                              {/if}
                             </td>
-                            <td><button class="btn-link" on:click={() => descargar(o, v)} aria-label="Descargar versión {v.numero} de la semana {o.ordinal}">Descargar PDF</button></td>
+                            <td>
+                              {v.nota}
+                              {#if v.validada_nota && v.validada_nota !== v.nota}
+                                <span class="corregido">Corregida por el tutor: {v.validada_nota}</span>
+                              {/if}
+                            </td>
+                            <td>
+                              {#if v.decision}{v.decision}{#if v.nota_revision}&nbsp;· {v.nota_revision}{/if}{:else}Pendiente de revisión{/if}
+                            </td>
+                            <td class="acciones-version">
+                              <button class="btn-link" on:click={() => descargar(o, v)} aria-label="Descargar el original de la versión {v.numero} de la semana {o.ordinal}">Descargar original</button>
+                              {#if v.firmado}
+                                <button class="btn-link" on:click={() => descargar(o, v, 'firmado')} aria-label="Descargar el firmado de la versión {v.numero} de la semana {o.ordinal}">Descargar firmado</button>
+                              {/if}
+                            </td>
                           </tr>
                         {/each}
                       </tbody>
@@ -356,6 +371,8 @@
   .tabla-versiones th { text-align: left; padding: 8px 10px; font-size: 11px; text-transform: uppercase; color: var(--text-disabled); border-bottom: 1px solid var(--border); white-space: nowrap; }
   .tabla-versiones td { padding: 8px 10px; color: var(--text-secondary); border-bottom: 1px solid var(--border); vertical-align: top; }
   .tabla-versiones tbody tr:last-child td { border-bottom: none; }
+  .corregido { display: block; margin-top: 2px; font-size: 11px; color: var(--orange); }
+  .acciones-version { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
   .btn-link { background: none; border: none; padding: 0; color: var(--orange); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; white-space: nowrap; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 

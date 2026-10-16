@@ -118,15 +118,21 @@ async def versiones_de_reporte(reporte_id, user, *, runtime):
     return filas
 
 
-async def descargar_version(reporte_id, numero, user, *, runtime):
+async def descargar_version(reporte_id, numero, user, *, runtime, documento="original"):
+    """Descarga el original o, si la versión fue aprobada, el firmado de una versión propia."""
     async with runtime.database.read() as cur:
         await cur.execute("dual.entregas.version_documento", (reporte_id, user["matricula"], numero))
         fila = await cur.fetchone()
     if not fila:
         raise ApplicationError(status_code=404, detail="Versión no encontrada")
-    contenido = await runtime.services.leer_documento(dict(fila)["clave"])
+    clave = dict(fila)["firmado" if documento == "firmado" else "original"]
+    if not clave:
+        raise ApplicationError(status_code=404, detail="Esta versión no tiene documento firmado")
+    contenido = await runtime.services.leer_documento(clave)
+    sufijo = "-firmado" if documento == "firmado" else ""
     return FileResult(
         iter([contenido]),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{user["matricula"]}-v{int(numero)}.pdf"'},
+        headers={"Content-Disposition":
+                 f'attachment; filename="{user["matricula"]}-v{int(numero)}{sufijo}.pdf"'},
     )

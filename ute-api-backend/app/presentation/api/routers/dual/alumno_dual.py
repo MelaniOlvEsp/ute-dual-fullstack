@@ -1,4 +1,5 @@
 
+from typing import Literal
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, Form
 from datetime import date
@@ -86,11 +87,15 @@ async def versiones_reporte(reporte_id: UUID, user=Depends(get_alumno_dual)):
 
 @router.get("/reportes/{reporte_id}/versiones/{numero}/pdf")
 async def descargar_version_pdf(
-    reporte_id: UUID, numero: int, user=Depends(get_alumno_dual)
+    reporte_id: UUID,
+    numero: int,
+    documento: Literal["original", "firmado"] = "original",
+    user=Depends(get_alumno_dual),
 ):
     return to_http_response(
         await entregas_cases.descargar_version(
-            reporte_id=reporte_id, numero=numero, user=user, runtime=get_runtime()
+            reporte_id=reporte_id, numero=numero, user=user, runtime=get_runtime(),
+            documento=documento,
         )
     )
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 from loguru import logger
-from app.application.dto.reportes import ReporteDualUpdateAgente, EmpresaCreate, EmpresaOut, AsignacionCreate, AsignacionOut, CuatrimestreCerrar, CuatrimestreAbrir, CuatrimestreActualOut
+from app.application.dto.reportes import EmpresaCreate, EmpresaOut, AsignacionCreate, AsignacionOut, CuatrimestreCerrar, CuatrimestreAbrir, CuatrimestreActualOut
 from app.application.ports.runtime import RuntimePort
 from app.application.errors import ApplicationError
 from app.application.ports.query import QueryRef
@@ -40,62 +40,8 @@ async def listar_reportes(
         return [dict(r) for r in rows]
 
 
-# Ejecuta las reglas del caso de uso con dependencias inyectadas.
-async def revisar_reporte(reporte_id, data, user, *, runtime: RuntimePort):
-    # Solo el tutor puede revisar y firmar reportes semanales.
-    drive_id = None
-    async with runtime.database.transaction() as cur:
-        await cur.execute('dual.coordinador_dual.q001', (reporte_id,))
-        row = await cur.fetchone()
-        if not row:
-            raise ApplicationError(404, 'Reporte no encontrado')
-        report = dict(row)
-        assignments = [
-            'estado = %s', 'nota_agente = %s', 'updated_at = NOW()',
-            'revisado_por = %s', 'revisado_en = NOW()',
-        ]
-        values = [data.estado, data.nota_agente, user['id']]
-        if data.calificacion_alumno is not None:
-            assignments.append('calificacion_alumno = %s')
-            values.append(data.calificacion_alumno)
-        if data.fecha_inicio is not None:
-            assignments.append('fecha_inicio = %s')
-            values.append(data.fecha_inicio)
-        if data.fecha_fin is not None:
-            assignments.append('fecha_fin = %s')
-            values.append(data.fecha_fin)
-        if data.estado == 'Aprobada':
-            if report['estado'] == 'Aprobada':
-                raise ApplicationError(409, 'El reporte ya fue aprobado')
-            await cur.execute('dual.tutor.get_signature', (user['id'],))
-            signature = await cur.fetchone()
-            if not signature:
-                raise ApplicationError(409, 'Primero adjunta tu firma académica')
-            await cur.execute('dual.tutor.identity', (user['id'],))
-            identity = await cur.fetchone()
-            tutor_name = (dict(identity).get('nombre') if identity else None)
-            pdf = await runtime.services.obtener_pdf_bytes(report)
-            signed_pdf = runtime.services.sign_pdf(
-                pdf, bytes(signature['imagen']), tutor_name or user['sub']
-            )
-            filename = (f"{report['matricula']}-S{report['semana']}-"
-                        f"{report['cuatrimestre']}-firmado.pdf")
-            drive_id = await runtime.services.upload_file_async(
-                signed_pdf, filename, 'application/pdf',
-                runtime.settings.drive_folder_dual,
-            )
-            assignments.extend(['archivo_pdf_url = %s',
-                                'archivo_pdf_local = NULL'])
-            values.append(drive_id)
-        values.append(reporte_id)
-        await cur.execute(
-            QueryRef('dual.coordinador_dual.update_report',
-                     assignments=tuple(assignments)), tuple(values)
-        )
-    # C05: el original entregado por el alumno se conserva (RN-14, RN-16); el firmado es un
-    # derivado distinto. La revisión y la firma se rehacen en C06.
-    return {'mensaje': f'Reporte actualizado a {data.estado}'}
-
+# C06: la revisión, corrección, aprobación con firma y rechazo viven en revisiones.py (por versión).
+# Aquí quedan la bandeja, la descarga del PDF vigente y la administración de empresas y períodos.
 
 # Ejecuta las reglas del caso de uso con dependencias inyectadas.
 async def listar_empresas(user, *, runtime: RuntimePort):
