@@ -194,7 +194,8 @@ class UseCaseTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(states, ["ATRASADA", "PENDIENTE", "RECIBIDA"])
 
     async def test_overlapping_period_is_rejected_before_insert(self):  # DP-04
-        cursor = Cursor(one=[None, {"cuatrimestre": "Mayo-Agosto 2027", "periodo_label": "Mayo-Agosto 2027",
+        # Sin período abierto, sin período previo con esa etiqueta (C07) y luego el solapado.
+        cursor = Cursor(one=[None, None, {"cuatrimestre": "Mayo-Agosto 2027", "periodo_label": "Mayo-Agosto 2027",
                                      "fecha_inicio": date(2027, 5, 1), "fecha_fin": date(2027, 8, 31)}])
         runtime = SimpleNamespace(database=Database(cursor))
         data = SimpleNamespace(periodo_label="Mayo-Agosto 2027 B",

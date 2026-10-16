@@ -23,7 +23,11 @@ export function createDualRepository(http, baseUrl) {
     obligacionesAlumno: (id, periodo) => http.get(`/dual/tutor/alumnos/${segment(id)}/obligaciones${query(periodo ? `periodo=${segment(periodo)}` : '')}`),
     historialIncorporaciones: id => http.get(`/dual/tutor/alumnos/${segment(id)}/incorporaciones`),
     actualizarAlumnoDual: (id, data) => http.patch(`/dual/tutor/alumnos/${segment(id)}`, data),
-    cerrarCuatrimestre: label => http.post('/dual/tutor/cierre', { periodo_label: label }),
+    // C07: estado, cierre de recepción y finalización por ID de período (confirmación explícita).
+    periodosEstado: () => http.get('/dual/tutor/periodos'),
+    resumenPeriodo: id => http.get(`/dual/tutor/periodos/${segment(id)}/resumen`),
+    cerrarRecepcion: id => http.post(`/dual/tutor/periodos/${segment(id)}/cierre-recepcion`, { confirmar: true }),
+    finalizarEvaluacion: id => http.post(`/dual/tutor/periodos/${segment(id)}/finalizacion`, { confirmar: true }),
     abrirCuatrimestre: data => http.post('/dual/tutor/abrir-cuatrimestre', data),
     cuatrimestreActual: () => http.get('/dual/tutor/cuatrimestre-actual'),
     alumnosSinReporte: (periodo, semana) => http.get(`/dual/tutor/alumnos-sin-reporte?cuatrimestre=${segment(periodo)}&semana=${segment(semana)}`),

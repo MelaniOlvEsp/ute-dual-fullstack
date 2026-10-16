@@ -132,22 +132,10 @@ class CuatrimestreAbrir(BaseModel):
         return self
 
 
-# Datos requeridos para cerrar formalmente un cuatrimestre activo
-class CuatrimestreCerrar(BaseModel):
-    periodo_label: str = Field(
-        ...,
-        min_length=3,
-        max_length=100,
-        description="Etiqueta del periodo que se cierra, ej. Mayo–Agosto 2026",
-    )
-
-    @field_validator("periodo_label")
-    @classmethod
-    def validar_periodo_permitido(cls, v: str) -> str:
-        error = _validar_periodo(v)
-        if error:
-            raise ValueError(error)
-        return v
+# C07: confirmación explícita de las acciones irreversibles de cierre y finalización; el período
+# se identifica por ID en la ruta, no por una etiqueta en el cuerpo.
+class ConfirmacionCierre(BaseModel):
+    confirmar: Literal[True]
 
 
 # Estado actual del ciclo dual: abierto, cerrado o sin ciclo configurado

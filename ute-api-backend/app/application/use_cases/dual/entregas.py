@@ -62,6 +62,12 @@ async def _registrar(cur, obligacion_id, matricula, usuario_id, nota,
     # Serializa por obligación: dos envíos simultáneos nunca crean dos reportes ni dos versiones.
     await cur.execute("dual.entregas.lock", (str(obligacion_id),))
     obligacion = await _obligacion_propia(cur, obligacion_id, matricula)
+    if obligacion["periodo_id"] is not None:
+        # C07 (AC-15): comparte el bloqueo de la fila del período con el cierre, que lo toma exclusivo.
+        # Si el cierre confirma primero, la lectura siguiente ya ve el período cerrado (409); si la
+        # entrega gana, el cierre espera a que termine y la entrega queda antes del cierre.
+        await cur.execute("dual.cierres.bloquear_compartido", (obligacion["periodo_id"],))
+        obligacion = await _obligacion_propia(cur, obligacion_id, matricula)
     _verificar_recepcion(obligacion)
 
     await cur.execute("dual.entregas.reporte_de_obligacion", (obligacion_id,))

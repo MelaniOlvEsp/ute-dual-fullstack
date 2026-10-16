@@ -1,6 +1,6 @@
 # Contrato API: existente y objetivo
 
-Estado: contrato vivo. C01–C06 describen rutas implementadas (C05 y C06 DONE); C07–C10 siguen como diseño propuesto. Fuentes ejecutables: routers en `ute-api-backend/app/presentation/api/routers`, `route_contract.json` y repositorios de `ute-dual-frontend/src/infrastructure/repositories`.
+Estado: contrato vivo. C01–C07 describen rutas implementadas (C05, C06 y C07 DONE); C08–C10 siguen como diseño propuesto. Fuentes ejecutables: routers en `ute-api-backend/app/presentation/api/routers`, `route_contract.json` y repositorios de `ute-dual-frontend/src/infrastructure/repositories`.
 
 ## Inventario actual
 
@@ -12,7 +12,7 @@ Estado: contrato vivo. C01–C06 describen rutas implementadas (C05 y C06 DONE);
 | Alumno | GET /dual/alumno/mis-reportes, /obligaciones; POST /obligaciones/{id}/entrega; GET /reportes/{id}/versiones[/{n}/pdf] | Implementado en C04–C05: obligaciones independientes con versiones (retiradas `POST /dual/alumno/` y `GET /semana-actual`). |
 | Revisión | GET /dual/tutor/reportes[/{reporte_id}]; POST /reportes/{id}/versiones/{n}/revision; GET /versiones/{n}/pdf | Implementado en C06: revisión por versión, correcciones trazables y firma (retirado el PATCH heredado). |
 | Empresa | /dual/tutor/empresas, /asignaciones, /alumnos/{matricula} | Fecha real de inicio/baja y continuidad entre períodos. |
-| Calendario | /dual/tutor/cuatrimestre-actual, /abrir-cuatrimestre, /cierre | Separar recepción/evaluación y autorización coordinador. |
+| Calendario | /dual/tutor/cuatrimestre-actual, /abrir-cuatrimestre, /periodos[/{id}/resumen, /cierre-recepcion, /finalizacion] | Implementado en C07: recepción y evaluación separadas del calendario, cierre y finalización del coordinador (retirado `/cierre`). |
 | Firma | POST/GET /dual/tutor/firma | Versionar sin alterar firmados históricos. |
 | Grupos/expediente | /dual/carrera/grupos, /alumnos, /periodos | Historia por período y consulta propia del alumno. |
 | Descargas | /dual/alumno/reporte/{id}/pdf; equivalentes tutor/carrera; exportar-csv, exportar-zip | Autorización de objeto y contenido binario privado. |
@@ -28,8 +28,8 @@ Los prefijos carrera/coordinador_dual heredados no representan roles nuevos. No 
 | Consultar obligaciones | período opcional, identidad en sesión | ID, intervalo, estado, atraso (implementado en C04; permiso de entregar y motivo de bloqueo llegan con C05) | C04 |
 | Entregar versión | obligación_id, fechas declaradas, nota entera, PDF multipart | reporte_id, version_id y pendiente de revisión; 201 solo tras persistencia (implementado en C05) | C05 |
 | Revisar versión | version_id, acción, fechas/nota validadas, nota de rechazo, versión esperada | Revisión trazable, sin sobrescribir versión nueva por concurrencia (implementado en C06) | C06 |
-| Cerrar recepción | periodo_id y confirmación del coordinador | Cierre idempotente con autor/instante, mantiene revisión | C07 |
-| Finalizar evaluación | periodo_id | Falla si hay pendientes; congela resultados atómicamente | C07 |
+| Cerrar recepción | periodo_id y confirmación del coordinador | Cierre idempotente con autor/instante, mantiene revisión (implementado en C07) | C07 |
+| Finalizar evaluación | periodo_id | Falla si hay pendientes; congela resultados atómicamente (implementado en C07) | C07 |
 | Consultar expediente | alumno autorizado, período opcional | Grupo histórico, aprobados, promedio, cantidad y carácter provisional/final | C08 |
 | Descargar documento | ID autorizado, original/firmado según permisos | application/pdf y nombre seguro; nunca ruta del disco ni token Drive | C05/C08 |
 | Publicar plantillas | Word/PDF y metadatos | Versión vigente completa, anterior conservada | C09 |
@@ -90,6 +90,17 @@ Estas son operaciones, no rutas definitivas. Antes de implementar cada spec debe
 - `GET /dual/tutor/reportes` agrega `version` y `obligacion_id`; `GET /dual/alumno/reportes/{id}/versiones` agrega `firmado` y los valores validados.
 - Retirada: `PATCH /dual/tutor/reportes/{reporte_id}` (revisión heredada que sobrescribía datos y subía el firmado a Drive).
 - El fixture contractual contiene 62 rutas. [Spec C06](../../specs/C06-revision-y-firma/spec.md) y [evidencia C06](../../specs/C06-revision-y-firma/evidencia.md).
+
+### Cambios implementados en C07 (DONE)
+
+- `GET /dual/tutor/periodos` (tutor y coordinador): períodos con `id`, `periodo_label`, fechas calendario, `recepcion` (`sin_abrir`, `abierta`, `cerrada`), `evaluacion` (`en_curso`, `finalizada`), `cierre_efectivo` (fecha civil en America/Mexico_City, aparte de las fechas calendario), `cerrado_en` y `finalizada_en`. `GET /dual/tutor/periodos/{periodo_id}/resumen`: además `conteos` (semanas, recibidas, pendientes de revisión, aprobadas, rechazadas, sin entrega y no recibidas por cierre), `alumnos` con `aprobados`, `suma`, `promedio` (texto con dos decimales o nulo), `promedio_texto` («Sin calificación» si no hay aprobados) y `definitivo`, `puede_cerrar_recepcion`, `puede_finalizar` y `motivo_finalizar`. Provisional se calcula en vivo y final se lee del registro congelado. Período inexistente 404; alumno 403.
+- `POST /dual/tutor/periodos/{periodo_id}/cierre-recepcion` y `POST /dual/tutor/periodos/{periodo_id}/finalizacion` (solo coordinador, MP-11; cuerpo `{"confirmar": true}`, otro valor 422; tutor y alumno 403; sin sesión 401). Cierre: 200 con `repetido`; 409 si el período nunca recibió; identifica el período por ID, no lo renombra y no cambia sus fechas; bloquea entregas y reenvíos (409) y el tutor sigue revisando (RN-18, RN-19). Finalización: 409 si la recepción no está cerrada o quedan reportes pendientes de revisión (RN-20); congela por alumno suma, cantidad de aprobados y promedio con dos decimales HALF_UP (RN-21, RN-22, DP-11) y es irreversible; 200 con `repetido` si ya estaba finalizada.
+- La entrega y el reenvío toman el bloqueo compartido de la fila del período y el cierre el exclusivo: una entrega que compite con el cierre o gana y queda antes, o espera y recibe 409 (AC-15).
+- `GET /dual/alumno/obligaciones` y las consultas del tutor: `estado` agrega `NO_RECIBIDA_POR_CIERRE` (semana sin entrega cuyo período se cerró antes de que terminara la semana, DP-03) y `cierre_efectivo`; una semana ya terminada antes del cierre sigue `ATRASADA`. La bandeja de atrasados del tutor devuelve `status` `NotReceived` para las cortadas.
+- `POST /dual/tutor/abrir-cuatrimestre`: 409 si la etiqueta corresponde a un período ya cerrado (un período cerrado no se reabre).
+- `GET /dual/carrera/alumnos`: `cuatrimestre` es la etiqueta del período y filtra a los alumnos con semanas en él; `reportes_aprobados` y `promedio` se calculan con los reportes de ese período, no con el grado. Un período sin alumnos devuelve lista vacía.
+- Retirada: `POST /dual/tutor/cierre` (cierre por etiqueta que además renombraba el período).
+- El fixture contractual contiene 65 rutas. [Spec C07](../../specs/C07-cierre-y-calificacion/spec.md) y [evidencia C07](../../specs/C07-cierre-y-calificacion/evidencia.md).
 
 ### Reglas objetivo generales
 

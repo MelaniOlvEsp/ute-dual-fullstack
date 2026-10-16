@@ -6,7 +6,8 @@ from pydantic import BaseModel, model_validator
 from app.presentation.api.routers.auth import get_current_user, get_coordinator
 from typing import Literal
 from app.application.use_cases.dual import revisiones as revisiones_cases
-from app.application.dto.reportes import RevisionIn, EmpresaCreate, EmpresaOut, AsignacionCreate, AsignacionOut, CuatrimestreCerrar, CuatrimestreAbrir, CuatrimestreActualOut
+from app.application.use_cases.dual import cierres as cierres_cases
+from app.application.dto.reportes import RevisionIn, EmpresaCreate, EmpresaOut, AsignacionCreate, AsignacionOut, ConfirmacionCierre, CuatrimestreAbrir, CuatrimestreActualOut
 from app.application.dto.obligaciones import ObligacionOut
 from app.application.use_cases.dual import coordinador_dual as use_cases
 from app.application.use_cases.dual import obligaciones as obligaciones_cases
@@ -272,17 +273,43 @@ async def abrir_cuatrimestre(
     )
 
 
-# Delega el caso de uso sin mezclar lógica de negocio con HTTP.
-@router.post("/cierre", status_code=status.HTTP_200_OK)
-async def cerrar_cuatrimestre(
-    data: CuatrimestreCerrar, user=Depends(get_coordinator)
+def get_consulta_periodos(user=Depends(get_current_user)):
+    # Tutor y coordinador consultan el estado de los períodos; solo el coordinador lo modifica (MP-11).
+    roles = user.get("roles", {})
+    if not (roles.get("tutor_academico") or roles.get("coordinador_dual")):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso restringido")
+    return user
+
+
+# C07: estado, cierre de recepción y finalización de la evaluación por ID de período.
+@router.get("/periodos")
+async def listar_periodos_estado(user=Depends(get_consulta_periodos)):
+    return to_http_response(await cierres_cases.listar(user=user, runtime=get_runtime()))
+
+
+@router.get("/periodos/{periodo_id}/resumen")
+async def resumen_periodo(periodo_id: UUID, user=Depends(get_consulta_periodos)):
+    return to_http_response(
+        await cierres_cases.resumen(periodo_id=periodo_id, user=user, runtime=get_runtime())
+    )
+
+
+@router.post("/periodos/{periodo_id}/cierre-recepcion", status_code=status.HTTP_200_OK)
+async def cerrar_recepcion(
+    periodo_id: UUID, data: ConfirmacionCierre, user=Depends(get_coordinator)
 ):
     return to_http_response(
-        await use_cases.cerrar_cuatrimestre(
-            data=data,
-            user=user,
-            runtime=get_runtime(),
-        )
+        await cierres_cases.cerrar_recepcion(periodo_id=periodo_id, user=user, runtime=get_runtime())
+    )
+
+
+@router.post("/periodos/{periodo_id}/finalizacion", status_code=status.HTTP_200_OK)
+async def finalizar_evaluacion(
+    periodo_id: UUID, data: ConfirmacionCierre, user=Depends(get_coordinator)
+):
+    return to_http_response(
+        await cierres_cases.finalizar_evaluacion(
+            periodo_id=periodo_id, user=user, runtime=get_runtime())
     )
 
 

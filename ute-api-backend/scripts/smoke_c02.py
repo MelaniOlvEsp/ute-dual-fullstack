@@ -103,7 +103,11 @@ def main():
         expect(client.delete(f'/dual/carrera/alumnos/{b}', headers=student), 403)
         expect(client.get(f'/dual/carrera/alumnos/{a}/reportes', headers=tutor), 200)
         expect(client.get(f'/dual/carrera/alumnos/{b}/reportes', headers=admin), 200)
-        expect(client.post('/dual/tutor/cierre', headers=tutor, json={'periodo_label':'Septiembre-Diciembre 2026'}), 403)
+        # C07 (MP-11): el cierre es del coordinador, por ID de período; tutor y alumno reciben 403.
+        periodo_ajeno = '00000000-0000-0000-0000-000000000001'
+        expect(client.post(f'/dual/tutor/periodos/{periodo_ajeno}/cierre-recepcion', headers=tutor, json={'confirmar': True}), 403)
+        expect(client.post(f'/dual/tutor/periodos/{periodo_ajeno}/finalizacion', headers=tutor, json={'confirmar': True}), 403)
+        expect(client.post(f'/dual/tutor/periodos/{periodo_ajeno}/cierre-recepcion', headers=student, json={'confirmar': True}), 403)
         expect(client.get(f'/dual/carrera/alumnos/{b}/exportar-csv', headers=student), 403)
         expect(client.get(f'/dual/carrera/alumnos/{b}/exportar-zip', headers=student), 403)
         message = expect(client.post('/foro/buzon/', headers=student, json={'area':'dual','asunto':'Smoke C02','mensaje':'Mensaje sintético'}), 201)

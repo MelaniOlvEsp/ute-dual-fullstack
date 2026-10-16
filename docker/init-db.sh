@@ -10,4 +10,5 @@ SET ROLE ute_dual_app;
 \i /opt/ute/migrations/004_obligaciones.sql
 \i /opt/ute/migrations/005_entregas.sql
 \i /opt/ute/migrations/006_revisiones.sql
+\i /opt/ute/migrations/007_cierre.sql
 SQL

@@ -26,7 +26,12 @@ def guards(path):
 class PermissionTest(unittest.TestCase):
     def test_tutor_only_mutates_reports_and_groups(self):
         dual = guards(ROOT / 'app/presentation/api/routers/dual/coordinador_dual.py')
-        self.assertIn('get_coordinator', dual['cerrar_cuatrimestre'])
+        # C07 (MP-11): solo el coordinador cierra la recepción y finaliza la evaluación.
+        for name in ('cerrar_recepcion', 'finalizar_evaluacion'):
+            self.assertIn('get_coordinator', dual[name], name)
+        for name in ('listar_periodos_estado', 'resumen_periodo'):
+            self.assertIn('get_consulta_periodos', dual[name], name)
+        self.assertNotIn('cerrar_cuatrimestre', dual)
         career = guards(ROOT / 'app/presentation/api/routers/dual/coordinador_carrera.py')
         for name in ('detalle_reporte', 'revisar_version', 'descargar_version_pdf_tutor',
                      'cargar_firma', 'crear_empresa', 'asignar_alumno_empresa'):
@@ -44,7 +49,7 @@ class PermissionTest(unittest.TestCase):
     def test_only_coordinator_manages_periods(self):
         # DP-04 / MP-18: el coordinador abre y cierra períodos; el tutor no.
         dual = guards(ROOT / 'app/presentation/api/routers/dual/coordinador_dual.py')
-        for name in ('abrir_cuatrimestre', 'cerrar_cuatrimestre', 'cuatrimestre_actual'):
+        for name in ('abrir_cuatrimestre', 'cuatrimestre_actual'):
             self.assertIn('get_coordinator', dual[name], name)
             self.assertNotIn('get_coordinador_dual', dual[name], name)
         # Las consultas de pendientes siguen siendo del tutor.

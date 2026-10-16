@@ -21,6 +21,7 @@ _COLUMNAS = '''
     p.cuatrimestre AS periodo, p.periodo_label,
     e.nombre AS empresa,
     p.abierto AS periodo_abierto, p.cerrado AS periodo_cerrado,
+    p.cerrado_at AS periodo_cerrado_en,
     (rd.id IS NOT NULL) AS recibida,
     rd.id AS reporte_id, rd.estado AS entrega,
     CASE WHEN rd.estado = 'Rechazada' THEN rd.nota_agente END AS observacion,

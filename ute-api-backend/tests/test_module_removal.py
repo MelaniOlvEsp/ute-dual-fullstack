@@ -44,7 +44,7 @@ class RemovedModuleTests(unittest.TestCase):
         self.assertNotIn("prefix='/alumnos'", source)
         self.assertNotIn("prefix='/admin/becas'", source)
         routes = json.loads((ROOT / 'tests/route_contract.json').read_text())
-        self.assertEqual(sum(map(len, routes.values())), 62)
+        self.assertEqual(sum(map(len, routes.values())), 65)
 
     # Evita exponer privilegios anteriores en los roles de sesión.
     def test_roles_are_filtered(self):

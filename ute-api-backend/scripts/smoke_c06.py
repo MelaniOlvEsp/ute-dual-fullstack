@@ -27,6 +27,7 @@ import psycopg
 from PIL import Image
 from psycopg.rows import dict_row
 
+import smoke_periodos
 from local_admin import connect_local, create_coordinator
 from smoke_c05 import BASE, BLOQUES, archivos_en_almacen, etiqueta, expect, mes_de, pdf, sha
 from app.application.errors import ApplicationError
@@ -121,18 +122,8 @@ def main():
         with connect_local() as conn:
             tutor1_id = conn.execute("SELECT id FROM usuarios WHERE email=%s", (tutor1_email,)).fetchone()[0]
 
-        def abrir_periodo():
-            actual = expect(client.get("/dual/tutor/cuatrimestre-actual", headers=coordinator), 200)
-            if actual["abierto"] and actual["periodo_label"] != etiqueta_abierta:
-                expect(client.post("/dual/tutor/cierre", headers=coordinator,
-                                   json={"periodo_label": actual["periodo_label"]}), 200)
-            if not (actual["abierto"] and actual["periodo_label"] == etiqueta_abierta):
-                inicio, fin = fechas_del_periodo(mes_de(domingo_actual), domingo_actual.year)
-                expect(client.post("/dual/tutor/abrir-cuatrimestre", headers=coordinator, json={
-                    "periodo_label": etiqueta_abierta,
-                    "fecha_inicio": inicio.isoformat(), "fecha_fin": fin.isoformat()}), 200)
-
-        abrir_periodo()
+        inicio_p, fin_p = fechas_del_periodo(mes_de(domingo_actual), domingo_actual.year)
+        id_periodo_abierto = smoke_periodos.abrir_de_prueba(client, coordinator, etiqueta_abierta, inicio_p, fin_p)
 
         group = expect(client.post("/dual/carrera/grupos", headers=tutor1, json={
             "carrera": "TII", "cuatrimestre": 1, "modalidad": "intensivo", "letra": "A",
@@ -441,7 +432,7 @@ def main():
 
         # ---------- RN-18/RN-19: con la recepción cerrada la revisión continúa ----------
         r5 = entregar(alumno_a, a5, reporte_formato("semana cinco")[0])
-        expect(client.post("/dual/tutor/cierre", headers=coordinator, json={"periodo_label": etiqueta_abierta}), 200)
+        smoke_periodos.cerrar(client, coordinator, id_periodo_abierto)
         assert detalle(tutor1, r5["reporte_id"])["periodo_cerrado"] is True
         revisar(tutor1, r5["reporte_id"], 1, decision="Rechazada", observacion="Revisión tras el cierre")
         entregar(alumno_a, a5, reporte_formato("tarde")[0], esperado=409)  # pero el alumno ya no reenvía

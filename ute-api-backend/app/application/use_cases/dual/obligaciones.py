@@ -6,6 +6,7 @@ from app.domain import calendar
 # Estados derivados de la obligación (RN-09/RN-10): no se almacenan.
 OVERDUE = "Overdue"
 PENDING = "Pending"
+NOT_RECEIVED = "NotReceived"  # C07 (DP-03): semana cortada por un cierre anticipado
 
 
 async def generar(cur, incorporacion, hasta):
@@ -62,7 +63,9 @@ def _presentar(filas, hoy):
     resultado = []
     for fila in filas:
         item = dict(fila)
-        item["estado"] = calendar.estado_obligacion(item["semana_fin"], hoy, item["recibida"])
+        cierre = calendar.fecha_de_cierre(item.get("periodo_cerrado_en")) if item.get("periodo_cerrado") else None
+        item["estado"] = calendar.estado_obligacion(item["semana_fin"], hoy, item["recibida"], cierre)
+        item["cierre_efectivo"] = cierre
         item["puede_entregar"], item["motivo_bloqueo"] = _entregable(item)
         resultado.append(item)
     return resultado
@@ -97,8 +100,16 @@ def _como_pendiente(item):
         "semana_inicio": item["semana_inicio"], "semana_fin": item["semana_fin"],
         "inicio_efectivo": item["inicio_efectivo"], "fin_efectivo": item["fin_efectivo"],
         "parcial": item["parcial"],
-        "status": OVERDUE if item["estado"] == calendar.ATRASADA else PENDING,
+        "status": _status(item["estado"]),
     }
+
+
+def _status(estado):
+    if estado == calendar.ATRASADA:
+        return OVERDUE
+    if estado == calendar.NO_RECIBIDA_POR_CIERRE:
+        return NOT_RECEIVED
+    return PENDING
 
 
 async def alumnos_atrasados(user, *, runtime, hoy=None):

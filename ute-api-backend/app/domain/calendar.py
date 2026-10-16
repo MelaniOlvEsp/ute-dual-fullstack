@@ -17,6 +17,7 @@ _ZONA = ZoneInfo(ZONA_OPERATIVA)
 PENDIENTE = "PENDIENTE"
 ATRASADA = "ATRASADA"
 RECIBIDA = "RECIBIDA"
+NO_RECIBIDA_POR_CIERRE = "NO_RECIBIDA_POR_CIERRE"
 
 
 def ahora() -> datetime:
@@ -75,8 +76,21 @@ def semanas_incorporacion(fecha_inicio: date, fecha_baja: date | None, hasta: da
     return semanas
 
 
-def estado_obligacion(semana_fin: date, hasta: date, recibida: bool) -> str:
-    """Estado derivado: se puede entregar hasta el domingo; desde el lunes es atraso."""
+def fecha_de_cierre(instante: datetime | None) -> date | None:
+    """Fecha civil en la zona operativa del instante en que se cerró la recepción."""
+    return None if instante is None else hoy(instante)
+
+
+def estado_obligacion(semana_fin: date, hasta: date, recibida: bool,
+                      cierre: date | None = None) -> str:
+    """Estado derivado: se puede entregar hasta el domingo; desde el lunes es atraso.
+
+    DP-03 / RN-24: si el período se cerró (fecha civil `cierre`) antes de que terminara la semana,
+    la semana sin entrega es "no recibida por cierre", no un atraso ni un incumplimiento. Una semana
+    que ya había terminado antes del cierre sigue como atrasada.
+    """
     if recibida:
         return RECIBIDA
+    if cierre is not None and cierre <= semana_fin:
+        return NO_RECIBIDA_POR_CIERRE
     return ATRASADA if hasta > semana_fin else PENDIENTE

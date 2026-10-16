@@ -26,6 +26,7 @@ import httpx
 import psycopg
 from psycopg.rows import dict_row
 
+import smoke_periodos
 from local_admin import connect_local, create_coordinator
 from app.application.errors import ApplicationError
 from app.application.use_cases.dual import entregas
@@ -136,17 +137,10 @@ def main():
 
         def abrir_periodo():
             """Deja abierto solo el período de la semana actual (DP-13)."""
-            actual = expect(client.get("/dual/tutor/cuatrimestre-actual", headers=coordinator), 200)
-            if actual["abierto"] and actual["periodo_label"] != etiqueta_abierta:
-                expect(client.post("/dual/tutor/cierre", headers=coordinator,
-                                   json={"periodo_label": actual["periodo_label"]}), 200)
-            if not (actual["abierto"] and actual["periodo_label"] == etiqueta_abierta):
-                inicio, fin = fechas_del_periodo(mes_de(domingo_actual), domingo_actual.year)
-                expect(client.post("/dual/tutor/abrir-cuatrimestre", headers=coordinator, json={
-                    "periodo_label": etiqueta_abierta,
-                    "fecha_inicio": inicio.isoformat(), "fecha_fin": fin.isoformat()}), 200)
+            inicio, fin = fechas_del_periodo(mes_de(domingo_actual), domingo_actual.year)
+            return smoke_periodos.abrir_de_prueba(client, coordinator, etiqueta_abierta, inicio, fin)
 
-        abrir_periodo()
+        id_periodo_abierto = abrir_periodo()
 
         group = expect(client.post("/dual/carrera/grupos", headers=tutor, json={
             "carrera": "TII", "cuatrimestre": 1, "modalidad": "intensivo", "letra": "A",
@@ -418,7 +412,7 @@ def main():
                 assert dual_reports.ruta_documento(clave).is_file(), "Se borró un original referenciado"
 
         # ---------- DP-13: período cerrado ----------
-        expect(client.post("/dual/tutor/cierre", headers=coordinator, json={"periodo_label": etiqueta_abierta}), 200)
+        smoke_periodos.cerrar(client, coordinator, id_periodo_abierto)
         cerrado = {o["id"]: o for o in semanas(alumno_b)}[otra["id"]]
         assert not cerrado["puede_entregar"] and "no está abierta" in cerrado["motivo_bloqueo"]
         entregar(alumno_b, otra, pdf("tarde"), esperado=409)

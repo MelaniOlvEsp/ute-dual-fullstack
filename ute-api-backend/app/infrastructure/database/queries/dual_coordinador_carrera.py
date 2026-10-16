@@ -35,7 +35,7 @@ QUERIES = {'dual.coordinador_carrera.q000': {'dynamic': None,
                                           "                      AND rd.estado = 'Aprobada'\n"
                                           '                      AND (%s::text IS NULL\n'
                                           '                           OR rd.cuatrimestre = '
-                                          'g.cuatrimestre::text)\n'
+                                          '%s::text)\n'
                                           '                ) AS reportes_aprobados,\n'
                                           '                (\n'
                                           '                    SELECT '
@@ -46,7 +46,7 @@ QUERIES = {'dual.coordinador_carrera.q000': {'dynamic': None,
                                           "                      AND rd.estado = 'Aprobada'\n"
                                           '                      AND (%s::text IS NULL\n'
                                           '                           OR rd.cuatrimestre = '
-                                          'g.cuatrimestre::text)\n'
+                                          '%s::text)\n'
                                           '                ) AS promedio\n'
                                           '            FROM alumnos a\n'
                                           '            LEFT JOIN grupos       g  ON '

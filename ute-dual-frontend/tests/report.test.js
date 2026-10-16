@@ -5,6 +5,7 @@ import {
   validateWeeklyReport
 } from '../src/domain/dual/report.js'
 import { createDualUseCases } from '../src/application/use-cases/dual.js'
+import { etiquetaEvaluacion, etiquetaRecepcion, mensajeCierre, mensajeFinalizacion } from '../src/domain/dual/closure.js'
 
 const goodReport = {
   grade: '9', startDate: '2026-09-01',
@@ -69,6 +70,23 @@ test('review: rejection needs an observation and corrections follow the delivery
     assert.throws(() => validateReview({ decision: 'Aprobada', nota }), /entero entre 1 y 10/, nota)
   }
   assert.throws(() => validateReview({ decision: 'Aprobada', fechaInicio: '2026-10-17', fechaFin: '2026-10-12' }), /inicio/)
+})
+
+test('closure texts name the period, the consequence and that it cannot be undone (RN-19, RN-22)', () => {
+  const periodo = { periodo_label: 'Septiembre-Diciembre 2026' }
+  const cierre = mensajeCierre(periodo, { pendientes_revision: 2, rechazadas: 1 })
+  assert.match(cierre, /Septiembre-Diciembre 2026/)
+  assert.match(cierre, /ya no podrán entregar ni reenviar/)
+  assert.match(cierre, /seguirá revisando/)
+  assert.match(cierre, /1 reporte rechazado no podrá reenviarse/)
+  assert.match(cierre, /2 reportes pendientes de revisión/)
+  assert.match(cierre, /No se puede deshacer/)
+  assert.doesNotMatch(mensajeCierre(periodo, { pendientes_revision: 0, rechazadas: 0 }), /rechazad/)
+  const final = mensajeFinalizacion(periodo, [{}, {}, {}])
+  assert.match(final, /3 alumnos/)
+  assert.match(final, /provisionales a finales/)
+  assert.equal(etiquetaRecepcion('cerrada'), 'Recepción cerrada')
+  assert.equal(etiquetaEvaluacion('finalizada'), 'Evaluación finalizada')
 })
 
 test('review request body carries only what the tutor provided', () => {

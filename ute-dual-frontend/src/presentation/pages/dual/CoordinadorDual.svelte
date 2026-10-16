@@ -94,7 +94,10 @@
   let fechaBajaIncorporacion = hoyOperativo()
   let historialIncorporaciones = []
   let obligacionesAlumno = []
-  const ETIQUETA_ESTADO = { PENDIENTE: 'Pendiente', ATRASADA: 'Atrasada', RECIBIDA: 'Recibida' }
+  const ETIQUETA_ESTADO = {
+    PENDIENTE: 'Pendiente', ATRASADA: 'Atrasada', RECIBIDA: 'Recibida',
+    NO_RECIBIDA_POR_CIERRE: 'No recibida por cierre'
+  }
 
   async function cargarObligaciones(matricula) {
     try {
@@ -155,7 +158,30 @@
 
   let modoNoEntregado = false
 
+  // C07: aviso del estado del período para el tutor (recepción abierta o cerrada sin finalizar).
+  let avisoPeriodo = ''
+
+  async function cargarAvisoPeriodo() {
+    try {
+      const lista = await api.dual.periodosEstado()
+      const hoy = hoyOperativo()
+      const abierto = lista.find(p => p.recepcion === 'abierta')
+      const cerrado = lista.find(p => p.recepcion === 'cerrada' && p.evaluacion === 'en_curso' &&
+        p.fecha_inicio && p.fecha_inicio <= hoy)
+      if (abierto) {
+        avisoPeriodo = `Período ${abierto.periodo_label}: recepción abierta.`
+      } else if (cerrado) {
+        avisoPeriodo = `La recepción de ${cerrado.periodo_label} se cerró el ${formatFechaCivil(cerrado.cierre_efectivo)}. Puedes seguir revisando lo recibido; la evaluación aún no está finalizada.`
+      } else {
+        avisoPeriodo = ''
+      }
+    } catch {
+      avisoPeriodo = ''
+    }
+  }
+
   async function cargarReportes() {
+    cargarAvisoPeriodo()
     loading = true
     error = ''
     try {
@@ -467,6 +493,10 @@
         subtitle="Revisión semanal de entregas de alumnos DUAL" 
       />
 
+      {#if avisoPeriodo}
+        <p class="aviso-periodo" role="status">{avisoPeriodo}</p>
+      {/if}
+
       <FirmaTutor />
       <FiltrosBarra
         mostrarCarrera={true}
@@ -528,6 +558,8 @@
                     <td class="td-center">
                       {#if r.status === 'Overdue'}
                         <span class="badge-overdue">Overdue</span>
+                      {:else if r.status === 'NotReceived'}
+                        <span class="badge-pending-filter">No recibida por cierre</span>
                       {:else}
                         <span class="badge-pending-filter">Pending</span>
                       {/if}
@@ -1180,6 +1212,7 @@
 
   .nota-previa { margin: 16px 20px 0; padding: 14px; background: rgba(249, 115, 22, 0.04); border: 1px solid var(--border); border-radius: 12px; }
   .nota-texto { font-size: 13px; color: var(--text-secondary); margin: 4px 0 0; line-height: 1.5; }
+  .aviso-periodo { margin: 0 0 12px; padding: 10px 14px; font-size: 13px; color: var(--text-primary); border: 1px solid var(--border); border-left: 3px solid var(--orange); border-radius: 8px; background: var(--bg-card); }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .hint-corr { margin: 4px 0 0; font-size: 11px; line-height: 1.4; color: var(--orange); }
   .tabs-doc { display: flex; gap: 6px; padding: 8px 0; flex-wrap: wrap; }

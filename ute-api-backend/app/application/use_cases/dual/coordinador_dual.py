@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 from loguru import logger
-from app.application.dto.reportes import EmpresaCreate, EmpresaOut, AsignacionCreate, AsignacionOut, CuatrimestreCerrar, CuatrimestreAbrir, CuatrimestreActualOut
+from app.application.dto.reportes import EmpresaCreate, EmpresaOut, AsignacionCreate, AsignacionOut, CuatrimestreAbrir, CuatrimestreActualOut
 from app.application.ports.runtime import RuntimePort
 from app.application.errors import ApplicationError
 from app.application.ports.query import QueryRef
@@ -303,6 +303,15 @@ async def abrir_cuatrimestre(data, user, *, runtime: RuntimePort):
 
         cuatrimestre = f"{data.periodo_label}"
 
+        # C07: un período cuya recepción ya se cerró no se reabre (estados sin retroceso; DP-10).
+        await cur.execute('dual.cierres.por_etiqueta', (cuatrimestre,))
+        existente = await cur.fetchone()
+        if existente and (dict(existente)["cerrado"] or dict(existente)["evaluacion_finalizada_en"]):
+            raise ApplicationError(
+                status_code=409,
+                detail=f"El período {cuatrimestre} ya fue cerrado y no se reabre.",
+            )
+
         # DP-04: períodos manuales, con fechas explícitas y sin solapamiento.
         await cur.execute(
             'dual.obligaciones.overlapping_period',
@@ -338,38 +347,8 @@ async def abrir_cuatrimestre(data, user, *, runtime: RuntimePort):
     }
 
 
-# Ejecuta las reglas del caso de uso con dependencias inyectadas.
-async def cerrar_cuatrimestre(data, user, *, runtime: RuntimePort):
-    async with runtime.database.transaction() as cur:
-        # Verificar que existe un cuatrimestre abierto
-        await cur.execute(
-            'dual.coordinador_dual.q022'
-        )
-        abierto_row = await cur.fetchone()
-        if not abierto_row:
-            raise ApplicationError(
-                status_code=400,
-                detail="No hay un cuatrimestre abierto que cerrar.",
-            )
-
-        cuatrimestre_target = dict(abierto_row)["cuatrimestre"]
-
-        await cur.execute(
-            'dual.coordinador_dual.q023',
-            (user["id"], data.periodo_label, cuatrimestre_target),
-        )
-
-    logger.info(
-        f"Cuatrimestre '{data.periodo_label}' cerrado por {user['sub']}"
-    )
-    return {
-        "mensaje": (
-            f"Cuatrimestre '{data.periodo_label}' cerrado correctamente."
-        ),
-        "cuatrimestre": cuatrimestre_target,
-        "periodo_label": data.periodo_label,
-    }
-
+# C07: el cierre de recepción y la finalización viven en cierres.py (por ID de período); el cierre
+# heredado por etiqueta, que además renombraba el período, se retiró.
 
 # Ejecuta las reglas del caso de uso con dependencias inyectadas.
 async def descargar_reporte_pdf_coordinador(

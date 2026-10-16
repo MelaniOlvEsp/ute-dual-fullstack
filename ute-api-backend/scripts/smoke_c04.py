@@ -24,6 +24,7 @@ import httpx
 import psycopg
 from psycopg.rows import dict_row
 
+import smoke_periodos
 from local_admin import connect_local, create_coordinator
 from app.application.use_cases.dual import obligaciones
 from app.domain import calendar
@@ -140,6 +141,11 @@ def main():
         expect(client.post("/auth/cambiar-password", headers=tutor_temp,
                            json={"password_actual": created["password_temporal"], "password_nueva": changed}), 200)
         tutor = login(tutor_email, changed)
+
+        # C07: con el período en curso ya cerrado por otra corrida, la semana vigente sería «no recibida
+        # por cierre»; las comprobaciones de estado de abajo parten de la recepción abierta.
+        mes_hoy = next(m for m, ini, fin in BLOQUES if ini <= hoy.month <= fin)
+        smoke_periodos.abrir_de_prueba(client, coordinator, etiqueta(hoy), *fechas_del_periodo(mes_hoy, hoy.year))
 
         group = expect(client.post("/dual/carrera/grupos", headers=tutor, json={
             "carrera": "TII", "cuatrimestre": 1, "modalidad": "intensivo", "letra": "A",
@@ -262,10 +268,7 @@ def main():
         expect(client.get("/dual/alumno/obligaciones"), 401)
 
         # Otro recorrido pudo dejar un período abierto (solo puede haber uno): se cierra para aislar la prueba.
-        previo = expect(client.get("/dual/tutor/cuatrimestre-actual", headers=coordinator), 200)
-        if previo["abierto"]:
-            expect(client.post("/dual/tutor/cierre", headers=coordinator,
-                               json={"periodo_label": previo["periodo_label"]}), 200)
+        smoke_periodos.cerrar_abiertos(client, coordinator)
 
         # DP-04 / MP-18: solo el coordinador abre períodos y consulta el actual; tutor y alumno reciben 403.
         apertura_e = {
@@ -327,8 +330,8 @@ def main():
         expect(client.post("/dual/tutor/abrir-cuatrimestre", headers=coordinator, json={
             "periodo_label": f"Enero-Abril {anio_f}",
             "fecha_inicio": inicio_p.isoformat(), "fecha_fin": fin_p.isoformat()}), 200)
-        expect(client.post("/dual/tutor/cierre", headers=coordinator,
-                           json={"periodo_label": f"Enero-Abril {anio_f}"}), 200)
+        smoke_periodos.cerrar(client, coordinator,
+                              smoke_periodos.por_etiqueta(client, coordinator, f"Enero-Abril {anio_f}")["id"])
         asyncio.run(con_runtime(despues_f))
 
         # M2: el período en curso (inicio anterior a hoy) se puede abrir; uno ya terminado no.
@@ -339,13 +342,12 @@ def main():
         inicio_c, fin_c = fechas_del_periodo(mes_actual, hoy.year)
         etiqueta_c = construir_periodo(mes_actual, hoy.year)
         if inicio_c < hoy:
-            en_curso = expect(client.post("/dual/tutor/abrir-cuatrimestre", headers=coordinator, json={
-                "periodo_label": etiqueta_c,
-                "fecha_inicio": inicio_c.isoformat(), "fecha_fin": fin_c.isoformat()}), 200)
-            assert en_curso["cuatrimestre"]["periodo_label"] == etiqueta_c
+            # Abre el período en curso (la API acepta inicio anterior a hoy); el ayudante restablece
+            # solo un cierre de una corrida anterior, porque un período cerrado no se reabre por la API.
+            id_c = smoke_periodos.abrir_de_prueba(client, coordinator, etiqueta_c, inicio_c, fin_c)
             actual = expect(client.get("/dual/tutor/cuatrimestre-actual", headers=coordinator), 200)
             assert actual["abierto"] and actual["periodo_label"] == etiqueta_c
-            expect(client.post("/dual/tutor/cierre", headers=coordinator, json={"periodo_label": etiqueta_c}), 200)
+            smoke_periodos.cerrar(client, coordinator, id_c)
         anterior = [(m, i, f) for m, i, f in BLOQUES if f < hoy.month]
         if anterior:
             mes_a, _, _ = anterior[-1]

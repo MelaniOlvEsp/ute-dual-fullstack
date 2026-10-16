@@ -191,20 +191,6 @@ QUERIES = {'dual.coordinador_dual.q000': {'dynamic': 'where',
                                        '            RETURNING id, cuatrimestre, '
                                        'periodo_label, fecha_inicio, fecha_fin\n'
                                        '            '},
- 'dual.coordinador_dual.q022': {'dynamic': None,
-                                'sql': 'SELECT cuatrimestre FROM ciclos_dual WHERE '
-                                       'abierto = TRUE LIMIT 1'},
- 'dual.coordinador_dual.q023': {'dynamic': None,
-                                'sql': '\n'
-                                       '            UPDATE ciclos_dual\n'
-                                       '            SET cerrado        = TRUE,\n'
-                                       '                cerrado_por    = %s,\n'
-                                       '                cerrado_at     = NOW(),\n'
-                                       '                abierto        = FALSE,\n'
-                                       '                periodo_label  = '
-                                       'COALESCE(%s, periodo_label)\n'
-                                       '            WHERE cuatrimestre = %s\n'
-                                       '            '},
  'dual.coordinador_dual.q024': {'dynamic': None,
                                 'sql': '\n'
                                        '            SELECT archivo_pdf_url, '

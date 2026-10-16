@@ -4,7 +4,7 @@ C01 usa una **BD nueva y vacía** dentro de Docker Compose; no hay datos product
 
 ## Instalación
 
-El servicio postgres ejecuta `docker/init-db.sh` sobre un volumen nuevo. Crea el usuario de aplicación sin superusuario, aplica `schema_dual_desde_cero.sql` y después `migrations/003_grupos_incorporacion.sql`, `migrations/004_obligaciones.sql`, `migrations/005_entregas.sql` y `migrations/006_revisiones.sql` con ese rol. El esquema base comprueba que `public` no contenga tablas, vistas o secuencias y aborta si ya existen. Cada archivo se instala dentro de una transacción.
+El servicio postgres ejecuta `docker/init-db.sh` sobre un volumen nuevo. Crea el usuario de aplicación sin superusuario, aplica `schema_dual_desde_cero.sql` y después `migrations/003_grupos_incorporacion.sql`, `migrations/004_obligaciones.sql`, `migrations/005_entregas.sql`, `migrations/006_revisiones.sql` y `migrations/007_cierre.sql` con ese rol. El esquema base comprueba que `public` no contenga tablas, vistas o secuencias y aborta si ya existen. Cada archivo se instala dentro de una transacción.
 
 No ejecutar todos los SQL de esta carpeta. Reiniciar Compose conserva el volumen; los scripts de inicio de PostgreSQL no se vuelven a aplicar a un volumen ya inicializado. Para actualizar un volumen C01 existente a C03 desde PowerShell, ejecutar únicamente:
 
@@ -13,7 +13,7 @@ docker compose cp database/migrations/003_grupos_incorporacion.sql postgres:/tmp
 docker compose exec -T postgres sh -c 'PGPASSWORD="$APP_DB_PASSWORD" psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U ute_dual_app -d ute_dual_c01 -f /tmp/m3.sql'
 ```
 
-Para C04, C05 y C06 repetir los dos comandos con `004_obligaciones.sql` (`/tmp/m4.sql`), `005_entregas.sql` (`/tmp/m5.sql`) y `006_revisiones.sql` (`/tmp/m6.sql`), en ese orden. Los originales de reportes viven en el volumen `dual-uploads` de Compose (`/workspace/ute-api-backend/uploads/dual`), que sobrevive a reconstrucciones de la imagen; no se versiona ni se publica. La migración 004 aborta sin cambios si existen períodos con fechas solapadas; corrígelos antes (en una base local de pruebas, alinear sus fechas a las de su etiqueta). Se usa `-f` y no una canalización de PowerShell porque esta altera los caracteres con tilde del catálogo y la migración abortaría por carrera desconocida.
+Para C04 a C07 repetir los dos comandos con `004_obligaciones.sql` (`/tmp/m4.sql`), `005_entregas.sql` (`/tmp/m5.sql`), `006_revisiones.sql` (`/tmp/m6.sql`) y `007_cierre.sql` (`/tmp/m7.sql`), en ese orden. Los originales de reportes viven en el volumen `dual-uploads` de Compose (`/workspace/ute-api-backend/uploads/dual`), que sobrevive a reconstrucciones de la imagen; no se versiona ni se publica. La migración 004 aborta sin cambios si existen períodos con fechas solapadas; corrígelos antes (en una base local de pruebas, alinear sus fechas a las de su etiqueta). Se usa `-f` y no una canalización de PowerShell porque esta altera los caracteres con tilde del catálogo y la migración abortaría por carrera desconocida.
 
 La migración toma un bloqueo transaccional y aborta sin cambios si encuentra una carrera fuera de las tres aprobadas o más de una incorporación activa por matrícula. No borrar datos para resolver ese diagnóstico: revisar y cerrar explícitamente la incorporación anterior.
 

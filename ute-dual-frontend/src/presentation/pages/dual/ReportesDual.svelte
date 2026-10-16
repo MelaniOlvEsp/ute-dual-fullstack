@@ -141,6 +141,13 @@
   }
 
   const limiteMb = MAX_PDF_BYTES / (1024 * 1024)
+
+  // C07 (DP-03): una semana cortada por un cierre anticipado no se presenta como atraso.
+  const ETIQUETA_SIN_ENTREGA = {
+    ATRASADA: 'Atrasada · sin entrega',
+    PENDIENTE: 'Pendiente · sin entrega',
+    NO_RECIBIDA_POR_CIERRE: 'No recibida por cierre'
+  }
 </script>
 
 <svelte:head>
@@ -209,7 +216,7 @@
                     {#if o.entrega}
                       <span class="semana-estado entrega-{o.entrega.toLowerCase()}">{ETIQUETA_ENTREGA[o.entrega]}{#if o.version}&nbsp;· v{o.version}{/if}</span>
                     {:else}
-                      <span class="semana-estado semana-{o.estado.toLowerCase()}">{o.estado === 'ATRASADA' ? 'Atrasada · sin entrega' : 'Pendiente · sin entrega'}</span>
+                      <span class="semana-estado semana-{o.estado.toLowerCase().replaceAll('_', '-')}">{ETIQUETA_SIN_ENTREGA[o.estado] || 'Pendiente · sin entrega'}</span>
                     {/if}
                   </div>
                 </div>
@@ -342,6 +349,7 @@
   .semana-estado { font-size: 12px; font-weight: 700; color: var(--text-primary); border: 1px solid; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
   .semana-pendiente { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 14%, transparent); }
   .semana-atrasada { border-color: var(--error); background: color-mix(in srgb, var(--error) 14%, transparent); }
+  .semana-no-recibida-por-cierre { border-color: var(--border-input); background: color-mix(in srgb, var(--text-disabled) 14%, transparent); }
   .entrega-pendiente { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 14%, transparent); }
   .entrega-rechazada { border-color: var(--error); background: color-mix(in srgb, var(--error) 14%, transparent); }
   .entrega-aprobada { border-color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }

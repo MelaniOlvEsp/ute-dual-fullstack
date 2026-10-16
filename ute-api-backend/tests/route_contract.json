@@ -283,10 +283,38 @@
       ]
     },
     {
-      "name": "cerrar_cuatrimestre",
-      "method": "POST",
-      "path": "/cierre",
+      "name": "listar_periodos_estado",
+      "method": "GET",
+      "path": "/periodos",
       "params": [
+        "user"
+      ]
+    },
+    {
+      "name": "resumen_periodo",
+      "method": "GET",
+      "path": "/periodos/{periodo_id}/resumen",
+      "params": [
+        "periodo_id",
+        "user"
+      ]
+    },
+    {
+      "name": "cerrar_recepcion",
+      "method": "POST",
+      "path": "/periodos/{periodo_id}/cierre-recepcion",
+      "params": [
+        "periodo_id",
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "finalizar_evaluacion",
+      "method": "POST",
+      "path": "/periodos/{periodo_id}/finalizacion",
+      "params": [
+        "periodo_id",
         "data",
         "user"
       ]

@@ -205,7 +205,8 @@ async def entregar(runtime, nota="9", inicio=date(2026, 10, 5), fin=date(2026, 1
 
 class EntregaTests(unittest.IsolatedAsyncioTestCase):
     def guion(self, **extra):
-        base = {"dual.entregas.obligacion_propia": [obligacion(), obligacion()],
+        # Lectura previa, lectura en la transacción y relectura tras el bloqueo del período (C07).
+        base = {"dual.entregas.obligacion_propia": [obligacion(), obligacion(), obligacion()],
                 "dual.entregas.reporte_de_obligacion": [None],
                 "dual.entregas.insert_documento": [{"id": uuid4()}],
                 "dual.entregas.insert_reporte": [{"id": uuid4()}],

@@ -8,7 +8,7 @@ from uuid import UUID
 from app.application.dto.reportes import ReporteDualResponse
 from app.application.ports.runtime import RuntimePort
 from app.application.errors import ApplicationError
-from app.application.ports.query import QueryRef
+from app.application.ports.query import FILTRO_PERIODO_DIRECTORIO, QueryRef
 from app.application.responses import FileResult
 from app.domain.periods import periodo_actual as _periodo_actual
 from app.domain.organization import canonical_career
@@ -62,13 +62,15 @@ async def listar_periodos(user, *, runtime: RuntimePort):
 async def listar_alumnos(cuatrimestre, grupo, user, *, runtime: RuntimePort):
     async with runtime.database.read() as cur:
         condiciones = ["ad.activo = TRUE"]
-        params = [
-            cuatrimestre,
-            cuatrimestre,
-        ]
+        # C07: `cuatrimestre` es la etiqueta del período (la que envía la pantalla); aprobados y
+        # promedio se calculan con los reportes de ese período, no con el grado. Cada subconsulta
+        # recibe la etiqueta dos veces (IS NULL y comparación).
+        params = [cuatrimestre, cuatrimestre, cuatrimestre, cuatrimestre]
 
         if cuatrimestre:
-            condiciones.append("g.cuatrimestre::text = %s")
+            # Sin « AND » en el fragmento: `resolve_query` separa la cláusula por ese texto y
+            # compara cada trozo con la lista de filtros permitidos.
+            condiciones.append(FILTRO_PERIODO_DIRECTORIO)
             params.append(cuatrimestre)
         if grupo:
             condiciones.append("g.nomenclatura = %s")
