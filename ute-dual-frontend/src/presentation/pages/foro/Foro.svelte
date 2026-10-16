@@ -6,7 +6,6 @@
   import { isAuthenticated, user } from '../../stores/auth.js'
   import { api } from '../../../composition/api.js'
   import Navbar from '../../components/layout/Navbar.svelte'
-  import PerfilModal from '../../components/layout/PerfilModal.svelte'
   import LoadingSpinner from '../../components/ui/LoadingSpinner.svelte'
   import EmptyState from '../../components/ui/EmptyState.svelte'
   import BuzonDetalleModal from '../../components/foro/BuzonDetalleModal.svelte'
@@ -16,8 +15,6 @@
   const MAX_CONTENIDO = 2000
   const MAX_MENSAJE_BUZON = 500
 
-  let alumnoPerfil = null
-  let showPerfil = false
   let loading = true
   let loadError = false
   let tab = 'anuncios'
@@ -66,9 +63,6 @@
       return
     }
 
-    if (esAlumno) {
-      try { alumnoPerfil = await api.alumno.me() } catch { /* no bloquea el foro */ }
-    }
 
     try {
       publicaciones = await api.foro.listar()
@@ -238,8 +232,7 @@
   <title>Foro | Portal UTE</title>
 </svelte:head>
 
-<Navbar onAlumnoClick={() => showPerfil = true} />
-<PerfilModal bind:show={showPerfil} alumno={alumnoPerfil} />
+<Navbar />
 
 <main class="main">
   {#if loading}

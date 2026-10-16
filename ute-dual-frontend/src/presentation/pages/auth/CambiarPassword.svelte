@@ -4,9 +4,14 @@
   import { fade } from 'svelte/transition'
   import { onMount } from 'svelte'
   import { api } from '../../../composition/api.js'
-  import { isAuthenticated, logout } from '../../stores/auth.js'
+  import { isAuthenticated, logout, user } from '../../stores/auth.js'
   import { get } from 'svelte/store'
 
+  import { validatePassword } from '../../../domain/auth/credentials.js'
+  import Icon from '../../components/ui/Icon.svelte'
+  import { homeFor } from '../../../domain/auth/permissions.js'
+  $: obligatorio = Boolean($user?.must_change_password)
+  let success = false
   let passwordActual = ''
   let passwordNueva = ''
   let confirmar = ''
@@ -24,16 +29,15 @@
 
   async function handleSubmit(e) {
     if (e) e.preventDefault()
+    if (loading) return
     error = ''
 
     if (!passwordActual) {
       error = 'Ingresa tu contraseña actual'
       return
     }
-    if (passwordNueva.length < 12) {
-      error = 'La nueva contraseña debe tener al menos 12 caracteres'
-      return
-    }
+    try { validatePassword(passwordNueva) }
+    catch (e) { error = e.message; return }
     if (passwordNueva !== confirmar) {
       error = 'Las contraseñas no coinciden'
       return
@@ -50,8 +54,8 @@
         password_nueva: passwordNueva
       })
       logout()
-      navigate('/login', { replace: true })
-      alert('Contraseña actualizada con éxito. Inicia sesión con tu nueva contraseña.')
+      passwordActual = passwordNueva = confirmar = ''
+      success = true
     } catch (e) {
       error = e.message || 'Error al cambiar la contraseña'
     } finally {
@@ -59,9 +63,6 @@
     }
   }
 
-  function handleKeydown(e) {
-    if (e.key === 'Enter') handleSubmit(e)
-  }
 </script>
 
 <svelte:head>
@@ -77,7 +78,7 @@
       </div>
       <h1 class="title">Cambiar Contraseña</h1>
       <p class="subtitle">
-        Debes cambiar tu contraseña temporal antes de continuar
+        {success ? 'Tu contraseña se actualizó correctamente.' : obligatorio ? 'Debes cambiar tu contraseña temporal antes de continuar' : 'Actualiza la contraseña de tu cuenta cuando lo necesites.'}
       </p>
     </div>
 
@@ -85,7 +86,11 @@
       <div class="error-msg">{error}</div>
     {/if}
 
-    <div class="form">
+    {#if success}
+      <p role="status">Inicia sesión con tu nueva contraseña.</p>
+      <a class="btn-primary" href="/login" use:link>Iniciar sesión</a>
+    {:else}
+    <form class="form" on:submit|preventDefault={handleSubmit}>
       <div class="input-group">
         <label for="actual">Contraseña actual</label>
         <div class="input-wrap">
@@ -99,11 +104,10 @@
             type={showActual ? 'text' : 'password'}
             value={passwordActual}
             on:input={(e) => { passwordActual = e.target.value; error = '' }}
-            placeholder="Contraseña temporal"
-            on:keydown={handleKeydown}
+            placeholder={obligatorio ? "Contraseña temporal" : "Contraseña actual"}
           />
-          <button type="button" class="eye-btn" on:click={() => showActual = !showActual}>
-            {#if showActual}🙈{:else}👁{/if}
+          <button type="button" class="eye-btn" on:click={() => showActual = !showActual} aria-label={showActual ? 'Ocultar contraseña actual' : 'Mostrar contraseña actual'}>
+            <Icon name={showActual ? 'eyeOff' : 'eye'} size={18} />
           </button>
         </div>
       </div>
@@ -122,10 +126,9 @@
             value={passwordNueva}
             on:input={(e) => { passwordNueva = e.target.value; error = '' }}
             placeholder="Mínimo 12 caracteres"
-            on:keydown={handleKeydown}
           />
-          <button type="button" class="eye-btn" on:click={() => showNueva = !showNueva}>
-            {#if showNueva}🙈{:else}👁{/if}
+          <button type="button" class="eye-btn" on:click={() => showNueva = !showNueva} aria-label={showNueva ? 'Ocultar contraseña nueva' : 'Mostrar contraseña nueva'}>
+            <Icon name={showNueva ? 'eyeOff' : 'eye'} size={18} />
           </button>
         </div>
       </div>
@@ -144,26 +147,30 @@
             value={confirmar}
             on:input={(e) => { confirmar = e.target.value; error = '' }}
             placeholder="Repite tu nueva contraseña"
-            on:keydown={handleKeydown}
           />
-          <button type="button" class="eye-btn" on:click={() => showConfirmar = !showConfirmar}>
-            {#if showConfirmar}🙈{:else}👁{/if}
+          <button type="button" class="eye-btn" on:click={() => showConfirmar = !showConfirmar} aria-label={showConfirmar ? 'Ocultar contraseña confirmación' : 'Mostrar contraseña confirmación'}>
+            <Icon name={showConfirmar ? 'eyeOff' : 'eye'} size={18} />
           </button>
         </div>
       </div>
 
-      <button class="btn-primary" on:click={handleSubmit} disabled={loading}>
+      <button type="submit" class="btn-primary" disabled={loading}>
         {#if loading}
           <span class="spinner"></span> Cambiando...
         {:else}
           Cambiar Contraseña
         {/if}
       </button>
-    </div>
+      {#if !obligatorio}<a class="cancel-link" href={homeFor($user)} use:link>Cancelar y volver</a>{/if}
+    </form>
+    {/if}
   </div>
 </div>
 
 <style>
+  .cancel-link { text-align: center; font-size: 14px; color: var(--text-secondary); padding: 8px; }
+  a.btn-primary { text-decoration: none; }
+  button:focus-visible, a:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
   .page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; background: var(--bg-page); }
   .card { background: var(--bg-card); border-radius: var(--radius-card); border: 1px solid var(--border); box-shadow: var(--shadow-card); padding: 36px 32px; width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 20px; }
   .header { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }
