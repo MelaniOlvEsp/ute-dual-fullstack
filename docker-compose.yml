@@ -35,6 +35,9 @@ services:
       CORS_ORIGINS: http://127.0.0.1:${WEB_PORT:-5174},http://localhost:${WEB_PORT:-5174}
     ports:
       - "127.0.0.1:${API_PORT:-8001}:8000"
+    volumes:
+      # C05: originales de reportes en almacenamiento privado local (DP-08); sobrevive a reconstrucciones.
+      - dual-uploads:/workspace/ute-api-backend/uploads/dual
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,6 +74,9 @@ services:
     environment:
       <<: *api-environment
       API_URL: http://api:8000
+    volumes:
+      # Mismo volumen que la API: el smoke comprueba hashes y limpia huérfanos reales.
+      - dual-uploads:/workspace/ute-api-backend/uploads/dual
     command: ["python", "scripts/smoke_c01.py"]
     depends_on:
       api:
@@ -78,3 +84,4 @@ services:
 
 volumes:
   postgres-data:
+  dual-uploads:

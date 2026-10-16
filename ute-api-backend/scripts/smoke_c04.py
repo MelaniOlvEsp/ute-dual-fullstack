@@ -198,13 +198,14 @@ def main():
         for o in a:
             assert o["periodo"] == etiqueta(date.fromisoformat(o["semana_fin"])), o
 
-        # RN-10 / provisional: una semana recibida no bloquea a las demás.
+        # RN-10: una semana recibida no bloquea a las demás. Desde C05 "recibida" es un reporte ligado
+        # a la obligación (la entrega real por HTTP se prueba en smoke_c05.py).
         with connect_local() as conn:
             conn.execute(
-                "INSERT INTO reportes_dual (matricula,cuatrimestre,semana,calificacion_alumno,fecha_inicio,fecha_fin) "
-                "VALUES (%s,%s,1,8,%s,%s)",
+                "INSERT INTO reportes_dual (matricula,cuatrimestre,semana,calificacion_alumno,fecha_inicio,"
+                "fecha_fin,obligacion_id) VALUES (%s,%s,1,8,%s,%s,%s)",
                 (m_a, etiqueta(date.fromisoformat(primera["semana_fin"])),
-                 primera["semana_inicio"], primera["semana_fin"]))
+                 primera["semana_inicio"], primera["semana_fin"], primera["id"]))
         a2 = {o["ordinal"]: o for o in semanas(m_a)}
         assert a2[1]["estado"] == "RECIBIDA" and a2[2]["estado"] == "ATRASADA" and a2[3]["estado"] == "PENDIENTE"
 
@@ -259,6 +260,12 @@ def main():
         expect(client.get("/dual/alumno/obligaciones", headers=tutor), 403)
         expect(client.get("/dual/tutor/alumnos/000000000/obligaciones", headers=tutor), 404)
         expect(client.get("/dual/alumno/obligaciones"), 401)
+
+        # Otro recorrido pudo dejar un período abierto (solo puede haber uno): se cierra para aislar la prueba.
+        previo = expect(client.get("/dual/tutor/cuatrimestre-actual", headers=coordinator), 200)
+        if previo["abierto"]:
+            expect(client.post("/dual/tutor/cierre", headers=coordinator,
+                               json={"periodo_label": previo["periodo_label"]}), 200)
 
         # DP-04 / MP-18: solo el coordinador abre períodos y consulta el actual; tutor y alumno reciben 403.
         apertura_e = {

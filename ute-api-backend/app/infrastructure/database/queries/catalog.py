@@ -9,11 +9,13 @@ from app.infrastructure.database.queries.foro_publicaciones import QUERIES as FO
 from app.infrastructure.database.queries.dual_tutor import QUERIES as DUAL_TUTOR
 from app.infrastructure.database.queries.dual_organization import QUERIES as DUAL_ORGANIZATION
 from app.infrastructure.database.queries.dual_obligaciones import QUERIES as DUAL_OBLIGACIONES
+from app.infrastructure.database.queries.dual_entregas import QUERIES as DUAL_ENTREGAS
 
 QUERIES = {
     **DUAL_TUTOR,
     **DUAL_ORGANIZATION,
     **DUAL_OBLIGACIONES,
+    **DUAL_ENTREGAS,
     **AUTH,
     **DUAL_ALUMNO_DUAL,
     **DUAL_COORDINADOR_CARRERA,

@@ -72,19 +72,6 @@
   ],
   "dual/alumno_dual": [
     {
-      "name": "subir_reporte",
-      "method": "POST",
-      "path": "/",
-      "params": [
-        "semana",
-        "calificacion_alumno",
-        "fecha_inicio",
-        "fecha_fin",
-        "archivo",
-        "user"
-      ]
-    },
-    {
       "name": "mis_reportes",
       "method": "GET",
       "path": "/mis-reportes",
@@ -103,10 +90,34 @@
       ]
     },
     {
-      "name": "obtener_semana_actual",
-      "method": "GET",
-      "path": "/semana-actual",
+      "name": "entregar_obligacion",
+      "method": "POST",
+      "path": "/obligaciones/{obligacion_id}/entrega",
       "params": [
+        "obligacion_id",
+        "fecha_inicio",
+        "fecha_fin",
+        "calificacion_alumno",
+        "archivo",
+        "user"
+      ]
+    },
+    {
+      "name": "versiones_reporte",
+      "method": "GET",
+      "path": "/reportes/{reporte_id}/versiones",
+      "params": [
+        "reporte_id",
+        "user"
+      ]
+    },
+    {
+      "name": "descargar_version_pdf",
+      "method": "GET",
+      "path": "/reportes/{reporte_id}/versiones/{numero}/pdf",
+      "params": [
+        "reporte_id",
+        "numero",
         "user"
       ]
     },

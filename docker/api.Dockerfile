@@ -6,7 +6,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ute-api-backend/ ./
 COPY database/schema_dual_desde_cero.sql /workspace/database/schema_dual_desde_cero.sql
 COPY database/migrations/ /workspace/database/migrations/
-RUN useradd --create-home appuser
+RUN useradd --create-home appuser \
+    && mkdir -p uploads/dual && chown -R appuser:appuser uploads
 USER appuser
 EXPOSE 8000
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

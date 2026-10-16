@@ -12,8 +12,9 @@ from app.domain.periods import validar_periodo as _validar_periodo
 # Base: Lo que comparten los reportes
 class ReporteDualBase(BaseModel):
     cuatrimestre: str
+    # Ordinal continuo de la obligación (C04/C05): sin techo de 18 semanas (RN-07).
     semana: int = Field(
-        ..., ge=1, le=18, description="Semana del cuatrimestre"
+        ..., ge=1, description="Ordinal de la semana de la incorporación"
     )
     calificacion_alumno: float = Field(..., ge=1, le=10)
     archivo_pdf_url: Optional[str] = None

@@ -25,10 +25,13 @@ class ServicesPort(Protocol):
     upload_file_async: Callable[..., Awaitable[Any]]
     find_or_create_folder_async: Callable[..., Awaitable[Any]]
     delete_file_async: Callable[..., Awaitable[Any]]
-    procesar_y_subir_pdf_reporte: Callable[..., Awaitable[Any]]
+    leer_pdf_limitado: Callable[..., Awaitable[bytes]]
+    inspeccionar_pdf: Callable[..., int]
+    guardar_documento: Callable[..., Awaitable[dict]]
+    leer_documento: Callable[..., Awaitable[bytes]]
+    eliminar_documento: Callable[..., Awaitable[Any]]
     eliminar_pdf_local: Callable[..., Awaitable[Any]]
     obtener_pdf_bytes: Callable[..., Awaitable[bytes]]
-    subir_pdf_a_drive_desde_local: Callable[..., Awaitable[Any]]
     leer_pdf_local: Callable[..., Awaitable[bytes]]
 
 

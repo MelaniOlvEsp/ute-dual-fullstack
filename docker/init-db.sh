@@ -8,4 +8,5 @@ SET ROLE ute_dual_app;
 \i /opt/ute/schema.sql
 \i /opt/ute/migrations/003_grupos_incorporacion.sql
 \i /opt/ute/migrations/004_obligaciones.sql
+\i /opt/ute/migrations/005_entregas.sql
 SQL

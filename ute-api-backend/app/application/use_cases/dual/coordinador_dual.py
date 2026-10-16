@@ -44,7 +44,6 @@ async def listar_reportes(
 async def revisar_reporte(reporte_id, data, user, *, runtime: RuntimePort):
     # Solo el tutor puede revisar y firmar reportes semanales.
     drive_id = None
-    old_local = None
     async with runtime.database.transaction() as cur:
         await cur.execute('dual.coordinador_dual.q001', (reporte_id,))
         row = await cur.fetchone()
@@ -88,14 +87,13 @@ async def revisar_reporte(reporte_id, data, user, *, runtime: RuntimePort):
             assignments.extend(['archivo_pdf_url = %s',
                                 'archivo_pdf_local = NULL'])
             values.append(drive_id)
-            old_local = report.get('archivo_pdf_local')
         values.append(reporte_id)
         await cur.execute(
             QueryRef('dual.coordinador_dual.update_report',
                      assignments=tuple(assignments)), tuple(values)
         )
-    if old_local:
-        await runtime.services.eliminar_pdf_local(old_local)
+    # C05: el original entregado por el alumno se conserva (RN-14, RN-16); el firmado es un
+    # derivado distinto. La revisión y la firma se rehacen en C06.
     return {'mensaje': f'Reporte actualizado a {data.estado}'}
 
 

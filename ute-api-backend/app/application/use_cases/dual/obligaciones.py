@@ -45,11 +45,25 @@ async def abrir_periodo_resuelve(cur, periodo_id, fecha_inicio, fecha_fin):
     await cur.execute("dual.obligaciones.backfill_period", (periodo_id, fecha_inicio, fecha_fin))
 
 
+def _entregable(item):
+    """(puede_entregar, motivo): DP-13 (período abierto) y estado del reporte (RN-14, RN-17)."""
+    if item.get("entrega") == "Pendiente":
+        return False, "Tu reporte está pendiente de revisión."
+    if item.get("entrega") == "Aprobada":
+        return False, "Tu reporte ya fue aprobado."
+    if item.get("periodo") is None:
+        return False, "Esta semana aún no pertenece a un período."
+    if not item.get("periodo_abierto") or item.get("periodo_cerrado"):
+        return False, "La recepción de este período no está abierta."
+    return True, None
+
+
 def _presentar(filas, hoy):
     resultado = []
     for fila in filas:
         item = dict(fila)
         item["estado"] = calendar.estado_obligacion(item["semana_fin"], hoy, item["recibida"])
+        item["puede_entregar"], item["motivo_bloqueo"] = _entregable(item)
         resultado.append(item)
     return resultado
 

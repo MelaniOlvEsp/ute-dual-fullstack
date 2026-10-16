@@ -1,6 +1,6 @@
 # C04: obligaciones semanales. Las semanas posteriores a la baja de una incorporación se
-# excluyen de las lecturas (no se borran). "Recibida" es provisional hasta C05: existe un
-# reporte cuya fecha de fin declarada cae dentro de la semana.
+# excluyen de las lecturas (no se borran). Desde C05, "recibida" significa que la obligación
+# tiene un reporte (entrega real ligada por `obligacion_id`), en cualquier estado.
 
 # Obligaciones numeradas sobre TODA la incorporación (el ordinal no depende del filtro).
 _NUMERADAS = '''
@@ -20,15 +20,18 @@ _COLUMNAS = '''
     n.inicio_efectivo, n.fin_efectivo, n.parcial,
     p.cuatrimestre AS periodo, p.periodo_label,
     e.nombre AS empresa,
-    EXISTS (SELECT 1 FROM reportes_dual r
-            WHERE r.matricula = n.matricula
-              AND r.fecha_fin BETWEEN n.semana_inicio AND n.semana_fin) AS recibida
+    p.abierto AS periodo_abierto, p.cerrado AS periodo_cerrado,
+    (rd.id IS NOT NULL) AS recibida,
+    rd.id AS reporte_id, rd.estado AS entrega,
+    CASE WHEN rd.estado = 'Rechazada' THEN rd.nota_agente END AS observacion,
+    (SELECT max(v.numero) FROM reporte_versiones v WHERE v.reporte_id = rd.id) AS version
 '''
 
 _UNIONES = '''
     FROM numeradas n
     LEFT JOIN ciclos_dual p ON p.id = n.periodo_id
     LEFT JOIN empresas e ON e.id = n.empresa_id
+    LEFT JOIN reportes_dual rd ON rd.obligacion_id = n.id
 '''
 
 QUERIES = {
@@ -92,9 +95,7 @@ QUERIES = {
               ON agp.matricula = n.matricula AND agp.periodo_id = n.periodo_id
             LEFT JOIN grupos gp ON gp.id = agp.grupo_id
             LEFT JOIN grupos gc ON gc.id = a.grupo_id
-            WHERE NOT EXISTS (SELECT 1 FROM reportes_dual r
-                              WHERE r.matricula = n.matricula
-                                AND r.fecha_fin BETWEEN n.semana_inicio AND n.semana_fin)
+            WHERE rd.id IS NULL
               AND n.incorporacion_activa
             ORDER BY n.semana_inicio, a.nombre
         """,
@@ -112,9 +113,7 @@ QUERIES = {
             LEFT JOIN grupos gp ON gp.id = agp.grupo_id
             LEFT JOIN grupos gc ON gc.id = a.grupo_id
             WHERE p.cuatrimestre = %s AND n.ordinal = %s
-              AND NOT EXISTS (SELECT 1 FROM reportes_dual r
-                              WHERE r.matricula = n.matricula
-                                AND r.fecha_fin BETWEEN n.semana_inicio AND n.semana_fin)
+              AND rd.id IS NULL
             ORDER BY a.nombre
         """,
     },

@@ -25,14 +25,14 @@ class ServiceAdapter:
     upload_file_async = staticmethod(drive.upload_file_async)
     find_or_create_folder_async = staticmethod(drive.find_or_create_folder_async)
     delete_file_async = staticmethod(drive.delete_file_async)
-    procesar_y_subir_pdf_reporte = staticmethod(
-        dual_reports.procesar_y_subir_pdf_reporte
-    )
+    # C05: entrega de reportes con documentos privados.
+    leer_pdf_limitado = staticmethod(dual_reports.leer_pdf_limitado)
+    inspeccionar_pdf = staticmethod(dual_reports.inspeccionar_pdf)
+    guardar_documento = staticmethod(dual_reports.guardar_documento)
+    leer_documento = staticmethod(dual_reports.leer_documento)
+    eliminar_documento = staticmethod(dual_reports.eliminar_documento)
     eliminar_pdf_local = staticmethod(dual_reports.eliminar_pdf_local)
     obtener_pdf_bytes = staticmethod(dual_reports.obtener_pdf_bytes)
-    subir_pdf_a_drive_desde_local = staticmethod(
-        dual_reports.subir_pdf_a_drive_desde_local
-    )
     leer_pdf_local = staticmethod(dual_reports.leer_pdf_local)
 
 

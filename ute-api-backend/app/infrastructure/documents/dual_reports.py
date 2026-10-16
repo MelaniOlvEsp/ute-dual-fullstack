@@ -1,94 +1,147 @@
-# app/modulos/dual/services/reporte_services.py
+"""PDF de reportes semanales: validación real y almacenamiento privado (C05).
+
+El original se conserva byte a byte (sin recompresión). Las claves de almacenamiento las genera
+el servidor; el cliente nunca aporta rutas ni nombres de archivo. Drive solo se usa para leer
+documentos heredados y queda NO_VERIFICADO (DP-08).
+"""
+import asyncio
+import hashlib
 import os
+import re
+import time
+import uuid
+from pathlib import Path
 
 import fitz  # pymupdf
-from app.application.errors import ApplicationError
-from app.application.ports.uploads import FileUpload
 from loguru import logger
 
+from app.application.errors import ApplicationError
+from app.domain.reports import MAX_PDF_BYTES
 from app.infrastructure.config.settings import settings
-from app.infrastructure.integrations.drive import (
-    upload_file_async,
-    get_file_bytes_async,
-)
+from app.infrastructure.integrations.drive import get_file_bytes_async
 
-MAX_PDF_SIZE = 10 * 1024 * 1024  # 10 MB
-PDF_MAGIC = b"%PDF"
+PDF_MAGIC = b"%PDF-"
+_CLAVE = re.compile(r"^[0-9a-f]{32}\.pdf$")
+_BLOQUE = 64 * 1024
 
 
-# Comprime PDF con PyMuPDF
-def comprimir_pdf(file_bytes: bytes) -> bytes:
-    try:
-        doc = fitz.open(stream=file_bytes, filetype="pdf")
-        for page in doc:
-            for img in page.get_images():
-                xref = img[0]
-                pix = fitz.Pixmap(doc, xref)
-                if pix.width > 1200:
-                    data = pix.tobytes("jpeg", jpg_quality=75)
-                    doc.update_stream(xref, data)
-        return doc.tobytes(garbage=4, deflate=True, clean=True)
-    except Exception as e:
-        logger.warning(f"Compresion PDF fallo, subiendo original: {e}")
-        return file_bytes
+def _raiz() -> Path:
+    return Path(settings.dual_upload_dir) / "documentos"
 
 
-# Ejecuta la responsabilidad especificada para este módulo.
-def _dual_upload_path(matricula: str, cuatrimestre: str, semana: int) -> str:
-    return os.path.join(
-        settings.dual_upload_dir,
-        matricula,
-        cuatrimestre,
-        f"semana_{semana}.pdf",
-    )
+def ruta_documento(clave: str) -> Path:
+    # Solo claves con el formato generado por el servidor: evita cualquier recorrido de rutas.
+    if not _CLAVE.fullmatch(clave or ""):
+        raise ApplicationError(status_code=404, detail="Documento no disponible")
+    return _raiz() / clave[:2] / clave
 
 
-# Ejecuta la responsabilidad especificada para este módulo.
-async def guardar_pdf_local(
-    archivo: FileUpload,
-    matricula: str,
-    cuatrimestre: str,
-    semana: int,
-) -> str:
-    # Comprime y guarda PDF en sistema de archivos local.
-    # Retorna ruta absoluta del archivo guardado.
+# Lee el archivo recibido en bloques y corta al superar el límite, sin cargarlo completo antes.
+async def leer_pdf_limitado(archivo) -> bytes:
     if not (archivo.filename or "").lower().endswith(".pdf"):
-        raise ApplicationError(
-            status_code=400,
-            detail="Solo se aceptan archivos PDF",
-        )
-
-    contenido = await archivo.read()
-
-    if len(contenido) > MAX_PDF_SIZE:
-        raise ApplicationError(
-            status_code=413,
-            detail="El archivo excede el límite de 10 MB",
-        )
-
-    if contenido[:4] != PDF_MAGIC:
-        raise ApplicationError(
-            status_code=400,
-            detail="El archivo no es un PDF válido",
-        )
-
-    contenido = comprimir_pdf(contenido)
-    logger.info(
-        f"PDF comprimido: {len(contenido)} bytes "
-        f"({matricula}/semana_{semana})"
-    )
-
-    ruta = _dual_upload_path(matricula, cuatrimestre, semana)
-    os.makedirs(os.path.dirname(ruta), exist_ok=True)
-
-    with open(ruta, "wb") as f:
-        f.write(contenido)
-
-    logger.info(f"PDF guardado localmente: {ruta}")
-    return ruta
+        raise ApplicationError(status_code=422, detail="Solo se aceptan archivos PDF.")
+    partes, total = [], 0
+    while True:
+        bloque = await archivo.read(_BLOQUE)
+        if not bloque:
+            break
+        total += len(bloque)
+        if total > MAX_PDF_BYTES:
+            raise ApplicationError(status_code=413, detail="El PDF excede el límite de 10 MB.")
+        partes.append(bloque)
+    return b"".join(partes)
 
 
-# Ejecuta la responsabilidad especificada para este módulo.
+# Comprueba que el contenido sea un PDF legible; devuelve su número de páginas.
+def inspeccionar_pdf(contenido: bytes) -> int:
+    if not contenido:
+        raise ApplicationError(status_code=422, detail="El archivo está vacío.")
+    if not contenido.startswith(PDF_MAGIC):
+        raise ApplicationError(status_code=422, detail="El archivo no es un PDF válido.")
+    try:
+        documento = fitz.open(stream=contenido, filetype="pdf")
+    except Exception as exc:
+        raise ApplicationError(status_code=422, detail="El PDF está dañado y no se puede abrir.") from exc
+    try:
+        if documento.needs_pass or documento.is_encrypted:
+            raise ApplicationError(
+                status_code=422,
+                detail="El PDF está protegido; entrega una copia sin contraseña ni cifrado.")
+        if documento.is_repaired:
+            raise ApplicationError(
+                status_code=422, detail="El PDF está dañado o incompleto; genera el archivo de nuevo.")
+        paginas = documento.page_count
+        if paginas < 1:
+            raise ApplicationError(status_code=422, detail="El PDF no tiene páginas.")
+        # Renderizar la primera página a baja resolución confirma que el contenido es legible.
+        documento.load_page(0).get_pixmap(matrix=fitz.Matrix(0.2, 0.2))
+        return paginas
+    except ApplicationError:
+        raise
+    except Exception as exc:
+        raise ApplicationError(status_code=422, detail="No se pudo leer el contenido del PDF.") from exc
+    finally:
+        documento.close()
+
+
+def _escribir(contenido: bytes, ruta: Path) -> None:
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    temporal = ruta.with_name(ruta.name + ".part")
+    with open(temporal, "xb") as destino:
+        destino.write(contenido)
+        destino.flush()
+        os.fsync(destino.fileno())
+    os.replace(temporal, ruta)
+
+
+# Guarda el original con una clave nueva y única; nunca sobrescribe un documento existente.
+async def guardar_documento(contenido: bytes) -> dict:
+    clave = uuid.uuid4().hex + ".pdf"
+    ruta = ruta_documento(clave)
+    await asyncio.to_thread(_escribir, contenido, ruta)
+    return {
+        "clave": clave, "ruta": str(ruta), "tamano": len(contenido),
+        "sha256": hashlib.sha256(contenido).hexdigest(),
+    }
+
+
+async def leer_documento(clave: str) -> bytes:
+    ruta = ruta_documento(clave)
+    if not ruta.is_file():
+        raise ApplicationError(status_code=404, detail="Archivo PDF no encontrado en el servidor")
+    return await asyncio.to_thread(ruta.read_bytes)
+
+
+# Elimina solo un documento recién guardado cuyo registro no llegó a confirmarse.
+async def eliminar_documento(clave: str) -> None:
+    try:
+        ruta_documento(clave).unlink(missing_ok=True)
+    except (OSError, ApplicationError) as exc:
+        logger.warning(f"No se pudo eliminar el documento no confirmado {clave}: {exc}")
+
+
+# Limpia por referencia los archivos que ninguna fila de `documentos` apunta (fallos a mitad de
+# una entrega). Solo toca archivos con la forma de clave del servidor y con antigüedad suficiente.
+def limpiar_huerfanos(claves_referenciadas: set, antiguedad_segundos: int = 3600) -> list:
+    eliminados = []
+    raiz = _raiz()
+    if not raiz.is_dir():
+        return eliminados
+    limite = time.time() - antiguedad_segundos
+    for ruta in raiz.rglob("*"):
+        if not ruta.is_file() or ruta.stat().st_mtime > limite:
+            continue
+        nombre = ruta.name[:-5] if ruta.name.endswith(".part") else ruta.name
+        if not _CLAVE.fullmatch(nombre):
+            continue
+        if ruta.name.endswith(".part") or nombre not in claves_referenciadas:
+            ruta.unlink(missing_ok=True)
+            eliminados.append(ruta.name)
+    return eliminados
+
+
+# --- Lectura de documentos heredados (ruta local o Drive) ---------------------------------
+
 async def eliminar_pdf_local(ruta_local: str | None) -> None:
     # Elimina archivo PDF local. No-op si ruta es None o archivo no existe.
     if not ruta_local:
@@ -101,48 +154,6 @@ async def eliminar_pdf_local(ruta_local: str | None) -> None:
         logger.warning(f"Error eliminando PDF local {ruta_local}: {e}")
 
 
-# Valida, comprime y sube el PDF de un reporte semanal directo a Drive
-async def procesar_y_subir_pdf_reporte(
-    archivo: FileUpload,
-    matricula: str,
-    cuatrimestre: str,
-    semana: int,
-) -> str:
-    if not (archivo.filename or "").lower().endswith(".pdf"):
-        raise ApplicationError(
-            status_code=400,
-            detail="Solo se aceptan archivos PDF",
-        )
-
-    contenido = await archivo.read()
-
-    if len(contenido) > MAX_PDF_SIZE:
-        raise ApplicationError(
-            status_code=413,
-            detail="El archivo excede el límite de 10 MB",
-        )
-
-    if contenido[:4] != PDF_MAGIC:
-        raise ApplicationError(
-            status_code=400,
-            detail="El archivo no es un PDF válido",
-        )
-
-    contenido = comprimir_pdf(contenido)
-    logger.info(
-        f"PDF comprimido: {len(contenido)} bytes "
-        f"({matricula}/semana_{semana})"
-    )
-
-    nombre = f"{matricula}-S{semana}-{cuatrimestre}.pdf"
-    file_id = await upload_file_async(
-        contenido, nombre, "application/pdf", settings.drive_folder_dual
-    )
-    logger.info(f"PDF subido a Drive: {nombre} → {file_id}")
-    return file_id
-
-
-# Ejecuta la responsabilidad especificada para este módulo.
 async def leer_pdf_local(ruta_local: str) -> bytes:
     # Lee archivo PDF local y retorna sus bytes. Lanza 404 si no existe.
     if not ruta_local or not os.path.exists(ruta_local):
@@ -154,32 +165,7 @@ async def leer_pdf_local(ruta_local: str) -> bytes:
         return f.read()
 
 
-# Lee archivo local y lo sube a Google Drive.
-async def subir_pdf_a_drive_desde_local(
-    ruta_local: str,
-    matricula: str,
-    cuatrimestre: str,
-    semana: int,
-) -> str:
-
-    if not ruta_local or not os.path.exists(ruta_local):
-        raise ApplicationError(
-            status_code=404,
-            detail="Archivo PDF local no encontrado. Ya fue procesado?",
-        )
-
-    with open(ruta_local, "rb") as f:
-        contenido = f.read()
-
-    nombre = f"{matricula}-S{semana}-{cuatrimestre}.pdf"
-    file_id = await upload_file_async(
-        contenido, nombre, "application/pdf", settings.drive_folder_dual
-    )
-    logger.info(f"PDF subido a Drive: {nombre} → {file_id}")
-    return file_id
-
-
-# RetornaPDF desde almacenamiento local o Drive, segun el estado del reporte
+# Retorna PDF desde almacenamiento local o Drive, segun el estado del reporte
 async def obtener_pdf_bytes(reporte: dict) -> bytes:
     local_path = reporte.get("archivo_pdf_local")
     drive_id = reporte.get("archivo_pdf_url")

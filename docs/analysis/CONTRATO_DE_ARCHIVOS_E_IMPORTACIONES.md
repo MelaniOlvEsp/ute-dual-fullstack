@@ -4,9 +4,11 @@
 
 PDF firmado y calificado por empresa. Campos: obligación semanal, inicio/fin declarados y nota entera 1–10. Tutor verifica visualmente correspondencia; no hay firma empresarial electrónica ni OCR automático.
 
-Límite actual inconsistente: 2 MB frontend / 10 MB API. Unificar en C05 tras DP-08; propuesta 10 MB. Verificar tamaño durante lectura, contenido PDF parseable, extensión/tipo y rechazo claro de corruptos o protegidos que no puedan revisarse. No confiar solo en nombre o cabecera.
+Implementado en C05 (DP-08, 2026-10-15): límite único de 10 MB en cliente y API (antes 2 MB y 10 MB), leído en bloques con corte al exceder (413). La API rechaza con 422 y mensaje claro: extensión distinta de `.pdf`, archivo vacío, cabecera `%PDF-` ausente, PDF dañado o incompleto (incluido el que requiere reparación), PDF sin páginas, con contraseña o cifrado, o cuya primera página no se pueda leer. No confía solo en el nombre ni en la cabecera. Una entrega rechazada no deja documento, reporte ni archivo.
 
 Conservar original; firma académica produce derivado. Claves de almacenamiento generadas por servidor y fuera del directorio público. No usar matrícula/ruta aportada por cliente para escribir archivos arbitrarios. No comprimir destructivamente evidencia.
+
+Implementado en C05: almacenamiento privado local (volumen `dual-uploads`) con clave `<uuid>.pdf` generada por el servidor, hash SHA-256, tamaño y páginas en `documentos`; el original se guarda byte a byte (sin recompresión) con escritura atómica y nunca sobrescribe. Si la transacción falla se elimina solo el archivo recién guardado; los archivos sin fila de `documentos` se limpian por referencia y antigüedad (`limpiar_huerfanos`). Drive queda como lectura heredada y NO_VERIFICADO.
 
 ## Firma académica
 

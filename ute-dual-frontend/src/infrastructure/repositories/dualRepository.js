@@ -6,9 +6,10 @@ export function createDualRepository(http, baseUrl) {
   return {
     subirFirma: form => http.post('/dual/tutor/firma', form, { multipart: true }),
     estadoFirma: () => http.get('/dual/tutor/firma'),
-    subirReporte: form => http.post('/dual/alumno/', form, { multipart: true }),
     misReportes: periodo => http.get(`/dual/alumno/mis-reportes${query(periodo ? `cuatrimestre=${segment(periodo)}` : '')}`),
-    semanaActual: () => http.get('/dual/alumno/semana-actual'),
+    entregarObligacion: (id, form) => http.post(`/dual/alumno/obligaciones/${segment(id)}/entrega`, form, { multipart: true }),
+    versionesReporte: id => http.get(`/dual/alumno/reportes/${segment(id)}/versiones`),
+    descargarVersion: (id, numero) => http.get(`/dual/alumno/reportes/${segment(id)}/versiones/${segment(numero)}/pdf`, { blob: true }),
     misObligaciones: periodo => http.get(`/dual/alumno/obligaciones${query(periodo ? `periodo=${segment(periodo)}` : '')}`),
     reportePdfUrl: id => `${baseUrl}/dual/alumno/reporte/${segment(id)}/pdf`,
     listarReportes: params => http.get(`/dual/tutor/reportes${query(params)}`),

@@ -1,6 +1,6 @@
 # Contrato API: existente y objetivo
 
-Estado: contrato vivo. C01–C04 describen rutas implementadas (C04 en IN_PROGRESS); C05–C10 siguen como diseño propuesto. Fuentes ejecutables: routers en `ute-api-backend/app/presentation/api/routers`, `route_contract.json` y repositorios de `ute-dual-frontend/src/infrastructure/repositories`.
+Estado: contrato vivo. C01–C05 describen rutas implementadas (C05 DONE); C06–C10 siguen como diseño propuesto. Fuentes ejecutables: routers en `ute-api-backend/app/presentation/api/routers`, `route_contract.json` y repositorios de `ute-dual-frontend/src/infrastructure/repositories`.
 
 ## Inventario actual
 
@@ -9,7 +9,7 @@ Estado: contrato vivo. C01–C04 describen rutas implementadas (C04 en IN_PROGRE
 | Identidad | POST /auth/register, /login, /cambiar-password; GET /auth/me | Alinear esquema, sesiones y tres roles. |
 | Tutores | POST/GET /auth/tutores; DELETE /auth/tutores/{usuario_id} | Baja lógica y revocación; confirmar contrato compatible. |
 | Recuperación | POST /auth/alumnos/{matricula}/password-provisional | Conservar control tutor y cambio forzoso. |
-| Alumno | POST /dual/alumno/; GET /dual/alumno/mis-reportes, /semana-actual | Sustituir selector secuencial por obligaciones independientes. |
+| Alumno | GET /dual/alumno/mis-reportes, /obligaciones; POST /obligaciones/{id}/entrega; GET /reportes/{id}/versiones[/{n}/pdf] | Implementado en C04–C05: obligaciones independientes con versiones (retiradas `POST /dual/alumno/` y `GET /semana-actual`). |
 | Revisión | GET/PATCH /dual/tutor/reportes[/{reporte_id}] | Versiones, enteros, trazabilidad y firma; corrección DP-02. |
 | Empresa | /dual/tutor/empresas, /asignaciones, /alumnos/{matricula} | Fecha real de inicio/baja y continuidad entre períodos. |
 | Calendario | /dual/tutor/cuatrimestre-actual, /abrir-cuatrimestre, /cierre | Separar recepción/evaluación y autorización coordinador. |
@@ -26,7 +26,7 @@ Los prefijos carrera/coordinador_dual heredados no representan roles nuevos. No 
 | Operación propuesta | Entrada esencial | Resultado/garantía | Spec |
 |---|---|---|---|
 | Consultar obligaciones | período opcional, identidad en sesión | ID, intervalo, estado, atraso (implementado en C04; permiso de entregar y motivo de bloqueo llegan con C05) | C04 |
-| Entregar versión | obligación_id, fechas declaradas, nota entera, PDF multipart | reporte_id, version_id y pendiente de revisión; 201 solo tras persistencia | C05 |
+| Entregar versión | obligación_id, fechas declaradas, nota entera, PDF multipart | reporte_id, version_id y pendiente de revisión; 201 solo tras persistencia (implementado en C05) | C05 |
 | Revisar versión | version_id, acción, fechas/nota validadas, nota de rechazo, versión esperada | Revisión trazable, sin sobrescribir versión nueva por concurrencia | C06 |
 | Cerrar recepción | periodo_id y confirmación del coordinador | Cierre idempotente con autor/instante, mantiene revisión | C07 |
 | Finalizar evaluación | periodo_id | Falla si hay pendientes; congela resultados atómicamente | C07 |
@@ -71,6 +71,15 @@ Estas son operaciones, no rutas definitivas. Antes de implementar cada spec debe
 - `POST /dual/tutor/abrir-cuatrimestre` y `GET /dual/tutor/cuatrimestre-actual`: solo coordinador (DP-04; MP-18). Tutor y alumno reciben 403; antes eran del tutor. Se puede abrir el período en curso (inicio anterior a hoy) o uno futuro; un período ya terminado (fin anterior a hoy en America/Mexico_City) devuelve 422 con "solo se pueden abrir períodos en curso o futuros", y siguen vigentes el orden de fechas y la duración mínima de 110 días. La apertura rechaza con 409 fechas que se solapan con otro período (nombra el período en conflicto); la base lo garantiza con una restricción de exclusión. Las fechas se evalúan en America/Mexico_City. La interfaz de apertura y cierre está en `/dual/periodos` (coordinador); el tutor ya no ve el estado del período.
 - `GET /dual/tutor/asignaciones` devuelve ahora `fecha_inicio` y `fecha_baja`; la incorporación ya no escribe `cuatrimestre`.
 - El fixture contractual contiene 59 rutas. [Spec C04](../../specs/C04-calendario-y-pendientes/spec.md) y [evidencia C04](../../specs/C04-calendario-y-pendientes/evidencia.md).
+
+### Cambios implementados en C05 (DONE)
+
+- `POST /dual/alumno/obligaciones/{obligacion_id}/entrega` (multipart: `fecha_inicio`, `fecha_fin`, `calificacion_alumno`, `archivo`): entrega o reenvía una obligación propia como una versión nueva e inmutable. 201 con `mensaje`, `reporte_id`, `version` y `repetido`. Errores: 422 nota que no sea entero 1–10 (0, 11 y 8.5 incluidos), inicio posterior al fin (DP-12: solo esto se exige de las fechas; la correspondencia con la semana la verifica el tutor), extensión no PDF, archivo vacío, dañado, protegido o sin páginas; 413 si supera 10 MB; 409 si la recepción del período no está abierta o no hay período (DP-13), si el reporte ya fue aprobado (RN-17) o si hay una versión pendiente de revisión distinta; 404 si la obligación es ajena, inexistente o posterior a la baja; 403 para tutor y coordinador. Un reintento idéntico mientras la versión está pendiente devuelve 201 con `repetido: true` y no duplica nada. Dos envíos simultáneos para la misma obligación no crean dos reportes ni dos versiones.
+- Reenvío: solo cuando el reporte está rechazado. La decisión anterior (rechazo y observación) se copia a la versión que la recibió y el reporte vuelve a "Pendiente" con la versión nueva vigente; las versiones anteriores se conservan y no se modifican ni se borran (la base lo impide con un disparador).
+- `GET /dual/alumno/reportes/{reporte_id}/versiones`: historial propio (más reciente primero) con fechas y nota declaradas, instante de recepción, decisión y observación, tamaño, hash y páginas. `GET /dual/alumno/reportes/{reporte_id}/versiones/{numero}/pdf`: el original de esa versión (`application/pdf`, nombre generado). Ajenos o inexistentes 404.
+- `GET /dual/alumno/obligaciones` agrega `reporte_id`, `entrega` (Pendiente, Rechazada, Aprobada o nulo), `version`, `observacion` (si está rechazada), `puede_entregar` y `motivo_bloqueo`. "Recibida" ahora significa que existe un reporte ligado a la obligación (ya no la coincidencia provisional por fecha).
+- Retiradas: `POST /dual/alumno/` (entrega secuencial con semana 1–18 y borrado del rechazado) y `GET /dual/alumno/semana-actual`. `semana` de un reporte es el ordinal de la obligación (sin techo de 18). La aprobación heredada del tutor ya no borra el original.
+- El fixture contractual contiene 60 rutas. [Spec C05](../../specs/C05-entregas-y-versiones/spec.md) y [evidencia C05](../../specs/C05-entregas-y-versiones/evidencia.md).
 
 ### Reglas objetivo generales
 

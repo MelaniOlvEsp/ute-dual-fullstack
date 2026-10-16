@@ -10,7 +10,7 @@ Estado inicial: documentación creada; ningún incremento implementado o aceptad
 | C02 — Identidad y accesos | Registro autorizado, tres roles, temporales/revocación, bajas lógicas y autorización de objeto. | US-01/03; AC-02/03/04 | C01 |
 | C03 — Grupos e incorporación | Matrículas por grupo, historia por período, empresa/inicio/baja, carreras correctas. | US-02/04; AC-05 | C02; DP-05 resuelta 2026-10-15 |
 | C04 — Calendario y pendientes | Obligaciones individuales y compartidas por alumno/tutor, períodos por fechas, semanas parciales. | US-07; AC-06/07/08 | C03; DP-01/03/04 |
-| C05 — Entregas y versiones | PDF real, nota entera, entregas independientes y reenvíos sin pérdida. | US-06/09; AC-09/10/11 | C04; DP-06/08 |
+| C05 — Entregas y versiones | PDF real, nota entera, entregas independientes y reenvíos sin pérdida. | US-06/09; AC-09/10/11 | C04 DONE; DP-08/12/13 (DP-06 no bloquea) |
 | C06 — Revisión y firma | Correcciones trazables, rechazo con nota y firmado visualmente validado. | US-08; AC-12/13 | C05; DP-02/07/08 |
 | C07 — Cierre y calificación | Cierre manual de recepción, revisión posterior, finalización y promedio. | US-11/12; AC-14/15/16/17/18 | C06; DP-04/11 |
 | C08 — Expediente y visor | Historia propia y del personal, descarga privada y visor fiable. | US-10/11; AC-04/19/20 | C07 |
@@ -35,8 +35,8 @@ Los incrementos posteriores se redactan como specs completas justo antes de ejec
 
 DP-01/03/04: antes del calendario. Resueltas el 2026-10-15 para C04: DP-01 completa, DP-03 y DP-04 en lo que C04 necesita (baja inclusiva; períodos manuales, America/Mexico_City, sin solapamiento). Quedan para C07 la etiqueta por cierre anticipado (DP-03) y la recepción simultánea (DP-04).
 DP-05: resuelta el 2026-10-15; conservar catálogo, abreviaciones y nomenclatura de la base institucional y aplicar la promoción aprobada.
-DP-06/08: antes de carga de reportes.
-DP-02/07: antes de revisión/firma.
+DP-06/08: antes de carga de reportes. DP-08, DP-12 (fechas declaradas: solo inicio ≤ fin) y DP-13 (entrega solo con período abierto) resueltas el 2026-10-15 para C05; DP-06 solo afecta el tratamiento especial de períodos vacacionales, que C05 no incluye.
+DP-02/07: antes de revisión/firma. La spec C06 está en DRAFT desde el 2026-10-15 (C05 DONE) con ambas pendientes; DP-08 ya está resuelta.
 DP-11: antes de cierre/uso real.
 DP-09: antes de cerrar comunicación.
 
