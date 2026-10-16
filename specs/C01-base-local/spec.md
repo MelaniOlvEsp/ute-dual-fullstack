@@ -1,6 +1,6 @@
 # C01 — Base local reproducible
 
-Estado: IN_PROGRESS
+Estado: DONE
 Fecha: 2026-10-14
 Aprobación de implementación: recibida el 2026-10-14 mediante IMPLEMENT C01. C01-slug se resuelve a C01-base-local.
 Dependencias: ninguna
@@ -44,7 +44,7 @@ No hay DP de negocio bloqueante para este alcance. Destino concreto de PostgreSQ
 ## Archivos previstos
 
 database: esquema de arranque y README con ruta inequívoca.
-ute-api-clean: consultas/configuración/bootstrap y pruebas afectadas por incompatibilidad.
+ute-api-backend: consultas/configuración/bootstrap y pruebas afectadas por incompatibilidad.
 ute-dual-frontend: instalación/configuración solo si necesita corrección para build.
 README_INTEGRACION.md: instrucciones verificadas, no resultados heredados.
 No modificar masivamente archivos fuera del alcance.
@@ -63,13 +63,13 @@ Un fallo preexistente fuera de alcance se registra con impacto y siguiente incre
 
 ## Evidencia
 
-Implementación parcial y pruebas de host ejecutadas. Ver [evidencia actual](evidencia.md). Compose real y navegador pendientes por acceso al motor Docker.
+Entrega revisada y aceptada. Ver [evidencia y cierre](evidencia.md): arranque Compose en volumen nuevo, smoke HTTP/PostgreSQL PASS, pruebas de host, compilación y preview de acceso. Las limitaciones del producto completo permanecen explícitas.
 
 ## Revisión y cierre
 
-Revisión: pendiente.
-Aprobación de cierre: pendiente.
-Siguiente: C02 identidad y accesos, redactar al cerrar C01.
+Revisión: APPROVED en la última REVIEW / PREVIEW C01 de este chat; revisión técnica del diff y evidencia, preview de acceso y evidencia visual previa del coordinador. Mismo agente, no independiente.
+Aprobación de cierre: otorgada explícitamente por el usuario el 2026-10-14 mediante CLOSE C01 + NEXT SPEC. Condición satisfecha: revisión APPROVED y evidencia suficiente para C01-AC1 a C01-AC5.
+Siguiente: [C02 — Identidad y accesos](../C02-identidad-y-accesos/spec.md), DRAFT; no implementada por este cierre.
 Commit/push: no autorizados.
 
 ## Registro de inicio
@@ -80,3 +80,9 @@ Commit/push: no autorizados.
 
 El usuario solicita entorno local con Docker como PC-Refresh. Docker Compose pasa a ser la ruta canónica: PostgreSQL, API y frontend aislados, con volumen propio y puertos loopback. Se conserva el stack FastAPI/Svelte; no se copia el worker ni almacenamiento de PC-Refresh. Los intentos iniciales de PostgreSQL nativo son evidencia de diagnóstico, no el entorno de entrega. El cierre de C01 requiere comprobar el entorno Compose real.
 
+
+## Cierre aprobado — 2026-10-14
+
+IN_PROGRESS → DONE por aprobación humana posterior a revisión APPROVED. Entregado: base Docker con PostgreSQL/API/frontend, esquema canónico y usuario de aplicación, configuración local, bootstrap administrativo y fixtures, identidad compatible y smoke real. La corrección de dual_activo fue revisada con build y contrato API real.
+
+No implica cierre de UI01, validación del producto completo ni autorización de commit/push. Historial integral, Drive, PDFs, firmas, calendario y restauración quedan para sus incrementos.

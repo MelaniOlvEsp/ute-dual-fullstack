@@ -1,6 +1,6 @@
 # Evidencia de implementación C01
 
-Fecha: 2026-10-14. Estado spec: IN_PROGRESS. Sin revisión formal ni aprobación de cierre.
+Fecha: 2026-10-14. Estado actual: DONE. Revisión APPROVED y cierre humano autorizado; ver acta al final. Los apartados anteriores al acta conservan evidencia histórica, no el estado vigente.
 No hay repositorio .git en esta carpeta; no se hizo commit/push. Copias de archivos previos y logs locales en work/c01, ignorados. El manifiesto de cambios identifica archivos y hashes para revisión.
 
 ## Línea base
@@ -58,3 +58,44 @@ docker.exe compose --profile verification run --rm smoke
 Abrir http://127.0.0.1:5174/login y comprobar pantalla, consola/errores y login de cuenta sintética. Guardar resultados sin secretos. El smoke crea datos sintéticos y consume siete intentos de login; esperar cinco minutos antes de repetir para respetar el limitador.
 
 Registrar versión de imágenes/contenedores y actualizar esta tabla tras ejecución real. Mantener IN_PROGRESS hasta revisión y aprobación humana; no iniciar C02.
+
+### Corrección posterior a REVIEW / PREVIEW C01
+
+- PerfilModal ahora usa exclusivamente alumno.dual_activo del contrato /auth/me; no deduce la inscripción por la presencia de empresa.
+- Smoke ampliado: comprueba dual_activo=false para alumno sin asignación y dual_activo=true/empresa=null para alumno activo sin empresa.
+- Build frontend posterior a la corrección: REAL, correcto, usando resolve.preserveSymlinks=true solo en la ejecución local por EPERM de Windows. No se repitieron suites ya válidas.
+- Smoke real: PENDIENTE de ejecutar en PowerShell del usuario; Docker continúa rechazando el acceso al named pipe desde la sesión del agente. No se declara PASS ni se cierra C01.
+- Comando preparado: docker compose --profile verification run --build --rm smoke. Guardar salida en work/c01/smoke-compose.log y registrar resultado después de recibirla.
+
+## Resultado posterior: smoke Compose PASS
+
+Fecha: 2026-10-14. Ejecución por el usuario en PowerShell; salida aportada en el chat y corroborada leyendo work/c01/smoke-compose.log. Esta sección actualiza los pendientes históricos del smoke anteriores; no representa cierre ni nueva aprobación de revisión.
+
+Comando: docker compose --profile verification run --build --rm smoke.
+Resultado: PASS C01. Imagen ute-dual-c01-smoke construida y API Healthy. HTTP y PostgreSQL REALES.
+
+Comprobaciones del script ejecutado: health; creación administrativa de coordinador; bloqueo con contraseña temporal; cambio obligatorio e invalidación de token anterior; login/perfil del coordinador; alta y acceso del tutor; registro y perfil del alumno; denegación del listado de tutores a tutor/alumno; perfil único con dos asignaciones activas; baja lógica del tutor con revocación y fila conservada. También se verificó dual_activo=false sin asignación y dual_activo=true con empresa=null en alumno activo.
+
+C01-AC2: evidencia real del smoke disponible para revisión. Arranque inicial con volumen nuevo y contenedores saludables documentado por el usuario previamente en este chat; health HTTP 200 y recorrido visual del coordinador comprobados por el agente. Las pruebas y builds previos no se repitieron.
+
+Limitaciones: este smoke no verifica conservación integral de expedientes/versiones, restauración, Drive, PDFs, firmas ni calendario. La inspección visual de alumno/tutor y móvil sigue pendiente en UI01; la validación API de dual_activo no la sustituye. No se inspeccionaron directamente imágenes/digests desde el agente por restricción del canal Docker.
+
+Estado: IN_PROGRESS. Pendiente nueva revisión; sin cierre, commit ni push.
+
+## Acta de cierre C01 — 2026-10-14
+
+Revisión final: APPROVED, por el mismo agente (no independiente), contra spec, requisitos, diff real y evidencia. Aprobación humana: mensaje CLOSE C01 + NEXT SPEC de este chat. Estado definitivo de este incremento: DONE.
+
+| Criterio | Evidencia suficiente aceptada |
+|---|---|
+| C01-AC1 | Salida inicial del usuario: volumen ute-dual-c01_postgres-data creado y tres servicios Healthy; esquema inicial usado por API y smoke reales. |
+| C01-AC2 | work/c01/smoke-compose.log: PASS, HTTP/PostgreSQL reales; perfiles, restricciones comprobadas, cambio obligatorio, revocación, fila del tutor conservada tras baja y contrato dual_activo. |
+| C01-AC3 | Compilación final correcta (99 módulos); workaround local preserveSymlinks por EPERM sin cambiar Vite; imagen web construida por usuario y /login inspeccionado visualmente en navegador. |
+| C01-AC4 | 28 pruebas backend registradas; 20 frontend aprobadas; contrato simulado 1 prueba/51 operaciones; errores iniciales y advertencias heredadas clasificados. Las pruebas simuladas no se presentan como integración real. |
+| C01-AC5 | Guía Compose, setup sin sobrescribir .env, Dockerfile ajustado a carpeta real, exclusiones de secretos y puertos loopback inspeccionados; arranque reproducido por el usuario. |
+
+Entregado: entorno local FastAPI/PostgreSQL/Svelte, esquema de base nueva, primer coordinador administrativo, fixtures sintéticos, identidad compatible y pruebas base. El smoke fue ejecutado por el usuario y su log leído por el agente; el canal Docker siguió restringido para el agente. No se volvieron a ejecutar pruebas válidas para cerrar.
+
+Límites aceptados: baja lógica probada no equivale a historial completo de expediente/versiones. Drive, PDFs, firmas, calendario, restauración y flujo integral siguen NO_VERIFICADA. Preview de alumno/tutor y móvil pendiente en UI01, que no se cierra aquí. Referencia visual de revisión: captura c01-login-review.png entregada en el chat.
+
+C02 preparado en DRAFT; sin implementación. No commit/push. Los estados IN_PROGRESS y pendientes anteriores en este archivo describen etapas históricas y quedan sustituidos por esta acta para C01.
