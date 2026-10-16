@@ -44,7 +44,7 @@ export function createHttpClient({ baseUrl, fetcher, getToken, onUnauthorized })
     if (!response.ok) {
       const detail = data?.detail || (blob ? 'Error al descargar el archivo' : 'Error en el servidor')
       const message = Array.isArray(detail)
-        ? detail.map(item => item.msg || String(item)).join(', ')
+        ? detail.map(item => (item.msg ? item.msg.replace(/^Value error,\s*/, '') : String(item))).join(', ')
         : typeof detail === 'string' ? detail : JSON.stringify(detail)
       throw new ApiError(message, response.status)
     }

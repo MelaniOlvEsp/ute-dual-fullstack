@@ -51,6 +51,20 @@ test('file export is delegated to a file adapter', async () => {
   assert.deepEqual(calls, ['expediente_22000000.csv'])
 })
 
+test('validation errors are shown without the technical "Value error," prefix', async () => {
+  const http = createHttpClient({
+    baseUrl: '', getToken: () => 'token', onUnauthorized: () => {},
+    fetcher: async () => ({
+      status: 422, ok: false,
+      json: async () => ({ detail: [{ msg: 'Value error, El período terminó.' }, { msg: 'Campo requerido' }] })
+    })
+  })
+  await assert.rejects(
+    http.post('/dual/tutor/abrir-cuatrimestre', {}),
+    error => error.message === 'El período terminó., Campo requerido'
+  )
+})
+
 test('public registration errors do not invalidate a previous session', async () => {
   let redirected = false
   const http = createHttpClient({

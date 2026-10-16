@@ -11,9 +11,8 @@
   import PageHeader from '../../components/ui/PageHeader.svelte'
   import LoadingSpinner from '../../components/ui/LoadingSpinner.svelte'
   import EmptyState from '../../components/ui/EmptyState.svelte'
-  import { formatFecha, estadoBadgeClass } from '../../utils/formatters.js'
+  import { formatFecha, formatFechaCivil, hoyOperativo, estadoBadgeClass } from '../../utils/formatters.js'
   import VisorPDF from '../../components/shared/VisorPDF.svelte'
-  import { PERIODOS_CUATRIMESTRE, ANIOS_DISPONIBLES, etiquetaPeriodo, construirPeriodo, fechasPeriodo, formatearFechaCorta } from '../../../domain/dual/periods.js'
 
   const location = useLocation()
 
@@ -91,31 +90,20 @@
   let errorAsignacion = ''
   let exitoAsignacion = ''
   let guardandoAsignacion = false
+  let fechaInicioIncorporacion = hoyOperativo()
+  let fechaBajaIncorporacion = hoyOperativo()
+  let historialIncorporaciones = []
+  let obligacionesAlumno = []
+  const ETIQUETA_ESTADO = { PENDIENTE: 'Pendiente', ATRASADA: 'Atrasada', RECIBIDA: 'Recibida' }
 
-  // Cerrar cuatrimestre
-  let showModalCierre = false
-  let periodoClaveCierre = ''
-  let anioCierre = new Date().getFullYear()
-  let cerrandoCuatrimestre = false
-  let errorCierre = ''
-  let exitoCierre = ''
-
-  // Abrir cuatrimestre
-  let showModalApertura = false
-  let periodoClaveApertura = ''
-  let anioApertura = new Date().getFullYear()
-  let abriendoCuatrimestre = false
-  let errorApertura = ''
-  let exitoApertura = ''
-
-  $: fechasApertura = (periodoClaveApertura && anioApertura)
-    ? fechasPeriodo(periodoClaveApertura, anioApertura)
-    : { inicio: '', fin: '' }
-
-  // Estado del cuatrimestre actual
-  let cuatrimestreActual = null
-  let loadingCuatrimestre = false
-  let errorCuatrimestre = ''
+  async function cargarObligaciones(matricula) {
+    try {
+      obligacionesAlumno = await api.dual.obligacionesAlumno(matricula)
+    } catch {
+      obligacionesAlumno = []
+    }
+  }
+  let confirmandoBaja = false
 
   // Expediente / directorio
   let alumnosExpediente = []
@@ -150,7 +138,6 @@
     } else {
       cargarReportes()
     }
-    cargarEstadoCuatrimestre()
     mounted = true
   })
 
@@ -163,19 +150,6 @@
       }
     } catch {
       periodos = []
-    }
-  }
-
-  async function cargarEstadoCuatrimestre() {
-    loadingCuatrimestre = true
-    errorCuatrimestre = ''
-    try {
-      cuatrimestreActual = await api.dual.cuatrimestreActual()
-    } catch (e) {
-      cuatrimestreActual = null
-      errorCuatrimestre = e.message || 'Error al cargar estado del cuatrimestre.'
-    } finally {
-      loadingCuatrimestre = false
     }
   }
 
@@ -283,6 +257,14 @@
     try {
       alumnoPreview = await api.dual.buscarAlumno(matriculaBusqueda.trim())
       empresaSeleccionada = alumnoPreview.empresa_id || ''
+      fechaInicioIncorporacion = alumnoPreview.fecha_inicio || hoyOperativo()
+      try {
+        historialIncorporaciones = await api.dual.historialIncorporaciones(matriculaBusqueda.trim())
+      } catch {
+        historialIncorporaciones = []
+      }
+      await cargarObligaciones(matriculaBusqueda.trim())
+      confirmandoBaja = false
     } catch {
       errorAsignacion = 'Alumno no encontrado.'
     } finally {
@@ -321,7 +303,8 @@
     try {
       await api.dual.actualizarAlumnoDual(alumnoPreview.matricula, {
         alumno_dual: true,
-        empresa_id: empresaSeleccionada
+        empresa_id: empresaSeleccionada,
+        fecha_inicio: fechaInicioIncorporacion
       })
       
       exitoAsignacion = 'Alumno dual actualizado correctamente.'
@@ -330,8 +313,11 @@
         ...alumnoPreview,
         es_alumno_dual: true,
         empresa_id: empresaSeleccionada,
-        empresa: nombreEmpresa
+        empresa: nombreEmpresa,
+        fecha_inicio: fechaInicioIncorporacion
       }
+      historialIncorporaciones = await api.dual.historialIncorporaciones(alumnoPreview.matricula)
+      await cargarObligaciones(alumnoPreview.matricula)
     } catch (e) {
       errorAsignacion = e.message || 'Error al guardar la asignación.'
     } finally {
@@ -348,81 +334,22 @@
     exitoAsignacion = ''
     try {
       await api.dual.actualizarAlumnoDual(alumnoPreview.matricula, { 
-        alumno_dual: false 
+        alumno_dual: false,
+        fecha_baja: fechaBajaIncorporacion
       })
-      exitoAsignacion = 'Rol dual removido correctamente.'
+      exitoAsignacion = 'Incorporación finalizada; cuenta, grupos y expediente conservados.'
       alumnoPreview = { 
         ...alumnoPreview, 
         es_alumno_dual: false, 
         activo: false 
       }
+      confirmandoBaja = false
+      historialIncorporaciones = await api.dual.historialIncorporaciones(alumnoPreview.matricula)
+      await cargarObligaciones(alumnoPreview.matricula)
     } catch (e) {
       errorAsignacion = e.message || 'Error al quitar el rol dual.'
     } finally {
       guardandoAsignacion = false
-    }
-  }
-
-  async function abrirCierre() {
-    showModalCierre = true
-    errorCierre = ''
-    exitoCierre = ''
-    periodoClaveCierre = ''
-    anioCierre = new Date().getFullYear()
-  }
-
-  async function confirmarCierre() {
-    if (!periodoClaveCierre || !anioCierre) {
-      errorCierre = 'Selecciona el periodo y el año.'
-      return
-    }
-    const periodo = construirPeriodo(periodoClaveCierre, anioCierre)
-    cerrandoCuatrimestre = true
-    errorCierre = ''
-    exitoCierre = ''
-    try {
-      await api.dual.cerrarCuatrimestre(periodo)
-      exitoCierre = `Periodo "${periodo}" cerrado correctamente.`
-      await cargarEstadoCuatrimestre()
-      await cargarReportes()
-    } catch (e) {
-      errorCierre = e.message || 'Error al cerrar cuatrimestre.'
-    } finally {
-      cerrandoCuatrimestre = false
-    }
-  }
-
-  function abrirApertura() {
-    showModalApertura = true
-    errorApertura = ''
-    exitoApertura = ''
-    periodoClaveApertura = ''
-    anioApertura = new Date().getFullYear()
-  }
-
-  async function confirmarApertura() {
-    if (!periodoClaveApertura || !anioApertura) {
-      errorApertura = 'Selecciona el periodo y el año.'
-      return
-    }
-    const periodo = construirPeriodo(periodoClaveApertura, anioApertura)
-    const { inicio, fin } = fechasPeriodo(periodoClaveApertura, anioApertura)
-    abriendoCuatrimestre = true
-    errorApertura = ''
-    exitoApertura = ''
-    try {
-      await api.dual.abrirCuatrimestre({
-        periodo_label: periodo,
-        fecha_inicio: inicio,
-        fecha_fin: fin
-      })
-      exitoApertura = `Cuatrimestre "${periodo}" abierto correctamente.`
-      await cargarEstadoCuatrimestre()
-      await cargarReportes()
-    } catch (e) {
-      errorApertura = e.message || 'Error al abrir cuatrimestre.'
-    } finally {
-      abriendoCuatrimestre = false
     }
   }
 
@@ -565,7 +492,10 @@
                     <td style="font-family: monospace;">{r.nomenclatura || '—'}</td>
                     <td>{r.empresa || '—'}</td>
                     <td class="td-center" style="font-weight: 700; color: var(--text-primary);">
-                      Semana {r.semana_esperada}
+                      Semana {r.semana_esperada}{#if r.parcial}&nbsp;(parcial){/if}
+                      <div style="font-weight: 400; font-size: 12px; color: var(--text-secondary);">
+                        {formatFechaCivil(r.inicio_efectivo)} – {formatFechaCivil(r.fin_efectivo)}
+                      </div>
                     </td>
                     <td class="td-center">
                       {#if r.status === 'Overdue'}
@@ -839,19 +769,24 @@
                   </span>
                   <span class="ficha-key">Empresa actual</span>
                   <span class="ficha-val" style="font-weight:600;">
-                    {alumnoPreview.empresa || 'Sin asignar'}
+                    {(alumnoPreview.es_alumno_dual && alumnoPreview.empresa) || 'Sin asignar'}
                   </span>
                 </div>
               </div>
 
               <div class="field" style="margin-top:8px;">
                 <label for="empresa-select">Asignar Unidad Económica</label>
-                <select id="empresa-select" class="input-plain" bind:value={empresaSeleccionada}>
+                <select id="empresa-select" class="input-plain" bind:value={empresaSeleccionada} disabled={alumnoPreview.es_alumno_dual}>
                   <option value="">Selecciona una empresa corporativa</option>
                   {#each empresas as emp}
                     <option value={emp.id}>{emp.nombre}</option>
                   {/each}
                 </select>
+              </div>
+
+              <div class="field">
+                <label for="fecha-inicio-dual">Fecha real de inicio</label>
+                <input id="fecha-inicio-dual" type="date" class="input-plain" bind:value={fechaInicioIncorporacion} disabled={alumnoPreview.es_alumno_dual} />
               </div>
 
               <div class="nueva-empresa-row">
@@ -876,21 +811,53 @@
                   class="btn-primary"
                   style="flex:1"
                   on:click={guardarAsignacion}
-                  disabled={guardandoAsignacion || !empresaSeleccionada}
+                  disabled={guardandoAsignacion || !empresaSeleccionada || alumnoPreview.es_alumno_dual || !fechaInicioIncorporacion}
                 >
-                  {guardandoAsignacion ? 'Guardando...' : alumnoPreview.es_alumno_dual ? 'Actualizar' : 'Activar Estatus Dual'}
+                  {guardandoAsignacion ? 'Guardando...' : alumnoPreview.es_alumno_dual ? 'Incorporación activa' : 'Activar Estatus Dual'}
                 </button>
                 {#if alumnoPreview.es_alumno_dual}
                   <button
                     class="btn-outline btn-danger"
                     style="flex:1"
-                    on:click={quitarDual}
+                    on:click={() => confirmandoBaja = true}
                     disabled={guardandoAsignacion}
                   >
                     Baja del Programa
                   </button>
                 {/if}
               </div>
+              {#if confirmandoBaja}
+                <div class="preview-individual" style="margin-top:12px">
+                  <p><strong>Confirmar baja de Dual</strong></p>
+                  <p>Finaliza obligaciones futuras desde la fecha indicada. La cuenta, los grupos por período y el expediente se conservan.</p>
+                  <label for="fecha-baja-dual">Fecha de baja</label>
+                  <input id="fecha-baja-dual" type="date" class="input-plain" bind:value={fechaBajaIncorporacion} />
+                  <div style="display:flex;gap:8px"><button class="btn-primary" disabled={guardandoAsignacion} on:click={quitarDual}>Confirmar baja</button><button class="btn-outline" on:click={() => confirmandoBaja = false}>Cancelar</button></div>
+                </div>
+              {/if}
+              {#if historialIncorporaciones.length > 0}
+                <div style="margin-top:16px">
+                  <h3 class="seccion-title">Historial de incorporación</h3>
+                  <ul class="empresa-list">
+                    {#each historialIncorporaciones as item}
+                      <li class="empresa-item"><strong>{item.empresa || 'Sin empresa'}</strong><br />{item.fecha_inicio} — {item.fecha_baja || 'Activa'}</li>
+                    {/each}
+                  </ul>
+                </div>
+              {/if}
+              {#if obligacionesAlumno.length > 0}
+                <div style="margin-top:16px">
+                  <h3 class="seccion-title">Semanas del alumno</h3>
+                  <ul class="empresa-list">
+                    {#each obligacionesAlumno as o (o.id)}
+                      <li class="empresa-item">
+                        <strong>Semana {o.ordinal}</strong>{#if o.parcial}&nbsp;(parcial){/if} — {ETIQUETA_ESTADO[o.estado]}<br />
+                        {formatFechaCivil(o.inicio_efectivo)} – {formatFechaCivil(o.fin_efectivo)} · {o.periodo_label || 'Sin período'}
+                      </li>
+                    {/each}
+                  </ul>
+                </div>
+              {/if}
             {/if}
           </div>
 
@@ -961,36 +928,6 @@
         {/if}
       </div>
 
-      <div class="bandeja-acciones" style="margin-top: 20px;">
-        {#if loadingCuatrimestre}
-          <span style="font-size:13px; color: var(--text-disabled);">Cargando estado del cuatrimestre…</span>
-        {:else if errorCuatrimestre}
-          <span style="font-size:13px; color: var(--error);">{errorCuatrimestre}</span>
-          <button class="btn-outline" style="font-size:12px; padding:6px 14px;" on:click={cargarEstadoCuatrimestre}>
-            Reintentar
-          </button>
-        {:else if cuatrimestreActual?.abierto}
-          <div class="quarter-badge quarter-abierto">
-            <span class="quarter-dot"></span>
-            {cuatrimestreActual.periodo_label || 'Cuatrimestre activo'}
-          </div>
-          <button class="btn-cierre" on:click={abrirCierre}>
-            Cerrar Cuatrimestre
-          </button>
-        {:else if cuatrimestreActual?.cerrado}
-          <div class="quarter-badge quarter-cerrado">
-            <span class="quarter-dot"></span>
-            CERRADO — {cuatrimestreActual.periodo_label || 'Sin etiqueta'}
-          </div>
-          <button class="btn-apertura" on:click={abrirApertura}>
-            Abrir Nuevo Cuatrimestre
-          </button>
-        {:else}
-          <button class="btn-apertura" on:click={abrirApertura}>
-            Abrir Primer Cuatrimestre
-          </button>
-        {/if}
-      </div>
     </div>
     {:else}
     <!-- EXPEDIENTE: layout idéntico a CoordinadorCarrera -->
@@ -1106,76 +1043,6 @@
     {/if}
   {/if}
 
-  {#if showModalCierre}
-    <div class="modal-overlay" on:click={() => showModalCierre = false}>
-      <div class="modal-box" on:click|stopPropagation>
-        <p class="modal-titulo">Cerrar Cuatrimestre</p>
-        <p class="modal-cuerpo">
-          Esta acción congela el ciclo actual. Los alumnos ya no podrán subir nuevos reportes para este periodo.
-        </p>
-        <div class="cierre-selects">
-          <select class="input-plain" bind:value={periodoClaveCierre}>
-            <option value="">Periodo</option>
-            {#each PERIODOS_CUATRIMESTRE as p}
-              <option value={p.clave}>{etiquetaPeriodo(p.clave)}</option>
-            {/each}
-          </select>
-          <select class="input-plain" bind:value={anioCierre}>
-            <option value="">Año</option>
-            {#each ANIOS_DISPONIBLES as anio}
-              <option value={anio}>{anio}</option>
-            {/each}
-          </select>
-        </div>
-        {#if errorCierre}<p class="error-msg">{errorCierre}</p>{/if}
-        {#if exitoCierre}<p class="exito-msg" style="margin-top: 8px;">{exitoCierre}</p>{/if}
-        <button class="modal-x" on:click={() => showModalCierre = false}>&times;</button>
-        <div class="modal-acciones">
-          <button class="btn-cierre" style="flex:1" on:click={confirmarCierre} disabled={cerrandoCuatrimestre || exitoCierre}>
-            {cerrandoCuatrimestre ? 'Cerrando...' : 'Confirmar cierre'}
-          </button>
-        </div>
-      </div>
-    </div>
-  {/if}
-
-  {#if showModalApertura}
-    <div class="modal-overlay" on:click={() => showModalApertura = false}>
-      <div class="modal-box" on:click|stopPropagation>
-        <p class="modal-titulo">Abrir Nuevo Cuatrimestre</p>
-        <p class="modal-cuerpo">
-          Define el periodo y las fechas para el siguiente ciclo dual. Solo puede haber un cuatrimestre activo a la vez.
-        </p>
-        <div class="cierre-selects">
-          <select class="input-plain" bind:value={periodoClaveApertura}>
-            <option value="">Periodo</option>
-            {#each PERIODOS_CUATRIMESTRE as p}
-              <option value={p.clave}>{etiquetaPeriodo(p.clave)}</option>
-            {/each}
-          </select>
-          <select class="input-plain" bind:value={anioApertura}>
-            <option value="">Año</option>
-            {#each ANIOS_DISPONIBLES as anio}
-              <option value={anio}>{anio}</option>
-            {/each}
-          </select>
-        </div>
-        {#if fechasApertura.inicio}
-          <p style="font-size:12px; color:var(--text-secondary); margin: 0;">
-            Del {formatearFechaCorta(fechasApertura.inicio)} al {formatearFechaCorta(fechasApertura.fin)}
-          </p>
-        {/if}
-        {#if errorApertura}<p class="error-msg">{errorApertura}</p>{/if}
-        {#if exitoApertura}<p class="exito-msg" style="margin-top: 8px;">{exitoApertura}</p>{/if}
-        <button class="modal-x" on:click={() => showModalApertura = false}>&times;</button>
-        <div class="modal-acciones">
-          <button class="btn-apertura" style="flex:1" on:click={confirmarApertura} disabled={abriendoCuatrimestre || exitoApertura}>
-            {abriendoCuatrimestre ? 'Abriendo...' : 'Abrir cuatrimestre'}
-          </button>
-        </div>
-      </div>
-    </div>
-  {/if}
 </div>
 
 <style>
@@ -1264,44 +1131,6 @@
   .empresa-nombre { font-size: 14px; font-weight: 600; color: var(--text-primary); }
   .empty-msg { font-size: 13px; color: var(--text-disabled); font-style: italic; margin: 0; }
 
-  .bandeja-acciones { display: flex; gap: 12px; margin-top: 16px; align-items: center; flex-wrap: wrap; }
-
-  /* Quarter status badge */
-  .quarter-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 700;
-    font-family: var(--font);
-  }
-  .quarter-abierto {
-    background: rgba(34, 197, 94, 0.08);
-    color: var(--success);
-    border: 1px solid rgba(34, 197, 94, 0.2);
-  }
-  .quarter-cerrado {
-    background: rgba(239, 68, 68, 0.08);
-    color: var(--error);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-  }
-  .quarter-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: currentColor;
-  }
-
-  .btn-cierre { background: var(--error); color: white; border: none; border-radius: 8px; padding: 12px 20px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.15s; font-family: var(--font); }
-  .btn-cierre:hover { background: #dc2626; }
-  .btn-cierre:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  .btn-apertura { background: var(--success); color: white; border: none; border-radius: 8px; padding: 12px 20px; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.15s; font-family: var(--font); }
-  .btn-apertura:hover { background: #16a34a; }
-  .btn-apertura:disabled { opacity: 0.5; cursor: not-allowed; }
-
   /* Not-submitted status badges */
   .badge-overdue {
     display: inline-block;
@@ -1355,15 +1184,6 @@
   .sem-txt { font-weight: 600; color: var(--text-primary); }
   .chip-reportes { display: inline-block; background: rgba(249, 115, 22, 0.08); color: var(--orange); font-weight: 700; font-size: 12px; border-radius: 6px; padding: 2px 10px; border: 1px solid rgba(249, 115, 22, 0.2); }
 
-  .cierre-selects { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; z-index: 200; }
-  .modal-box { position: relative; background: var(--bg-card); border-radius: var(--radius-card); border: 1px solid var(--border); padding: 28px; max-width: 420px; width: 90%; display: flex; flex-direction: column; gap: 14px; }
-  .modal-x { position: absolute; top: 10px; right: 14px; background: none; border: none; font-size: 22px; color: var(--text-disabled); cursor: pointer; line-height: 1; padding: 4px 8px; border-radius: 6px; transition: color 0.15s, background 0.15s; font-family: var(--font); }
-  .modal-x:hover { color: var(--text-primary); background: var(--bg-page); }
-  .modal-titulo { font-size: 16px; font-weight: 700; color: var(--text-primary); margin: 0; }
-  .modal-cuerpo { font-size: 14px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
-  .modal-acciones { display: flex; gap: 10px; }
   .exito-msg { color: var(--success); background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 8px; padding: 10px 14px; font-size: 13px; font-weight: 500; }
 
   @media (max-width: 768px) {
@@ -1375,7 +1195,6 @@
     .ficha-card { position: static; }
     .expediente-split { grid-template-columns: 1fr; }
     .expediente-pdf-col { min-height: 0; flex: 1; }
-    .cierre-selects { grid-template-columns: 1fr; }
     .reporte-table th, .reporte-table td { padding: 10px 12px; font-size: 13px; }
   }
 </style>

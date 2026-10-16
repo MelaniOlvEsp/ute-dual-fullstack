@@ -1,10 +1,11 @@
 # app/modulos/dual/schemas/reporte_schemas.py
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional
 from datetime import datetime, date
 from uuid import UUID
 from typing_extensions import Literal
 
+from app.domain.calendar import hoy as _hoy
 from app.domain.periods import validar_periodo as _validar_periodo
 
 
@@ -65,14 +66,17 @@ class EmpresaOut(BaseModel):
 class AsignacionCreate(BaseModel):
     matricula: str
     empresa_id: UUID
+    fecha_inicio: date
 
 
 class AsignacionOut(BaseModel):
     id: UUID
     matricula: str
-    cuatrimestre: str
+    cuatrimestre: str | None = None
     empresa_id: UUID
     activo: bool
+    fecha_inicio: date
+    fecha_baja: date | None = None
     created_at: datetime
 
 
@@ -96,17 +100,6 @@ class CuatrimestreAbrir(BaseModel):
             raise ValueError(error)
         return v
 
-    @field_validator("fecha_inicio")
-    @classmethod
-    def fecha_inicio_no_pasada(cls, v: date) -> date:
-        hoy = date.today()
-        if v < hoy:
-            raise ValueError(
-                f"La fecha de inicio ({v}) no puede ser anterior a hoy "
-                f"({hoy})."
-            )
-        return v
-
     @field_validator("fecha_fin")
     @classmethod
     def fecha_fin_posterior(cls, v: date, info) -> date:
@@ -123,6 +116,18 @@ class CuatrimestreAbrir(BaseModel):
                     f"Las fechas dadas solo cubren {dias} días."
                 )
         return v
+
+    # El período puede estar en curso (inicio anterior a hoy, p. ej. al arrancar a
+    # mitad de cuatrimestre) pero no haber terminado; fecha de hoy en America/Mexico_City.
+    @model_validator(mode="after")
+    def periodo_no_terminado(self):
+        hoy = _hoy()
+        if self.fecha_fin < hoy:
+            raise ValueError(
+                f"El período terminó el {self.fecha_fin} y hoy es {hoy}; "
+                "solo se pueden abrir períodos en curso o futuros."
+            )
+        return self
 
 
 # Datos requeridos para cerrar formalmente un cuatrimestre activo

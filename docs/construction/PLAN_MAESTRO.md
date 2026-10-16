@@ -8,7 +8,7 @@ Estado inicial: documentación creada; ningún incremento implementado o aceptad
 |---|---|---|---|
 | C01 — Base local reproducible | Inventario ejecutable, esquema inicial coherente en BD vacía, fixtures, comandos y pruebas base. | AC-01 | Ninguna DP funcional bloquea diagnóstico/base. |
 | C02 — Identidad y accesos | Registro autorizado, tres roles, temporales/revocación, bajas lógicas y autorización de objeto. | US-01/03; AC-02/03/04 | C01 |
-| C03 — Grupos e incorporación | Matrículas por grupo, historia por período, empresa/inicio/baja, carreras correctas. | US-02/04; AC-05 | C02; DP-05 |
+| C03 — Grupos e incorporación | Matrículas por grupo, historia por período, empresa/inicio/baja, carreras correctas. | US-02/04; AC-05 | C02; DP-05 resuelta 2026-10-15 |
 | C04 — Calendario y pendientes | Obligaciones individuales y compartidas por alumno/tutor, períodos por fechas, semanas parciales. | US-07; AC-06/07/08 | C03; DP-01/03/04 |
 | C05 — Entregas y versiones | PDF real, nota entera, entregas independientes y reenvíos sin pérdida. | US-06/09; AC-09/10/11 | C04; DP-06/08 |
 | C06 — Revisión y firma | Correcciones trazables, rechazo con nota y firmado visualmente validado. | US-08; AC-12/13 | C05; DP-02/07/08 |
@@ -33,8 +33,8 @@ Los incrementos posteriores se redactan como specs completas justo antes de ejec
 
 ## Decisiones justo antes de necesitarlas
 
-DP-01/03/04: antes del calendario.
-DP-05: antes de formalizar grupos.
+DP-01/03/04: antes del calendario. Resueltas el 2026-10-15 para C04: DP-01 completa, DP-03 y DP-04 en lo que C04 necesita (baja inclusiva; períodos manuales, America/Mexico_City, sin solapamiento). Quedan para C07 la etiqueta por cierre anticipado (DP-03) y la recepción simultánea (DP-04).
+DP-05: resuelta el 2026-10-15; conservar catálogo, abreviaciones y nomenclatura de la base institucional y aplicar la promoción aprobada.
 DP-06/08: antes de carga de reportes.
 DP-02/07: antes de revisión/firma.
 DP-11: antes de cierre/uso real.

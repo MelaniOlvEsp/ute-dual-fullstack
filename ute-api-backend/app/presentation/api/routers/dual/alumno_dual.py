@@ -3,8 +3,10 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, Form
 from datetime import date
 from app.presentation.api.routers.auth import get_current_user
+from app.application.dto.obligaciones import ObligacionOut
 from app.application.dto.reportes import ReporteDualResponse
 from app.application.use_cases.dual import alumno_dual as use_cases
+from app.application.use_cases.dual import obligaciones as obligaciones_cases
 from app.bootstrap import get_runtime
 from app.presentation.api.response import to_http_response
 
@@ -54,6 +56,19 @@ async def mis_reportes(
         await use_cases.mis_reportes(
             cuatrimestre=cuatrimestre,
             user=user,
+            runtime=get_runtime(),
+        )
+    )
+
+
+@router.get("/obligaciones", response_model=list[ObligacionOut])
+async def mis_obligaciones(
+    periodo: str | None = None, user=Depends(get_alumno_dual)
+):
+    return to_http_response(
+        await obligaciones_cases.mis_obligaciones(
+            matricula=user["matricula"],
+            periodo=periodo,
             runtime=get_runtime(),
         )
     )

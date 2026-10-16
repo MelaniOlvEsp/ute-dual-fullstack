@@ -1,10 +1,13 @@
 
 from uuid import UUID
+from datetime import date
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
-from pydantic import BaseModel, field_validator
-from app.presentation.api.routers.auth import get_current_user
+from pydantic import BaseModel, model_validator
+from app.presentation.api.routers.auth import get_current_user, get_coordinator
 from app.application.dto.reportes import ReporteDualUpdateAgente, EmpresaCreate, EmpresaOut, AsignacionCreate, AsignacionOut, CuatrimestreCerrar, CuatrimestreAbrir, CuatrimestreActualOut
+from app.application.dto.obligaciones import ObligacionOut
 from app.application.use_cases.dual import coordinador_dual as use_cases
+from app.application.use_cases.dual import obligaciones as obligaciones_cases
 from app.bootstrap import get_runtime
 from app.application.use_cases.dual import firmas as firma_cases
 from app.presentation.api.response import to_http_response
@@ -133,13 +136,17 @@ async def buscar_alumno(matricula: str, user=Depends(get_coordinador_dual)):
 class ActualizarAlumnoDualInput(BaseModel):
     alumno_dual: bool
     empresa_id: UUID | None = None
+    fecha_inicio: date | None = None
+    fecha_baja: date | None = None
 
-    @field_validator("empresa_id")
+    @model_validator(mode="after")
     @classmethod
-    def empresa_requerida_si_activo(cls, v, info):
-        if info.data.get("alumno_dual") and v is None:
-            raise ValueError("Se requiere empresa_id al activar alumno dual")
-        return v
+    def fechas_requeridas(cls, value):
+        if value.alumno_dual and (value.empresa_id is None or value.fecha_inicio is None):
+            raise ValueError("Se requieren empresa_id y fecha_inicio al activar alumno dual")
+        if not value.alumno_dual and value.fecha_baja is None:
+            raise ValueError("Se requiere fecha_baja al terminar la incorporación")
+        return value
 
 
 # Delega el caso de uso sin mezclar lógica de negocio con HTTP.
@@ -155,6 +162,31 @@ async def actualizar_alumno_dual(
             body=body,
             user=user,
             runtime=get_runtime(),
+        )
+    )
+
+
+@router.get("/alumnos/{matricula}/incorporaciones")
+async def historial_incorporaciones(
+    matricula: str,
+    user=Depends(get_coordinador_dual),
+):
+    return to_http_response(
+        await use_cases.historial_incorporaciones(
+            matricula=matricula, user=user, runtime=get_runtime()
+        )
+    )
+
+
+@router.get("/alumnos/{matricula}/obligaciones", response_model=list[ObligacionOut])
+async def obligaciones_alumno(
+    matricula: str,
+    periodo: str | None = None,
+    user=Depends(get_coordinador_dual),
+):
+    return to_http_response(
+        await obligaciones_cases.obligaciones_de_alumno(
+            matricula=matricula, periodo=periodo, user=user, runtime=get_runtime()
         )
     )
 
@@ -187,7 +219,7 @@ async def alumnos_atrasados(user=Depends(get_coordinador_dual)):
 
 # Delega el caso de uso sin mezclar lógica de negocio con HTTP.
 @router.get("/cuatrimestre-actual", response_model=CuatrimestreActualOut)
-async def cuatrimestre_actual(user=Depends(get_coordinador_dual)):
+async def cuatrimestre_actual(user=Depends(get_coordinator)):
     return to_http_response(
         await use_cases.cuatrimestre_actual(
             user=user,
@@ -199,7 +231,7 @@ async def cuatrimestre_actual(user=Depends(get_coordinador_dual)):
 # Delega el caso de uso sin mezclar lógica de negocio con HTTP.
 @router.post("/abrir-cuatrimestre", status_code=status.HTTP_200_OK)
 async def abrir_cuatrimestre(
-    data: CuatrimestreAbrir, user=Depends(get_coordinador_dual)
+    data: CuatrimestreAbrir, user=Depends(get_coordinator)
 ):
     return to_http_response(
         await use_cases.abrir_cuatrimestre(
@@ -213,7 +245,7 @@ async def abrir_cuatrimestre(
 # Delega el caso de uso sin mezclar lógica de negocio con HTTP.
 @router.post("/cierre", status_code=status.HTTP_200_OK)
 async def cerrar_cuatrimestre(
-    data: CuatrimestreCerrar, user=Depends(get_coordinador_dual)
+    data: CuatrimestreCerrar, user=Depends(get_coordinator)
 ):
     return to_http_response(
         await use_cases.cerrar_cuatrimestre(

@@ -3,6 +3,8 @@
 # Siempre son los mismos 3 rangos de meses; lo unico que cambia es el año.
 from datetime import date, timedelta
 
+from app.domain.calendar import hoy as _hoy  # "hoy" en la zona operativa (C04)
+
 PERIODOS_CUATRIMESTRE = [
     {"clave": "ENE-ABR", "mes_inicio": "Enero", "mes_fin": "Abril",
      "num_inicio": 1, "num_fin": 4},
@@ -48,7 +50,7 @@ def validar_periodo(periodo: str) -> str:
     except ValueError:
         return f"Año inválido: {anio_str}"
 
-    anio_actual = date.today().year
+    anio_actual = _hoy().year
     if anio < anio_actual:
         return f"El año {anio} ya pasó. Usa {anio_actual} o un año futuro."
 
@@ -97,7 +99,7 @@ def fechas_del_periodo(mes_inicio: str, anio: int) -> tuple[date, date]:
 def periodo_actual(hoy: date | None = None) -> str:
     # Retorna el periodo canonico ("MesInicio-MesFin AAAA") al que
     # pertenece la fecha dada (o hoy, si no se especifica).
-    hoy = hoy or date.today()
+    hoy = hoy or _hoy()
     for p in PERIODOS_CUATRIMESTRE:
         if p["num_inicio"] <= hoy.month <= p["num_fin"]:
             return f"{p['mes_inicio']}-{p['mes_fin']} {hoy.year}"

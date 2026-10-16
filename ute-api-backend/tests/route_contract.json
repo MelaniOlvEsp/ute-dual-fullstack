@@ -94,6 +94,15 @@
       ]
     },
     {
+      "name": "mis_obligaciones",
+      "method": "GET",
+      "path": "/obligaciones",
+      "params": [
+        "periodo",
+        "user"
+      ]
+    },
+    {
       "name": "obtener_semana_actual",
       "method": "GET",
       "path": "/semana-actual",
@@ -183,6 +192,25 @@
       "params": [
         "matricula",
         "body",
+        "user"
+      ]
+    },
+    {
+      "name": "historial_incorporaciones",
+      "method": "GET",
+      "path": "/alumnos/{matricula}/incorporaciones",
+      "params": [
+        "matricula",
+        "user"
+      ]
+    },
+    {
+      "name": "obligaciones_alumno",
+      "method": "GET",
+      "path": "/alumnos/{matricula}/obligaciones",
+      "params": [
+        "matricula",
+        "periodo",
         "user"
       ]
     },
@@ -316,6 +344,14 @@
       ]
     },
     {
+      "name": "listar_carreras",
+      "method": "GET",
+      "path": "/carreras",
+      "params": [
+        "user"
+      ]
+    },
+    {
       "name": "listar_grupos",
       "method": "GET",
       "path": "/grupos",
@@ -339,6 +375,18 @@
       "path": "/grupos/{grupo_id}/alumnos",
       "params": [
         "grupo_id",
+        "periodo_id",
+        "file",
+        "user"
+      ]
+    },
+    {
+      "name": "preview_alumnos_csv",
+      "method": "POST",
+      "path": "/grupos/{grupo_id}/alumnos/preview",
+      "params": [
+        "grupo_id",
+        "periodo_id",
         "file",
         "user"
       ]
@@ -349,6 +397,33 @@
       "path": "/grupos/{grupo_id}/alumnos/individual",
       "params": [
         "grupo_id",
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "historial_grupos",
+      "method": "GET",
+      "path": "/alumnos/{matricula}/grupos",
+      "params": [
+        "matricula",
+        "user"
+      ]
+    },
+    {
+      "name": "preview_promocion",
+      "method": "POST",
+      "path": "/grupos/promociones/preview",
+      "params": [
+        "data",
+        "user"
+      ]
+    },
+    {
+      "name": "aplicar_promocion",
+      "method": "POST",
+      "path": "/grupos/promociones",
+      "params": [
         "data",
         "user"
       ]

@@ -8,6 +8,7 @@
   import DualCoordinator from './presentation/pages/dual/CoordinadorDual.svelte'
   import CareerCoordinator from './presentation/pages/dual/CoordinadorCarrera.svelte'
   import ManageUsers from './presentation/pages/dual/GestionTutores.svelte'
+  import Periods from './presentation/pages/dual/PeriodosDual.svelte'
   import ResetStudent from './presentation/pages/dual/RecuperarAlumno.svelte'
   import NotFound from './presentation/pages/shared/NotFound.svelte'
   import ProtectedPage from './presentation/components/routing/ProtectedPage.svelte'
@@ -33,6 +34,9 @@
   </Route>
   <Route path="/dual/accesos">
     <ProtectedPage permission="tutor"><ResetStudent /></ProtectedPage>
+  </Route>
+  <Route path="/dual/periodos">
+    <ProtectedPage permission="coordinator"><Periods /></ProtectedPage>
   </Route>
   <Route path="/dual/tutores">
     <ProtectedPage permission="coordinator"><ManageUsers /></ProtectedPage>

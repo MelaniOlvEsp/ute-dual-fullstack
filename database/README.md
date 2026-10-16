@@ -4,15 +4,24 @@ C01 usa una **BD nueva y vacía** dentro de Docker Compose; no hay datos product
 
 ## Instalación
 
-El servicio postgres ejecuta docker/init-db.sh sobre un volumen nuevo. Crea el usuario de aplicación sin superusuario, y aplica schema_dual_desde_cero.sql con ese rol. El esquema comprueba que public no contenga tablas, vistas o secuencias y aborta si ya existen. Se instala dentro de una transacción.
+El servicio postgres ejecuta `docker/init-db.sh` sobre un volumen nuevo. Crea el usuario de aplicación sin superusuario, aplica `schema_dual_desde_cero.sql` y después `migrations/003_grupos_incorporacion.sql` y `migrations/004_obligaciones.sql` con ese rol. El esquema base comprueba que `public` no contenga tablas, vistas o secuencias y aborta si ya existen. Cada archivo se instala dentro de una transacción.
 
-No ejecutar todos los SQL de esta carpeta. Reiniciar Compose conserva el volumen; los scripts de inicio de PostgreSQL no se vuelven a aplicar a un volumen ya inicializado. No borrar datos para resolver errores sin revisar su causa.
+No ejecutar todos los SQL de esta carpeta. Reiniciar Compose conserva el volumen; los scripts de inicio de PostgreSQL no se vuelven a aplicar a un volumen ya inicializado. Para actualizar un volumen C01 existente a C03 desde PowerShell, ejecutar únicamente:
+
+```powershell
+docker compose cp database/migrations/003_grupos_incorporacion.sql postgres:/tmp/m3.sql
+docker compose exec -T postgres sh -c 'PGPASSWORD="$APP_DB_PASSWORD" psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U ute_dual_app -d ute_dual_c01 -f /tmp/m3.sql'
+```
+
+Para C04 repetir los dos comandos con `004_obligaciones.sql` y `/tmp/m4.sql` (después de 003). La migración 004 aborta sin cambios si existen períodos con fechas solapadas; corrígelos antes (en una base local de pruebas, alinear sus fechas a las de su etiqueta). Se usa `-f` y no una canalización de PowerShell porque esta altera los caracteres con tilde del catálogo y la migración abortaría por carrera desconocida.
+
+La migración toma un bloqueo transaccional y aborta sin cambios si encuentra una carrera fuera de las tres aprobadas o más de una incorporación activa por matrícula. No borrar datos para resolver ese diagnóstico: revisar y cerrar explícitamente la incorporación anterior.
 
 ## Qué contiene el esquema C01
 
 Doce tablas de la demo con acceso de tres roles, usuarios.activo, credential_version y firma de tutor. No contiene email_verificado ni tablas de Becas. El backend C01 ya deja de consultar esas columnas retiradas; la baja de tutor conserva la fila y revoca acceso.
 
-Es una base compatible para arrancar, **no el modelo funcional final**. Permanecen cuatrimestre textual, semanas 1–18 y falta de versiones/historia académica; C03–C07 los resolverán. El catálogo heredado incluye Educación: su sustitución y nomenclatura oficial corresponden a DP-05/C03. Fixtures de C01 utilizan TIC.
+Después de C03, el catálogo contiene TII, Logística y Mercadotecnia; `alumno_grupo_periodo` conserva pertenencias por período y `alumnos_dual` conserva incorporaciones con fechas de inicio/baja. `alumnos.grupo_id` (derivado de la pertenencia del período más reciente) y `alumnos_dual.cuatrimestre` (ya opcional y sin escribirse) permanecen como compatibilidad transitoria; la vigencia de una incorporación en un período se calcula por fechas. Siguen pendientes las obligaciones, versiones, cierre y expediente final de C04–C08.
 
 ## Archivos históricos
 
@@ -26,4 +35,4 @@ La API conecta como propietario de sus tablas para el piloto local, no como supe
 
 El administrador local scripts/local_admin.py solo permite DB_NAME=ute_dual_c01 y loopback, o host postgres con C01_LOCAL_COMPOSE=true. init-schema no es necesario en Compose: el entrypoint ya lo ejecuta.
 
-Validación real del esquema y smoke: ver [evidencia C01](../specs/C01-base-local/evidencia.md). Estado de infraestructura Docker pendiente de ejecución autorizada desde terminal local.
+Validación real del esquema y smokes: ver [evidencia C01](../specs/C01-base-local/evidencia.md) y [evidencia C03](../specs/C03-grupos-e-incorporacion/evidencia.md).

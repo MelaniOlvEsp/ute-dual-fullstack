@@ -7,9 +7,13 @@ from app.infrastructure.database.queries.foro_buzon import QUERIES as FORO_BUZON
 from app.infrastructure.database.queries.foro_publicaciones import QUERIES as FORO_PUBLICACIONES
 
 from app.infrastructure.database.queries.dual_tutor import QUERIES as DUAL_TUTOR
+from app.infrastructure.database.queries.dual_organization import QUERIES as DUAL_ORGANIZATION
+from app.infrastructure.database.queries.dual_obligaciones import QUERIES as DUAL_OBLIGACIONES
 
 QUERIES = {
     **DUAL_TUTOR,
+    **DUAL_ORGANIZATION,
+    **DUAL_OBLIGACIONES,
     **AUTH,
     **DUAL_ALUMNO_DUAL,
     **DUAL_COORDINADOR_CARRERA,

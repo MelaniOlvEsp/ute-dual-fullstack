@@ -7,13 +7,15 @@
   import { api } from '../../../composition/api.js'
   import { validateReportFile } from '../../../domain/dual/report.js'
   import Navbar from '../../components/layout/Navbar.svelte'
-  import PerfilModal from '../../components/layout/PerfilModal.svelte'
   import PageHeader from '../../components/ui/PageHeader.svelte'
   import LoadingSpinner from '../../components/ui/LoadingSpinner.svelte'
-  import { formatFecha, estadoBadgeClass } from '../../utils/formatters.js'
+  import { formatFecha, formatFechaCivil, estadoBadgeClass } from '../../utils/formatters.js'
+
+  let obligaciones = []
+  let errorObligaciones = ''
+  const ETIQUETA_ESTADO = { PENDIENTE: 'Pendiente', ATRASADA: 'Atrasada', RECIBIDA: 'Recibida' }
 
   let alumno = null
-  let showPerfil = false
   let reportes = []
   let loading = true
   let enviando = false
@@ -63,6 +65,13 @@
       error = 'No se pudieron cargar los datos.'
     } finally {
       loading = false
+    }
+    try {
+      errorObligaciones = ''
+      obligaciones = await api.dual.misObligaciones()
+    } catch (e) {
+      obligaciones = []
+      errorObligaciones = e.message || 'No se pudieron cargar tus semanas.'
     }
   }
 
@@ -165,8 +174,7 @@
   <title>Mis reportes | Portal UTE</title>
 </svelte:head>
 
-<Navbar onAlumnoClick={() => showPerfil = true} />
-<PerfilModal bind:show={showPerfil} {alumno} />
+<Navbar />
 
 <div style="padding-top: 56px;">
   <div class="page">
@@ -204,6 +212,32 @@
             {/if}
           {/each}
         </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Mis semanas</h2>
+        {#if errorObligaciones}
+          <p class="semanas-error" role="alert">{errorObligaciones}</p>
+        {:else if obligaciones.length === 0}
+          <p class="semanas-nota">Aún no tienes semanas registradas. Aparecen desde la fecha de inicio de tu incorporación.</p>
+        {:else}
+          <ul class="semanas-lista">
+            {#each obligaciones as o (o.id)}
+              <li class="semana-item">
+                <div>
+                  <div class="semana-titulo">
+                    Semana {o.ordinal}{#if o.parcial} <span class="semana-parcial">parcial</span>{/if}
+                  </div>
+                  <div class="semana-fechas">
+                    {formatFechaCivil(o.inicio_efectivo)} – {formatFechaCivil(o.fin_efectivo)} · {o.periodo_label || 'Sin período'}
+                  </div>
+                </div>
+                <span class="semana-estado semana-{o.estado.toLowerCase()}">{ETIQUETA_ESTADO[o.estado]}</span>
+              </li>
+            {/each}
+          </ul>
+          <p class="semanas-nota">Puedes entregar una semana hasta el domingo; desde el lunes siguiente, sin entrega, aparece como atrasada.</p>
+        {/if}
       </div>
 
       <div class="card">
@@ -504,4 +538,16 @@
       max-width: 220px;
     }
   }
+  /* C04: semanas del alumno. El estado se comunica con texto, no solo con color. */
+  .semanas-lista { list-style: none; display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; }
+  .semana-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-input); }
+  .semana-titulo { font-weight: 700; color: var(--text-primary); }
+  .semana-fechas { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+  .semana-parcial { font-size: 11px; font-weight: 600; color: var(--text-secondary); border: 1px solid var(--border-input); border-radius: 999px; padding: 1px 8px; margin-left: 6px; }
+  .semana-estado { font-size: 12px; font-weight: 700; color: var(--text-primary); border: 1px solid; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+  .semana-pendiente { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 14%, transparent); }
+  .semana-atrasada { border-color: var(--error); background: color-mix(in srgb, var(--error) 14%, transparent); }
+  .semana-recibida { border-color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
+  .semanas-nota { font-size: 13px; color: var(--text-secondary); margin-top: 10px; }
+  .semanas-error { color: var(--error); font-size: 14px; }
 </style>

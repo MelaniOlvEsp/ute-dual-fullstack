@@ -6,4 +6,6 @@ ALTER DATABASE ute_dual_c01 OWNER TO ute_dual_app;
 GRANT CREATE, USAGE ON SCHEMA public TO ute_dual_app;
 SET ROLE ute_dual_app;
 \i /opt/ute/schema.sql
+\i /opt/ute/migrations/003_grupos_incorporacion.sql
+\i /opt/ute/migrations/004_obligaciones.sql
 SQL

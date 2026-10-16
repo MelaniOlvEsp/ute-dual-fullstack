@@ -17,13 +17,13 @@ Estado: PROPUESTA técnica. Fuente funcional: RN-01 a RN-29. No ejecutar este do
 |---|---|---|
 | usuarios | ID, correo, hash, rol, matrícula opcional, activo, versión de credenciales | Correo normalizado único; alumno vinculado a matrícula; tres roles, nunca privilegio por nombre de ruta. |
 | alumnos | Matrícula, nombre, autorización de registro | Matrícula única; historial no se borra por baja Dual. |
-| carreras | Código estable, nombre visible, activo | Tres carreras acordadas; códigos oficiales DP-05. |
-| grupos | ID, carrera, grado académico, componentes nomenclatura, cohorte | Nomenclatura derivada de regla aprobada; no usar etiqueta como FK. |
-| periodos | ID, año, bloque, fechas, recepción, evaluación, autores/instantes de cambios | Bloque único por año; fin calendario no cambia por cierre anticipado. |
+| carreras | Código estable, nombre visible, activo | Catálogo cerrado exclusivamente a TIC, Logística y Mercadotecnia; conservar literalmente códigos y nombres de la base institucional. No admitir Educación ni otras carreras. |
+| grupos | ID, carrera, grado académico, componentes nomenclatura, cohorte | Nomenclatura institucional existente; no rediseñarla ni usar su etiqueta como FK. |
+| periodos | ID, año, bloque, fechas, recepción, evaluación, autores/instantes de cambios | Bloque único por año; fin calendario no cambia por cierre anticipado. C04: fechas sin solapamiento (restricción de exclusión sobre `daterange` en `ciclos_dual`) y apertura manual en America/Mexico_City. |
 | alumno_grupo_periodo | Alumno, grupo, período | Un grupo vigente por alumno/período, con cambios auditados; no reescribir períodos anteriores. |
 | empresas | ID, nombre, activo | Mantener referencias históricas. |
 | incorporaciones_dual | Alumno, empresa, inicio, baja opcional | Inicio ≤ baja; continuidad entre períodos; política de cambio de empresa en spec. |
-| obligaciones_semanales | ID, incorporación, inicio/fin calendario, período resuelto | Una obligación por intervalo; generación idempotente; regla de pertenencia DP-01. |
+| obligaciones_semanales | ID, incorporación, inicio/fin calendario, período resuelto | Una obligación por intervalo; generación idempotente; regla de pertenencia DP-01. Implementada en C04 (`004_obligaciones.sql`): `UNIQUE (incorporacion_id, semana_inicio)`, lunes–domingo por CHECK, fechas efectivas dentro de la semana, período nulo si ningún período contiene el domingo; las semanas posteriores a la baja se excluyen de las lecturas y no se borran. |
 | reportes | ID, obligación, versión vigente, estado | Un reporte lógico por obligación; no creado para simular entrega inexistente. |
 | reporte_versiones | Reporte, número, fechas declaradas, nota declarada, archivo original, recepción | Número único por reporte; versiones recibidas inmutables. |
 | revisiones | Versión, tutor, decisión, nota, fechas/nota validadas, instante, archivo firmado | Rechazo con motivo; historial de correcciones; aprobación con firmado disponible. |

@@ -21,7 +21,7 @@ A = alumno, T = tutor académico, C = coordinador Dual. “Propio” siempre se 
 | MP-15 | Iniciar buzón | Propio | No | No |
 | MP-16 | Ver/responder buzón | Hilos propios | Todos | Todos |
 | MP-17 | Marcar leído/cerrar buzón | No | Sí | Sí |
-| MP-18 | Abrir períodos | No | Pendiente DP-04 | Propuesto DP-04 |
+| MP-18 | Abrir períodos (y consultar el período actual) | No | No | Sí (DP-04 resuelta el 2026-10-15: apertura manual por el coordinador) |
 
 ## Controles transversales
 

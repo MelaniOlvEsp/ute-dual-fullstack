@@ -31,4 +31,4 @@ class RouteContractTest(unittest.TestCase):
                         })
             self.assertEqual(actual, expected, module)
             total += len(actual)
-        self.assertEqual(total, 51)
+        self.assertEqual(total, 59)

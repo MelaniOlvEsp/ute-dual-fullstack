@@ -8,6 +8,8 @@ from app.application.ports.runtime import RuntimePort
 from app.application.errors import ApplicationError
 from app.application.ports.query import QueryRef
 from app.application.responses import FileResult
+from app.application.use_cases.dual import obligaciones
+from app.domain import calendar
 
 
 # Ejecuta las reglas del caso de uso con dependencias inyectadas.
@@ -149,18 +151,16 @@ async def listar_asignaciones(cuatrimestre, user, *, runtime: RuntimePort):
 # Ejecuta las reglas del caso de uso con dependencias inyectadas.
 async def asignar_alumno_empresa(data, user, *, runtime: RuntimePort):
     async with runtime.database.transaction() as cur:
-        # Verificar que el alumno exista y obtener su cuatrimestre actual
+        # La incorporación no depende del grado ni del período: solo exige alumno con grupo.
         await cur.execute(
             'dual.coordinador_dual.q007',
             (data.matricula,),
         )
-        alumno = await cur.fetchone()
-        if not alumno:
+        if not await cur.fetchone():
             raise ApplicationError(
                 status_code=404,
                 detail="Alumno no encontrado o sin grupo asignado",
             )
-        cuatrimestre = dict(alumno)["cuatrimestre"]
 
         # Verificar que la empresa exista
         await cur.execute(
@@ -172,10 +172,22 @@ async def asignar_alumno_empresa(data, user, *, runtime: RuntimePort):
                 detail="Empresa no encontrada",
             )
 
-        # Upsert de asignacion activa
         await cur.execute(
-            'dual.coordinador_dual.q009',
-            (data.matricula, cuatrimestre, data.empresa_id),
+            'dual.coordinador_dual.active_incorporation', (data.matricula,)
+        )
+        active = await cur.fetchone()
+        if active:
+            active = dict(active)
+            if str(active["empresa_id"]) == str(data.empresa_id):
+                return active
+            raise ApplicationError(
+                status_code=409,
+                detail="El alumno ya tiene una incorporación activa. Registra su baja antes de cambiar de empresa.",
+            )
+
+        await cur.execute(
+            'dual.coordinador_dual.insert_incorporation',
+            (data.matricula, data.empresa_id, data.fecha_inicio, user["id"]),
         )
         row = await cur.fetchone()
         if not row:
@@ -183,10 +195,11 @@ async def asignar_alumno_empresa(data, user, *, runtime: RuntimePort):
                 status_code=500,
                 detail="Error al asignar empresa",
             )
+        await obligaciones.generar(cur, dict(row), calendar.hoy())
 
     logger.info(
         f"Alumno {data.matricula} asignado a empresa {data.empresa_id} "
-        f"cuatrimestre {cuatrimestre} por {user['sub']}"
+        f"desde {data.fecha_inicio} por {user['sub']}"
     )
     return dict(row)
 
@@ -218,18 +231,15 @@ async def actualizar_alumno_dual(
     empresa_id = body.empresa_id
 
     async with runtime.database.transaction() as cur:
-        # Verificar alumno y obtener cuatrimestre actual
         await cur.execute(
             'dual.coordinador_dual.q011',
             (matricula,),
         )
-        alumno = await cur.fetchone()
-        if not alumno:
+        if not await cur.fetchone():
             raise ApplicationError(
                 status_code=404,
                 detail="Alumno no encontrado",
             )
-        cuatrimestre = dict(alumno)["cuatrimestre"]
 
         if es_dual:
             # Verificar empresa
@@ -242,17 +252,37 @@ async def actualizar_alumno_dual(
                     detail="Empresa no encontrada",
                 )
 
-            # Insertar o actualizar asignacion en alumnos_dual
             await cur.execute(
-                'dual.coordinador_dual.q013',
-                (matricula, cuatrimestre, empresa_id),
+                'dual.coordinador_dual.active_incorporation', (matricula,)
             )
+            active = await cur.fetchone()
+            if active:
+                active = dict(active)
+                if str(active["empresa_id"]) == str(empresa_id):
+                    return {"mensaje": "La incorporación ya estaba activa"}
+                raise ApplicationError(
+                    status_code=409,
+                    detail="Registra la baja vigente antes de cambiar de empresa.",
+                )
+            await cur.execute(
+                'dual.coordinador_dual.insert_incorporation',
+                (matricula, empresa_id, body.fecha_inicio, user["id"]),
+            )
+            creada = await cur.fetchone()
+            await obligaciones.generar(cur, dict(creada), calendar.hoy())
         else:
-            # Desactivar solo la asignacion del cuatrimestre actual
             await cur.execute(
-                'dual.coordinador_dual.q014',
-                (matricula, cuatrimestre),
+                'dual.coordinador_dual.close_incorporation',
+                (body.fecha_baja, user["id"], matricula, body.fecha_baja),
             )
+            cerrada = await cur.fetchone()
+            if not cerrada:
+                raise ApplicationError(
+                    status_code=409,
+                    detail="No existe una incorporación activa o la baja es anterior al inicio.",
+                )
+            # La baja es inclusiva: recorta su semana y no deja obligaciones posteriores.
+            await obligaciones.generar(cur, dict(cerrada), calendar.hoy())
 
     logger.info(
         f"Alumno {matricula} → alumno_dual={es_dual} por {user['sub']}"
@@ -260,82 +290,28 @@ async def actualizar_alumno_dual(
     return {"mensaje": "Alumno actualizado correctamente"}
 
 
-# Ejecuta las reglas del caso de uso con dependencias inyectadas.
+async def historial_incorporaciones(matricula, user, *, runtime: RuntimePort):
+    async with runtime.database.read() as cur:
+        await cur.execute('dual.coordinador_dual.q011', (matricula,))
+        if not await cur.fetchone():
+            raise ApplicationError(status_code=404, detail="Alumno no encontrado")
+        await cur.execute('dual.coordinador_dual.incorporation_history', (matricula,))
+        return [dict(row) for row in await cur.fetchall()]
+
+
+# Pendientes basados en obligaciones semanales (C04); ver use_cases/dual/obligaciones.py.
 async def alumnos_sin_reporte(
     cuatrimestre,
     semana,
     user,
     *, runtime: RuntimePort,
 ):
-    if not (1 <= semana <= 18):
-        raise ApplicationError(
-            status_code=400,
-            detail="La semana debe ser entre 1 y 18",
-        )
-
-    async with runtime.database.read() as cur:
-        await cur.execute(
-            'dual.coordinador_dual.q015',
-            (cuatrimestre, semana),
-        )
-        rows = await cur.fetchall()
-        return [dict(r) for r in rows]
+    return await obligaciones.alumnos_sin_reporte(
+        cuatrimestre, semana, user, runtime=runtime)
 
 
-# Ejecuta las reglas del caso de uso con dependencias inyectadas.
 async def alumnos_atrasados(user, *, runtime: RuntimePort):
-    hoy = date.today()
-    weekday = hoy.weekday()  # 0=Monday, 4=Friday, 6=Sunday
-
-    async with runtime.database.read() as cur:
-        # Obtener cuatrimestre activo para calcular semana actual global
-        await cur.execute('dual.coordinador_dual.q016')
-        ciclo = await cur.fetchone()
-        if not ciclo:
-            return []
-
-        ciclo = dict(ciclo)
-        fecha_inicio = ciclo.get("fecha_inicio")
-        cuatrimestre = ciclo["cuatrimestre"]
-
-        # Calcular semana actual global desde fecha_inicio
-        semana_actual = 1
-        if fecha_inicio and isinstance(fecha_inicio, date):
-            dias_transcurridos = (hoy - fecha_inicio).days
-            semana_actual = min(18, max(1, dias_transcurridos // 7 + 1))
-
-        await cur.execute(
-            'dual.coordinador_dual.q017',
-            (cuatrimestre,),
-        )
-        rows = await cur.fetchall()
-
-        resultado = []
-        for r in rows:
-            r = dict(r)
-            semana_esperada = r["semana_esperada"]
-
-            # Solo mostrar semanas actuales o pasadas (no futuras)
-            if semana_esperada > semana_actual:
-                continue
-
-            # Determinar status: Pending vs Overdue
-            if semana_esperada < semana_actual:
-                # Semana ya pasó → Overdue
-                r["status"] = "Overdue"
-            elif semana_esperada == semana_actual:
-                if weekday >= 6:
-                    r["status"] = "Overdue"
-                else:
-                    r["status"] = "Pending"
-            else:
-                r["status"] = "Pending"
-
-            r["semana_actual_global"] = semana_actual
-            resultado.append(r)
-
-        return resultado
-
+    return await obligaciones.alumnos_atrasados(user, runtime=runtime)
 
 # Ejecuta las reglas del caso de uso con dependencias inyectadas.
 async def cuatrimestre_actual(user, *, runtime: RuntimePort):
@@ -365,6 +341,8 @@ async def cuatrimestre_actual(user, *, runtime: RuntimePort):
 # Ejecuta las reglas del caso de uso con dependencias inyectadas.
 async def abrir_cuatrimestre(data, user, *, runtime: RuntimePort):
     async with runtime.database.transaction() as cur:
+        # Serializa la apertura para que dos solicitudes no creen períodos solapados.
+        await cur.execute('dual.obligaciones.period_lock')
         # Bloquear si ya hay uno abierto
         await cur.execute(
             'dual.coordinador_dual.q020'
@@ -381,6 +359,20 @@ async def abrir_cuatrimestre(data, user, *, runtime: RuntimePort):
 
         cuatrimestre = f"{data.periodo_label}"
 
+        # DP-04: períodos manuales, con fechas explícitas y sin solapamiento.
+        await cur.execute(
+            'dual.obligaciones.overlapping_period',
+            (cuatrimestre, data.fecha_inicio, data.fecha_fin),
+        )
+        solapado = await cur.fetchone()
+        if solapado:
+            s = dict(solapado)
+            raise ApplicationError(
+                status_code=409,
+                detail=f"Las fechas se solapan con {s['periodo_label'] or s['cuatrimestre']} "
+                f"({s['fecha_inicio']} a {s['fecha_fin']}). Ajusta las fechas.",
+            )
+
         await cur.execute(
             'dual.coordinador_dual.q021',
             (
@@ -391,6 +383,9 @@ async def abrir_cuatrimestre(data, user, *, runtime: RuntimePort):
             ),
         )
         row = await cur.fetchone()
+        # Semanas ya generadas cuyo domingo cae en este período y aún no tenían período.
+        await obligaciones.abrir_periodo_resuelve(
+            cur, dict(row)["id"], data.fecha_inicio, data.fecha_fin)
 
     logger.info(f"Cuatrimestre {data.periodo_label} abierto por {user['sub']}")
     return {

@@ -12,26 +12,17 @@ QUERIES = {'dual.coordinador_dual.q000': {'dynamic': 'where',
                                        '                r.created_at, '
                                        'r.updated_at, a.nombre, g.carrera,\n'
                                        '                g.nomenclatura,\n'
-                                       '                COALESCE(\n'
-                                       '                    (SELECT e2.nombre\n'
-                                       '                     FROM alumnos_dual '
-                                       'ad2\n'
-                                       '                     LEFT JOIN empresas e2 '
+                                       '                (SELECT e2.nombre\n'
+                                       '                 FROM alumnos_dual ad2\n'
+                                       '                 JOIN empresas e2 '
                                        'ON e2.id = ad2.empresa_id\n'
-                                       '                     WHERE ad2.matricula = '
+                                       '                 WHERE ad2.matricula = '
                                        'r.matricula\n'
-                                       '                     ORDER BY '
-                                       'ad2.created_at DESC\n'
-                                       '                     LIMIT 1),\n'
-                                       '                    (SELECT e3.nombre\n'
-                                       '                     FROM alumnos_dual '
-                                       'ad3\n'
-                                       '                     LEFT JOIN empresas e3 '
-                                       'ON e3.id = ad3.empresa_id\n'
-                                       '                     WHERE ad3.matricula = '
-                                       'r.matricula\n'
-                                       '                     LIMIT 1)\n'
-                                       '                ) AS empresa\n'
+                                       '                 ORDER BY ad2.activo DESC, '
+                                       'ad2.fecha_inicio DESC,\n'
+                                       '                          ad2.created_at DESC, '
+                                       'ad2.id DESC\n'
+                                       '                 LIMIT 1) AS empresa\n'
                                        '            FROM reportes_dual r\n'
                                        '            LEFT JOIN alumnos      a  ON '
                                        'a.matricula  = r.matricula\n'
@@ -109,21 +100,6 @@ QUERIES = {'dual.coordinador_dual.q000': {'dynamic': 'where',
                                        '            '},
  'dual.coordinador_dual.q008': {'dynamic': None,
                                 'sql': 'SELECT id FROM empresas WHERE id = %s'},
- 'dual.coordinador_dual.q009': {'dynamic': None,
-                                'sql': '\n'
-                                       '            INSERT INTO alumnos_dual '
-                                       '(matricula, cuatrimestre,\n'
-                                       '            empresa_id, activo)\n'
-                                       '            VALUES (%s, %s, %s, TRUE)\n'
-                                       '            ON CONFLICT (matricula, '
-                                       'cuatrimestre)\n'
-                                       '            DO UPDATE SET empresa_id = '
-                                       'EXCLUDED.empresa_id, activo = TRUE\n'
-                                       '            RETURNING id, matricula, '
-                                       'cuatrimestre,\n'
-                                       '            empresa_id, activo, '
-                                       'created_at\n'
-                                       '            '},
  'dual.coordinador_dual.q010': {'dynamic': None,
                                 'sql': '\n'
                                        '            SELECT a.matricula,\n'
@@ -163,46 +139,6 @@ QUERIES = {'dual.coordinador_dual.q000': {'dynamic': 'where',
                                        '            '},
  'dual.coordinador_dual.q012': {'dynamic': None,
                                 'sql': 'SELECT id FROM empresas WHERE id = %s'},
- 'dual.coordinador_dual.q013': {'dynamic': None,
-                                'sql': '\n'
-                                       '                INSERT INTO alumnos_dual\n'
-                                       '                    (matricula, '
-                                       'cuatrimestre, empresa_id, activo)\n'
-                                       '                VALUES (%s, %s, %s, TRUE)\n'
-                                       '                ON CONFLICT (matricula, '
-                                       'cuatrimestre)\n'
-                                       '                DO UPDATE SET empresa_id = '
-                                       'EXCLUDED.empresa_id, activo = TRUE\n'
-                                       '                '},
- 'dual.coordinador_dual.q014': {'dynamic': None,
-                                'sql': 'UPDATE alumnos_dual SET activo = FALSE '
-                                       'WHERE matricula = %s AND cuatrimestre = '
-                                       '%s'},
- 'dual.coordinador_dual.q015': {'dynamic': None,
-                                'sql': '\n'
-                                       '            SELECT ad.matricula, a.nombre, '
-                                       'g.nomenclatura,\n'
-                                       '                   e.nombre AS empresa\n'
-                                       '            FROM alumnos_dual ad\n'
-                                       '            JOIN alumnos  a ON a.matricula '
-                                       '= ad.matricula\n'
-                                       '            JOIN grupos   g ON g.id = '
-                                       'a.grupo_id\n'
-                                       '            LEFT JOIN empresas e ON e.id = '
-                                       'ad.empresa_id\n'
-                                       '            WHERE ad.activo = TRUE\n'
-                                       '              AND ad.cuatrimestre = %s\n'
-                                       '              AND NOT EXISTS (\n'
-                                       '                  SELECT 1 FROM '
-                                       'reportes_dual rd\n'
-                                       '                  WHERE rd.matricula = '
-                                       'ad.matricula\n'
-                                       '                    AND rd.cuatrimestre = '
-                                       'ad.cuatrimestre\n'
-                                       '                    AND rd.semana = %s\n'
-                                       '              )\n'
-                                       '            ORDER BY a.nombre ASC\n'
-                                       '            '},
  'dual.coordinador_dual.q016': {'dynamic': None,
                                 'sql': '\n'
                                        '            SELECT cuatrimestre, '
@@ -211,50 +147,6 @@ QUERIES = {'dual.coordinador_dual.q000': {'dynamic': 'where',
                                        '            WHERE abierto = TRUE\n'
                                        '            ORDER BY created_at DESC\n'
                                        '            LIMIT 1\n'
-                                       '            '},
- 'dual.coordinador_dual.q017': {'dynamic': None,
-                                'sql': '\n'
-                                       '            SELECT\n'
-                                       '                ad.matricula,\n'
-                                       '                a.nombre,\n'
-                                       '                g.nomenclatura,\n'
-                                       '                e.nombre AS empresa,\n'
-                                       '                COALESCE(max_rd.semana, 0) '
-                                       'AS ultima_semana,\n'
-                                       '                COALESCE(max_rd.semana, 0) '
-                                       '+ 1 AS semana_esperada,\n'
-                                       '                ad.cuatrimestre\n'
-                                       '            FROM alumnos_dual ad\n'
-                                       '            JOIN alumnos a ON a.matricula '
-                                       '= ad.matricula\n'
-                                       '            LEFT JOIN grupos g ON g.id = '
-                                       'a.grupo_id\n'
-                                       '            LEFT JOIN empresas e ON e.id = '
-                                       'ad.empresa_id\n'
-                                       '            LEFT JOIN LATERAL (\n'
-                                       '                SELECT MAX(rd.semana) AS '
-                                       'semana\n'
-                                       '                FROM reportes_dual rd\n'
-                                       '                WHERE rd.matricula = '
-                                       'ad.matricula\n'
-                                       '                  AND rd.cuatrimestre = '
-                                       'ad.cuatrimestre\n'
-                                       '            ) max_rd ON true\n'
-                                       '            WHERE ad.activo = TRUE\n'
-                                       '              AND ad.cuatrimestre = %s\n'
-                                       '              AND COALESCE(max_rd.semana, '
-                                       '0) < 18\n'
-                                       '              AND NOT EXISTS (\n'
-                                       '                  SELECT 1 FROM '
-                                       'reportes_dual rd2\n'
-                                       '                  WHERE rd2.matricula = '
-                                       'ad.matricula\n'
-                                       '                    AND rd2.cuatrimestre = '
-                                       'ad.cuatrimestre\n'
-                                       '                    AND rd2.semana = '
-                                       'COALESCE(max_rd.semana, 0) + 1\n'
-                                       '              )\n'
-                                       '            ORDER BY a.nombre ASC\n'
                                        '            '},
  'dual.coordinador_dual.q018': {'dynamic': None,
                                 'sql': '\n'
@@ -301,7 +193,7 @@ QUERIES = {'dual.coordinador_dual.q000': {'dynamic': 'where',
                                        '                cerrado        = FALSE,\n'
                                        '                cerrado_por    = NULL,\n'
                                        '                cerrado_at     = NULL\n'
-                                       '            RETURNING cuatrimestre, '
+                                       '            RETURNING id, cuatrimestre, '
                                        'periodo_label, fecha_inicio, fecha_fin\n'
                                        '            '},
  'dual.coordinador_dual.q022': {'dynamic': None,
@@ -328,3 +220,105 @@ QUERIES = {'dual.coordinador_dual.q000': {'dynamic': 'where',
  'dual.coordinador_dual.update_report': {'dynamic': 'assignments',
                                          'sql': 'UPDATE reportes_dual SET '
                                                 '{assignments} WHERE id = %s'}}
+
+QUERIES.update({
+    'dual.coordinador_dual.active_incorporation': {
+        'dynamic': None,
+        'sql': '''
+            SELECT id, matricula, cuatrimestre, empresa_id, activo,
+                   fecha_inicio, fecha_baja, created_at
+            FROM alumnos_dual
+            WHERE matricula = %s AND activo = TRUE
+            FOR UPDATE
+        ''',
+    },
+    'dual.coordinador_dual.insert_incorporation': {
+        'dynamic': None,
+        'sql': '''
+            INSERT INTO alumnos_dual
+                (matricula, empresa_id, activo, fecha_inicio, asignado_por)
+            VALUES (%s, %s, TRUE, %s, %s)
+            RETURNING id, matricula, cuatrimestre, empresa_id, activo,
+                      fecha_inicio, fecha_baja, created_at
+        ''',
+    },
+    'dual.coordinador_dual.close_incorporation': {
+        'dynamic': None,
+        'sql': '''
+            UPDATE alumnos_dual
+            SET activo = FALSE, fecha_baja = %s, baja_por = %s
+            WHERE matricula = %s AND activo = TRUE AND fecha_inicio <= %s
+            RETURNING id, fecha_inicio, fecha_baja
+        ''',
+    },
+    'dual.coordinador_dual.incorporation_history': {
+        'dynamic': None,
+        'sql': '''
+            SELECT ad.id, ad.matricula, ad.empresa_id, e.nombre AS empresa,
+                   ad.fecha_inicio, ad.fecha_baja, ad.activo, ad.created_at
+            FROM alumnos_dual ad
+            LEFT JOIN empresas e ON e.id = ad.empresa_id
+            WHERE ad.matricula = %s
+            ORDER BY ad.fecha_inicio DESC, ad.created_at DESC
+        ''',
+    },
+    'dual.coordinador_dual.q010': {
+        'dynamic': None,
+        'sql': '''
+            SELECT a.matricula, a.nombre, g.turno, c.nombre AS carrera,
+                   c.codigo AS carrera_codigo, g.cuatrimestre, g.nomenclatura,
+                   g.modalidad, COALESCE(ad.activo, FALSE) AS es_alumno_dual,
+                   ad.activo, ad.fecha_inicio, ad.fecha_baja,
+                   e.id AS empresa_id, e.nombre AS empresa
+            FROM alumnos a
+            LEFT JOIN grupos g ON g.id = a.grupo_id
+            LEFT JOIN carreras c ON c.id = g.carrera_id
+            LEFT JOIN alumnos_dual ad ON ad.matricula = a.matricula AND ad.activo = TRUE
+            LEFT JOIN empresas e ON e.id = ad.empresa_id
+            WHERE a.matricula = %s
+        ''',
+    },
+})
+
+# C03: la incorporación pertenece a un período por solapamiento de fechas (inicio/baja
+# contra fecha_inicio/fecha_fin del período; sin fechas de período, solo si sigue activa)
+# y el grupo se toma de la pertenencia del período. alumnos_dual.cuatrimestre ya no se
+# escribe ni se consulta. Estas definiciones sustituyen a q005, q006, q015 y q017 de arriba.
+_EN_PERIODO = '''(CASE WHEN p.fecha_inicio IS NULL OR p.fecha_fin IS NULL THEN ad.activo
+                 ELSE ad.fecha_inicio <= p.fecha_fin
+                      AND COALESCE(ad.fecha_baja, DATE 'infinity') >= p.fecha_inicio END)'''
+
+QUERIES.update({
+    'dual.coordinador_dual.q005': {
+        'dynamic': None,
+        'sql': f'''
+            SELECT ad.id, ad.matricula, p.cuatrimestre, ad.empresa_id, ad.activo,
+                   ad.fecha_inicio, ad.fecha_baja, ad.created_at,
+                   a.nombre AS nombre_alumno, e.nombre AS nombre_empresa
+            FROM ciclos_dual p
+            JOIN alumnos_dual ad ON {_EN_PERIODO}
+            JOIN alumnos a ON a.matricula = ad.matricula
+            JOIN empresas e ON e.id = ad.empresa_id
+            WHERE p.cuatrimestre = %s
+            ORDER BY a.nombre ASC, ad.fecha_inicio DESC
+        ''',
+    },
+    'dual.coordinador_dual.q006': {
+        'dynamic': None,
+        'sql': f'''
+            SELECT ad.id, ad.matricula, per.cuatrimestre, ad.empresa_id, ad.activo,
+                   ad.fecha_inicio, ad.fecha_baja, ad.created_at,
+                   a.nombre AS nombre_alumno, e.nombre AS nombre_empresa
+            FROM alumnos_dual ad
+            JOIN alumnos a ON a.matricula = ad.matricula
+            JOIN empresas e ON e.id = ad.empresa_id
+            LEFT JOIN LATERAL (
+                SELECT p.cuatrimestre FROM ciclos_dual p
+                WHERE {_EN_PERIODO}
+                ORDER BY p.fecha_inicio DESC NULLS LAST, p.created_at DESC
+                LIMIT 1
+            ) per ON TRUE
+            ORDER BY ad.fecha_inicio DESC, a.nombre ASC
+        ''',
+    },
+})
