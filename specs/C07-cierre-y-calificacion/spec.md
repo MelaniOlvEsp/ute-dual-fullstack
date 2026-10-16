@@ -3,7 +3,7 @@
 Estado: DRAFT
 Fecha: 2026-10-16
 Responsable de aprobación: responsable del proyecto
-Dependencias: C06 DONE (2026-10-16). Bloquean pasar a READY: tres decisiones (DP-04 en lo que falta, DP-03 en lo que falta y la confirmación de DP-11); ver Decisiones.
+Dependencias: C06 DONE (2026-10-16). DP-04, DP-03 y DP-11 resueltas por el responsable el 2026-10-16 en lo que C07 necesita (ver Decisiones). Sin decisiones bloqueantes pendientes; falta la orden de pasar a READY.
 
 ## Problema y resultado esperado
 
@@ -50,11 +50,13 @@ Propuestas técnicas incluidas para la futura aprobación de implementación (co
 - PostgreSQL: usar `FOR NO KEY UPDATE` en lugar de `FOR UPDATE` cuando no se cambia la clave, y que todo escritor tome el mismo bloqueo de fila o de aviso, porque un bloqueo en el que un escritor no participa no protege nada ([Cybertec](https://www.cybertec-postgresql.com/en/select-for-update-considered-harmful-postgresql/), [guía de bloqueos de fila](https://www.netdata.cloud/guides/postgres/postgres-row-level-lock-contention/)). Aplicación: el bloqueo del período descrito arriba, sin trabajo externo dentro de la transacción.
 - PostgreSQL `ROUND`: con `numeric` los empates se redondean alejándose de cero (para notas positivas, HALF_UP), mientras que con coma flotante depende de la plataforma ([pgsql-docs](https://postgresql.org/message-id/3da3dcc06220f80537dc1fb2c32cb76c91f87b93.camel%40cybertec.at)). Aplicación: todo el cálculo en `numeric`.
 
-Pendientes bloqueantes (DP):
+Resueltas por el responsable del proyecto el 2026-10-16 (registradas en [DECISIONES_PENDIENTES](../../docs/analysis/DECISIONES_PENDIENTES.md)):
 
-1. **DP-04 — recepción simultánea de dos períodos.** Hoy un índice único permite un solo período con recepción abierta. Propuesta: mantenerlo, de modo que se cierra la recepción de un período antes de abrir la del siguiente y se sigue pudiendo revisar y finalizar el anterior mientras el nuevo recibe (RN-23, AC-18). Alternativa: permitir dos períodos recibiendo a la vez, lo que exige que el alumno elija a qué período entrega y reabrir el diseño de la entrega.
-2. **DP-03 — etiqueta de lo no recibido por cierre anticipado.** Propuesta: una semana sin entrega cuyo período se cerró antes de que terminara la semana se etiqueta "No recibida por cierre" (sin atraso ni incumplimiento) y una semana que ya había terminado antes del cierre sigue como "Atrasada"; ninguna cuenta como cero ni entra al promedio. Alternativa: etiquetar todas las no entregadas de un período cerrado como "No entregada" sin distinguir.
-3. **DP-11 — redondeo y congelado del promedio.** Dos decimales y solo aprobados ya están confirmados. Propuesta: redondeo HALF_UP sobre `numeric`, resultado congelado al finalizar en un registro inmutable y sin recálculo posterior aunque cambie la regla. Alternativa: otro método de redondeo (por ejemplo al par) o recalcular al consultar.
+1. **DP-04 — recepción simultánea:** un solo período con recepción abierta a la vez (se mantiene el índice único actual). Se cierra la recepción de un período antes de abrir la del siguiente, y el anterior se puede revisar y finalizar mientras el nuevo recibe (RN-23, AC-18).
+2. **DP-03 — etiqueta por cierre anticipado:** una semana sin entrega cuyo período se cerró antes de que terminara la semana se etiqueta «No recibida por cierre» (sin atraso ni incumplimiento); una semana que ya había terminado antes del cierre sigue como «Atrasada». Ninguna cuenta como cero ni entra al promedio.
+3. **DP-11 — promedio:** solo aprobados y dos decimales; ningún valor se redondea a entero. La nota de cada reporte sigue siendo entera (RN-12), la suma y la cantidad de aprobados se guardan exactas y el promedio se calcula en `numeric` con redondeo HALF_UP en el tercer decimal (el responsable confirmó 9.335 → 9.34). Resultado congelado al finalizar en un registro inmutable y sin recálculo posterior. Retención, borrado y respaldos siguen para C10.
+
+Pendientes bloqueantes (DP): ninguno.
 
 No bloquean: DP-06, DP-09 y DP-10 (reapertura fuera de V1). Retención, borrado y responsable de respaldos de DP-11 se resuelven antes de uso real (C10). Si durante la implementación aparece una decisión nueva que cambie calendario, permisos, notas o conservación, se detiene solo esa conducta y se presenta la decisión concreta.
 
@@ -97,7 +99,7 @@ Limitaciones: la retención, el borrado y los respaldos (DP-11) no se resuelven 
 
 ## Aprobaciones y cierre
 
-Aprobación de READY: pendiente (DP-04, DP-03 y DP-11).
+Aprobación de READY: pendiente la orden del responsable (DP-04, DP-03 y DP-11 resueltas el 2026-10-16).
 Aprobación de implementación: pendiente.
 Aprobación de cierre: pendiente.
 Resumen final: pendiente.
