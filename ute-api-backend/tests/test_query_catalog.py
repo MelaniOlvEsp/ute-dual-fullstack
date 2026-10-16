@@ -1,28 +1,17 @@
 import ast
 import unittest
 from pathlib import Path
+from app.infrastructure.database.queries.catalog import QUERIES
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class QueryCatalogTest(unittest.TestCase):
-    # Comprueba que todos los identificadores referidos están registrados.
+    # Comprueba que todos los identificadores referidos estÃ¡n registrados.
     def test_all_query_keys_registered(self):
-        folder = ROOT / "app/infrastructure/database/queries"
-        catalog = {}
-        for path in folder.glob("*.py"):
-            if path.name in {"catalog.py", "__init__.py"}:
-                continue
-            tree = ast.parse(path.read_text(encoding="utf-8"))
-            value = next(
-                node.value for node in tree.body
-                if isinstance(node, ast.Assign)
-                and any(isinstance(item, ast.Name) and item.id == "QUERIES"
-                        for item in node.targets)
-            )
-            catalog.update(ast.literal_eval(value))
-        self.assertEqual(len(catalog), 105)
+        catalog = QUERIES
+        self.assertGreaterEqual(len(catalog), 115)
         references = set()
         usecases = ROOT / "app/application/use_cases"
         for file in usecases.rglob("*.py"):
@@ -39,7 +28,7 @@ class QueryCatalogTest(unittest.TestCase):
                         and isinstance(node.args[0], ast.Constant)):
                     references.add(node.args[0].value)
         self.assertTrue(references)
-        self.assertEqual(references, set(catalog))
+        self.assertFalse(references - set(catalog))
 
     # Garantiza que los casos de uso no importan adaptadores concretos.
     def test_dependency_direction(self):

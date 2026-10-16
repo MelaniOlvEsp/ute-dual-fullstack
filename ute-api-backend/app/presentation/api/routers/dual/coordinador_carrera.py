@@ -1,11 +1,13 @@
 
 from fastapi import APIRouter, HTTPException, status, Depends
 from uuid import UUID
-from pydantic import BaseModel, Field
-from fastapi import UploadFile, File
+from pydantic import BaseModel, Field, field_validator
+from fastapi import UploadFile, File, Form
 from app.presentation.api.routers.auth import get_current_user
 from app.application.dto.reportes import ReporteDualResponse
 from app.application.use_cases.dual import coordinador_carrera as use_cases
+from app.application.use_cases.dual import organization as organization_cases
+from app.domain.organization import canonical_career
 from app.bootstrap import get_runtime
 from app.presentation.api.response import to_http_response
 
@@ -135,6 +137,21 @@ class GrupoCreate(BaseModel):
     plan: str = "24"
     zona: int = 1
 
+    @field_validator("carrera")
+    @classmethod
+    def carrera_institucional(cls, value):
+        try:
+            return canonical_career(value).name
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+
+
+@router.get("/carreras")
+async def listar_carreras(user=Depends(get_coordinador_carrera)):
+    return to_http_response(
+        await organization_cases.list_careers(user=user, runtime=get_runtime())
+    )
+
 
 # Delega el caso de uso sin mezclar lógica de negocio con HTTP.
 @router.get("/grupos")
@@ -168,12 +185,14 @@ async def crear_grupo(
 @router.post("/grupos/{grupo_id}/alumnos")
 async def cargar_alumnos_csv(
     grupo_id: UUID,
+    periodo_id: UUID = Form(...),
     file: UploadFile = File(...),
     user=Depends(get_tutor_academico),
 ):
     return to_http_response(
-        await use_cases.cargar_alumnos_csv(
-            grupo_id=grupo_id,
+        await organization_cases.apply_csv(
+            group_id=grupo_id,
+            period_id=periodo_id,
             file=file,
             user=user,
             runtime=get_runtime(),
@@ -184,6 +203,25 @@ async def cargar_alumnos_csv(
 class AlumnoIndividualCreate(BaseModel):
     matricula: str = Field(min_length=9, max_length=9)
     nombre: str
+    periodo_id: UUID
+
+
+@router.post("/grupos/{grupo_id}/alumnos/preview")
+async def preview_alumnos_csv(
+    grupo_id: UUID,
+    periodo_id: UUID = Form(...),
+    file: UploadFile = File(...),
+    user=Depends(get_tutor_academico),
+):
+    return to_http_response(
+        await organization_cases.preview_csv(
+            group_id=grupo_id,
+            period_id=periodo_id,
+            file=file,
+            user=user,
+            runtime=get_runtime(),
+        )
+    )
 
 
 # Delega el caso de uso sin mezclar lógica de negocio con HTTP.
@@ -198,11 +236,55 @@ async def agregar_alumno_individual(
     user=Depends(get_tutor_academico),
 ):
     return to_http_response(
-        await use_cases.agregar_alumno_individual(
-            grupo_id=grupo_id,
+        await organization_cases.add_student(
+            group_id=grupo_id,
             data=data,
             user=user,
             runtime=get_runtime(),
+        )
+    )
+
+
+@router.get("/alumnos/{matricula}/grupos")
+async def historial_grupos(
+    matricula: str,
+    user=Depends(get_coordinador_carrera),
+):
+    return to_http_response(
+        await organization_cases.membership_history(
+            matricula=matricula, user=user, runtime=get_runtime()
+        )
+    )
+
+
+class PromocionInput(BaseModel):
+    grupo_origen_id: UUID
+    periodo_origen_id: UUID
+    grupo_destino_id: UUID
+    periodo_destino_id: UUID
+    matriculas: list[str] | None = None
+
+
+@router.post("/grupos/promociones/preview")
+async def preview_promocion(
+    data: PromocionInput,
+    user=Depends(get_tutor_academico),
+):
+    return to_http_response(
+        await organization_cases.preview_promotion(
+            data=data, user=user, runtime=get_runtime()
+        )
+    )
+
+
+@router.post("/grupos/promociones")
+async def aplicar_promocion(
+    data: PromocionInput,
+    user=Depends(get_tutor_academico),
+):
+    return to_http_response(
+        await organization_cases.apply_promotion(
+            data=data, user=user, runtime=get_runtime()
         )
     )
 

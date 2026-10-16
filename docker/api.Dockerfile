@@ -1,10 +1,11 @@
 FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-WORKDIR /workspace/ute-api-clean
-COPY ute-api-clean/requirements.txt ./
+WORKDIR /workspace/ute-api-backend
+COPY ute-api-backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-COPY ute-api-clean/ ./
+COPY ute-api-backend/ ./
 COPY database/schema_dual_desde_cero.sql /workspace/database/schema_dual_desde_cero.sql
+COPY database/migrations/ /workspace/database/migrations/
 RUN useradd --create-home appuser
 USER appuser
 EXPOSE 8000

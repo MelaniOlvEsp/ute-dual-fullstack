@@ -1,6 +1,7 @@
 -- Esquema limpio para instalaciones NUEVAS, NO ejecutar sobre BD existente.
 -- PostgreSQL / Supabase; conserva los nombres consultados por FastAPI v2.
--- Base canónica C01 para Docker Compose; modelo de calendario/versiones pendiente C03-C07.
+-- Base canónica C01 para Docker Compose; modelo de calendario/versiones pendiente C04-C07.
+-- Catálogo de carreras: TII, LOG y MER (C03). migrations/003 añade carreras, historia e incorporaciones.
 BEGIN;
 
 SELECT pg_advisory_xact_lock(19861);
@@ -20,7 +21,7 @@ CREATE TABLE public.grupos (
  plan char(2) NOT NULL,
  carrera text NOT NULL CHECK (carrera IN (
   'ING.NME TEC DE LA INFORMACIÓN E INNOVACION DIGITAL',
-  'ING. NME LOGISTICA','LIC. NME EDUCACIÓN')),
+  'ING. NME LOGISTICA','LIC. NME MERCADOTECNIA')),
  zona smallint NOT NULL,
  modalidad text NOT NULL CHECK (modalidad IN
   ('bis','intensivo','mixta','despresurizada')),
@@ -34,7 +35,7 @@ CREATE TABLE public.grupos (
    CASE carrera
      WHEN 'ING.NME TEC DE LA INFORMACIÓN E INNOVACION DIGITAL' THEN 'TII'
      WHEN 'ING. NME LOGISTICA' THEN 'LOG'
-     WHEN 'LIC. NME EDUCACIÓN' THEN 'EDU'
+     WHEN 'LIC. NME MERCADOTECNIA' THEN 'MER'
      ELSE 'ERR'
    END || '-' || zona::text || '-' ||
    CASE modalidad

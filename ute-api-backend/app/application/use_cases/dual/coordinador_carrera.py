@@ -11,6 +11,7 @@ from app.application.errors import ApplicationError
 from app.application.ports.query import QueryRef
 from app.application.responses import FileResult
 from app.domain.periods import periodo_actual as _periodo_actual
+from app.domain.organization import canonical_career
 
 
 CAMPOS_CSV = ["semana", "calificacion_alumno"]
@@ -32,6 +33,7 @@ async def listar_periodos(user, *, runtime: RuntimePort):
             ciclo = await cur.fetchone()
             periodos.append(
                 {
+                    "id": dict(ciclo)["id"] if ciclo else None,
                     "cuatrimestre": cuatri,
                     "periodo_label": (
                         dict(ciclo)["periodo_label"] if ciclo else cuatri
@@ -48,6 +50,7 @@ async def listar_periodos(user, *, runtime: RuntimePort):
             ):
                 periodos.append(
                     {
+                        "id": c["id"],
                         "cuatrimestre": c["cuatrimestre"],
                         "periodo_label": c["periodo_label"],
                     }
@@ -292,18 +295,23 @@ async def listar_grupos(carrera, user, *, runtime: RuntimePort):
 # Ejecuta las reglas del caso de uso con dependencias inyectadas.
 async def crear_grupo(data, user, *, runtime: RuntimePort):
     # Nomenclatura generada por columna GENERATED ALWAYS en la BD
+    try:
+        career = canonical_career(data.carrera)
+    except ValueError as exc:
+        raise ApplicationError(status_code=422, detail=str(exc)) from exc
     async with runtime.database.transaction() as cur:
         try:
             await cur.execute(
                 'dual.coordinador_carrera.q015',
                 (
                     data.plan,
-                    data.carrera,
+                    career.name,
                     data.zona,
                     data.modalidad,
                     data.cuatrimestre,
                     data.letra,
                     data.turno,
+                    career.name,
                 ),
             )
             row = await cur.fetchone()
@@ -518,22 +526,7 @@ async def eliminar_alumno(matricula, user, *, runtime: RuntimePort):
                 detail="Alumno no encontrado",
             )
 
-        # Eliminar registros dependientes en orden de dependencia
-        await cur.execute(
-            'dual.coordinador_carrera.q022', (matricula,)
-        )
-        await cur.execute(
-            'dual.coordinador_carrera.q023', (matricula,)
-        )
-        await cur.execute(
-            'dual.coordinador_carrera.q024', (matricula,)
-        )
-        await cur.execute(
-            'dual.coordinador_carrera.q025', (matricula,)
-        )
-
-    logger.info(
-        f"Alumno {alumno['nombre']} ({matricula}) eliminado completamente "
-        f"por {user['sub']}"
-    )
-    return {"mensaje": "Alumno eliminado completamente del sistema"}
+        # Desactivar acceso y autorización sin destruir el expediente.
+        await cur.execute('dual.coordinador_carrera.q025', (matricula,))
+        await cur.execute('dual.coordinador_carrera.q022', (matricula,))
+    return {"mensaje": "Acceso del alumno desactivado; expediente conservado"}

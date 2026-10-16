@@ -44,6 +44,8 @@
   let pdfSeleccionado = null
   let periodos = []
   let periodoSeleccionado = ''
+  let periodoGrupoId = ''
+  let carrerasInstitucionales = []
 
   let formGrupo = {
     carrera: 'ING.NME TEC DE LA INFORMACIÓN E INNOVACION DIGITAL',
@@ -70,14 +72,29 @@
       navigate('/login', { replace: true })
       return
     }
-    await Promise.all([cargarAlumnos(), cargarPeriodos()])
+    await Promise.all([cargarAlumnos(), cargarPeriodos(), cargarCarreras()])
   })
+
+  async function cargarCarreras() {
+    try {
+      carrerasInstitucionales = await api.dual.listarCarreras()
+    } catch {
+      carrerasInstitucionales = [
+        { codigo: 'TII', nombre: 'ING.NME TEC DE LA INFORMACIÓN E INNOVACION DIGITAL' },
+        { codigo: 'LOG', nombre: 'ING. NME LOGISTICA' },
+        { codigo: 'MER', nombre: 'LIC. NME MERCADOTECNIA' }
+      ]
+    }
+  }
 
   async function cargarPeriodos() {
     try {
       periodos = await api.dual.periodos()
       if (periodos.length && !periodoSeleccionado) {
         periodoSeleccionado = periodos[0].cuatrimestre
+      }
+      if (!periodoGrupoId) {
+        periodoGrupoId = periodos.find(p => p.id)?.id || ''
       }
     } catch (e) {
       // Silencioso — el dropdown simplemente no aparecerá
@@ -103,6 +120,10 @@
       loading = false
     }
   }
+
+  // La nomenclatura institucional no incluye el ciclo de ingreso: dos grupos de ciclos
+  // distintos pueden compartirla, así que los selectores lo muestran como texto aparte.
+  const etiquetaGrupo = (g) => (g.ciclo_ingreso ? `${g.nomenclatura} · ingreso ${g.ciclo_ingreso}` : g.nomenclatura)
 
   $: carreras = [...new Set(alumnos.map(a => a.carrera).filter(Boolean))].sort()
   $: grupos = [...new Set(alumnos.map(a => a.nomenclatura || a.grupo).filter(Boolean))].sort()
@@ -210,7 +231,7 @@
   }
 
   async function procesarCargaMasiva() {
-    if (!archivoCSV || !grupoCreado) return
+    if (!archivoCSV || !grupoCreado || !periodoGrupoId) return
     subiendoCSV = true
     errorCSV = ''
     resultadoCSV = null
@@ -218,18 +239,40 @@
     try {
       const fd = new FormData()
       fd.append('file', archivoCSV)
-      const respuesta = await api.dual.subirAlumnosCSV(grupoCreado.id, fd)
+      fd.append('periodo_id', periodoGrupoId)
+      const respuesta = await api.dual.previewAlumnosCSV(grupoCreado.id, fd)
 
       resultadoCSV = {
-        insertados: respuesta.insertados || [],
-        actualizados: respuesta.actualizados || [],
+        preview: true,
+        validos: respuesta.validos || [],
+        repetidos: respuesta.repetidos || [],
         errores: respuesta.errores || [],
+        puedeAplicar: respuesta.puede_aplicar,
+        grupo: respuesta.grupo,
+        periodo: respuesta.periodo
       }
-      archivoCSV = null
-      if (inputFileRef) inputFileRef.value = ""
-      await cargarAlumnos()
     } catch (e) {
       errorCSV = e.message || 'Error de I/O al procesar el archivo.'
+    } finally {
+      subiendoCSV = false
+    }
+  }
+
+  async function confirmarCargaMasiva() {
+    if (!archivoCSV || !grupoCreado || !periodoGrupoId || !resultadoCSV?.puedeAplicar) return
+    subiendoCSV = true
+    errorCSV = ''
+    try {
+      const fd = new FormData()
+      fd.append('file', archivoCSV)
+      fd.append('periodo_id', periodoGrupoId)
+      const respuesta = await api.dual.subirAlumnosCSV(grupoCreado.id, fd)
+      resultadoCSV = { ...respuesta, preview: false }
+      archivoCSV = null
+      if (inputFileRef) inputFileRef.value = ''
+      await Promise.all([cargarAlumnos(), cargarGrupos()])
+    } catch (e) {
+      errorCSV = e.message || 'No se aplicó el lote.'
     } finally {
       subiendoCSV = false
     }
@@ -259,6 +302,10 @@
   let previewIndividual = null  
   let modalEliminar = null      
   let procesandoIndividual = false
+  let promocion = { grupo_origen_id: '', periodo_origen_id: '', grupo_destino_id: '', periodo_destino_id: '' }
+  let previewPromocion = null
+  let errorPromocion = ''
+  let procesandoPromocion = false
 
   function agregarFila() {
     filasAlumnos = [...filasAlumnos, { matricula: '', nombre: '' }]
@@ -287,13 +334,17 @@
       errorIndividual = 'Selecciona un grupo activo para agregar alumnos.'
       return
     }
+    if (accion === 'agregar' && !periodoGrupoId) {
+      errorIndividual = 'Selecciona el período académico de la pertenencia.'
+      return
+    }
     previewIndividual = { accion, filas: filasAlumnos.map(f => ({ ...f })) }
   }
 
   function prepararEliminar() {
     errorIndividual = ''
     if (filasAlumnos.length !== 1 || !filasAlumnos[0].matricula) {
-      errorIndividual = 'Ingresa una sola matrícula para eliminar.'
+      errorIndividual = 'Ingresa una sola matrícula para desactivar su acceso.'
       return
     }
     if (!/^\d{9}$/.test(filasAlumnos[0].matricula)) {
@@ -310,7 +361,7 @@
     try {
       if (previewIndividual.accion === 'agregar') {
         for (const f of previewIndividual.filas) {
-          await api.dual.agregarAlumno(grupoCreado.id, f)
+          await api.dual.agregarAlumno(grupoCreado.id, { ...f, periodo_id: periodoGrupoId })
         }
       } else if (previewIndividual.accion === 'actualizar') {
         for (const f of previewIndividual.filas) {
@@ -336,10 +387,46 @@
       resetIndividual()
       await cargarGrupos()
     } catch (e) {
-      errorIndividual = e.message || 'Error al eliminar el alumno.'
+      errorIndividual = e.message || 'Error al desactivar el acceso.'
       modalEliminar = null
     } finally {
       procesandoIndividual = false
+    }
+  }
+
+  async function revisarPromocion() {
+    errorPromocion = ''
+    previewPromocion = null
+    if (Object.values(promocion).some(value => !value)) {
+      errorPromocion = 'Selecciona grupo y período de origen y destino.'
+      return
+    }
+    if (promocion.periodo_origen_id === promocion.periodo_destino_id) {
+      errorPromocion = 'El período destino debe ser diferente al período origen.'
+      return
+    }
+    procesandoPromocion = true
+    try {
+      previewPromocion = await api.dual.previewPromocion(promocion)
+    } catch (e) {
+      errorPromocion = e.message || 'No se pudo preparar la promoción.'
+    } finally {
+      procesandoPromocion = false
+    }
+  }
+
+  async function confirmarPromocion() {
+    if (!previewPromocion?.puede_aplicar) return
+    procesandoPromocion = true
+    errorPromocion = ''
+    try {
+      const result = await api.dual.aplicarPromocion(promocion)
+      previewPromocion = { aplicado: true, validos: result.promovidos || [], repetidos: result.repetidos || [], errores: [] }
+      await cargarGrupos()
+    } catch (e) {
+      errorPromocion = e.message || 'La promoción no se aplicó.'
+    } finally {
+      procesandoPromocion = false
     }
   }
 </script>
@@ -423,16 +510,25 @@
 
           <div class="grupos-selector-card">
             <div class="field">
-              <label class="grupos-barra-label">Carrera</label>
-              <select class="input-plain input-sm" bind:value={filtroCarreraGrupos} on:change={cargarGrupos}>
+              <label class="grupos-barra-label" for="filtro-carrera-grupos">Carrera</label>
+              <select id="filtro-carrera-grupos" class="input-plain input-sm" bind:value={filtroCarreraGrupos} on:change={cargarGrupos}>
                 <option value="">Todas</option>
-                <option value="ING.NME TEC DE LA INFORMACIÓN E INNOVACION DIGITAL">TII</option>
-                <option value="ING. NME LOGISTICA">LOG</option>
-                <option value="LIC. NME EDUCACIÓN">EDU</option>
+                {#each carrerasInstitucionales as carrera}
+                  <option value={carrera.nombre}>{carrera.codigo}</option>
+                {/each}
               </select>
             </div>
             <div class="field">
-              <label class="grupos-barra-label">
+              <label class="grupos-barra-label" for="periodo-pertenencia">Período de pertenencia</label>
+              <select id="periodo-pertenencia" class="input-plain input-sm" bind:value={periodoGrupoId} on:change={limpiarInputCSV}>
+                <option value="">Selecciona un período</option>
+                {#each periodos.filter(p => p.id) as periodo}
+                  <option value={periodo.id}>{periodo.periodo_label || periodo.cuatrimestre}</option>
+                {/each}
+              </select>
+            </div>
+            <div class="field">
+              <label class="grupos-barra-label" for="grupo-activo">
                 {#if grupoCreado}
                   Grupo activo — <span class="highlight-orange">{grupoCreado.nomenclatura}</span>
                 {:else}
@@ -442,14 +538,14 @@
               {#if loadingGrupos}
                 <div class="spinner" style="width:18px;height:18px;border-width:2px;"></div>
               {:else}
-                <select class="input-plain input-sm" class:select-activo={grupoCreado} on:change={(e) => {
+                <select id="grupo-activo" class="input-plain input-sm" class:select-activo={grupoCreado} on:change={(e) => {
                     const g = gruposExistentes.find(x => String(x.id) === e.target.value)
                     if (g) seleccionarGrupo(g)
                     else { grupoCreado = null; grupoSeleccionado = null }
                   }}>
                   <option value="">Sin grupo activo</option>
                   {#each gruposExistentes as g}
-                    <option value={g.id} selected={grupoCreado?.id === g.id}>{g.nomenclatura}</option>
+                    <option value={g.id} selected={grupoCreado?.id === g.id}>{etiquetaGrupo(g)}</option>
                   {/each}
                 </select>
               {/if}
@@ -465,16 +561,16 @@
 
             <div class="form-col">
               <div class="field">
-                <label>Carrera</label>
-                <select class="input-plain input-sm" bind:value={formGrupo.carrera} disabled={grupoCreado}>
-                  <option value="ING.NME TEC DE LA INFORMACIÓN E INNOVACION DIGITAL">ING.NME TEC DE LA INFORMACIÓN E INNOVACION DIGITAL</option>
-                  <option value="ING. NME LOGISTICA">ING. NME LOGISTICA</option>
-                  <option value="LIC. NME EDUCACIÓN">LIC. NME EDUCACIÓN</option>
+                <label for="nuevo-grupo-carrera">Carrera</label>
+                <select id="nuevo-grupo-carrera" class="input-plain input-sm" bind:value={formGrupo.carrera} disabled={grupoCreado}>
+                  {#each carrerasInstitucionales as carrera}
+                    <option value={carrera.nombre}>{carrera.codigo} — {carrera.nombre}</option>
+                  {/each}
                 </select>
               </div>
               <div class="field">
-                <label>Modalidad</label>
-                <select class="input-plain input-sm" bind:value={formGrupo.modalidad} disabled={grupoCreado}>
+                <label for="nuevo-grupo-modalidad">Modalidad</label>
+                <select id="nuevo-grupo-modalidad" class="input-plain input-sm" bind:value={formGrupo.modalidad} disabled={grupoCreado}>
                   <option value="bis">BIS</option>
                   <option value="intensivo">Intensivo</option>
                   <option value="mixta">Mixta</option>
@@ -482,23 +578,23 @@
                 </select>
               </div>
               <div class="field">
-                <label>Turno</label>
-                <select class="input-plain input-sm" bind:value={formGrupo.turno} disabled={grupoCreado}>
+                <label for="nuevo-grupo-turno">Turno</label>
+                <select id="nuevo-grupo-turno" class="input-plain input-sm" bind:value={formGrupo.turno} disabled={grupoCreado}>
                   <option value="Matutino">Matutino</option>
                   <option value="Vespertino">Vespertino</option>
                 </select>
               </div>
               <div class="field">
-                <label>Cuatrimestre</label>
-                <select class="input-plain input-sm" bind:value={formGrupo.cuatrimestre} disabled={grupoCreado}>
+                <label for="nuevo-grupo-cuatrimestre">Cuatrimestre</label>
+                <select id="nuevo-grupo-cuatrimestre" class="input-plain input-sm" bind:value={formGrupo.cuatrimestre} disabled={grupoCreado}>
                   {#each Array.from({length: 12}, (_, i) => i + 1) as n}
                     <option value={n}>{n}</option>
                   {/each}
                 </select>
               </div>
               <div class="field">
-                <label>Letra</label>
-                <select class="input-plain input-sm" bind:value={formGrupo.letra} disabled={grupoCreado}>
+                <label for="nuevo-grupo-letra">Letra</label>
+                <select id="nuevo-grupo-letra" class="input-plain input-sm" bind:value={formGrupo.letra} disabled={grupoCreado}>
                   {#each ['A','B','C','D','E','F'] as l}
                     <option value={l}>{l}</option>
                   {/each}
@@ -535,8 +631,8 @@
                   {archivoCSV ? archivoCSV.name : 'Seleccionar archivo CSV'}
                 </button>
 
-                <button class="btn-primary" disabled={!archivoCSV || subiendoCSV} on:click={procesarCargaMasiva}>
-                  {subiendoCSV ? 'Sincronizando...' : 'Ejecutar carga masiva'}
+                <button class="btn-primary" disabled={!archivoCSV || !periodoGrupoId || subiendoCSV} on:click={procesarCargaMasiva}>
+                  {subiendoCSV ? 'Validando...' : 'Revisar archivo'}
                 </button>
               </div>
 
@@ -545,12 +641,25 @@
               {/if}
 
               {#if resultadoCSV}
-                {@const total = resultadoCSV.insertados.length + resultadoCSV.actualizados.length + resultadoCSV.errores.length}
+                {@const total = resultadoCSV.preview
+                  ? resultadoCSV.validos.length + resultadoCSV.repetidos.length + resultadoCSV.errores.length
+                  : resultadoCSV.insertados.length + resultadoCSV.actualizados.length + (resultadoCSV.repetidos || []).length + resultadoCSV.errores.length}
                 <div class="resultado-csv">
                   {#if total === 0}
                     <p class="resultado-vacio">El archivo no contiene registros para procesar.</p>
                   {:else}
-                    {#if resultadoCSV.insertados.length > 0}
+                    {#if resultadoCSV.preview}
+                      <p class="resultado-actualizados">Vista previa para {resultadoCSV.grupo} · {resultadoCSV.periodo}</p>
+                      <p class="resultado-ok">{resultadoCSV.validos.length} fila{resultadoCSV.validos.length !== 1 ? 's' : ''} lista{resultadoCSV.validos.length !== 1 ? 's' : ''} para aplicar.</p>
+                      {#if resultadoCSV.repetidos.length > 0}
+                        <p class="resultado-actualizados">{resultadoCSV.repetidos.length} fila{resultadoCSV.repetidos.length !== 1 ? 's' : ''} ya pertenece{resultadoCSV.repetidos.length === 1 ? '' : 'n'} al grupo en este período.</p>
+                      {/if}
+                      {#if resultadoCSV.puedeAplicar}
+                        <button class="btn-primary" disabled={subiendoCSV} on:click={confirmarCargaMasiva}>Confirmar lote completo</button>
+                      {:else}
+                        <p class="resultado-err-titulo">Corrige todos los conflictos antes de aplicar.</p>
+                      {/if}
+                    {:else if resultadoCSV.insertados.length > 0}
                       <p class="resultado-ok">✓ {resultadoCSV.insertados.length} alumno{resultadoCSV.insertados.length !== 1 ? 's' : ''} insertado{resultadoCSV.insertados.length !== 1 ? 's' : ''} correctamente.</p>
                       <div class="resultado-alumnos">
                         <ul class="resultado-lista-alumnos">
@@ -560,8 +669,8 @@
                         </ul>
                       </div>
                     {/if}
-                    {#if resultadoCSV.actualizados.length > 0}
-                      <p class="resultado-actualizados">↻ {resultadoCSV.actualizados.length} alumno{resultadoCSV.actualizados.length !== 1 ? 's' : ''} ya existía{resultadoCSV.actualizados.length !== 1 ? 'n' : ''} y {resultadoCSV.actualizados.length !== 1 ? 'fueron' : 'fue'} reasignado{resultadoCSV.actualizados.length !== 1 ? 's' : ''} al grupo.</p>
+                    {#if !resultadoCSV.preview && resultadoCSV.actualizados.length > 0}
+                      <p class="resultado-actualizados">↻ Para {resultadoCSV.actualizados.length} alumno{resultadoCSV.actualizados.length !== 1 ? 's' : ''} existente{resultadoCSV.actualizados.length !== 1 ? 's' : ''} se registró la pertenencia de este período.</p>
                       <div class="resultado-alumnos">
                         <ul class="resultado-lista-alumnos">
                           {#each resultadoCSV.actualizados as alumno}
@@ -587,7 +696,7 @@
 
           <div class="reportes-card" style={grupoCreado ? 'margin-top:16px' : ''}>
             <h2 class="card-title">Gestión individual de alumnos</h2>
-            <p class="csv-instructions">Para actualizar o eliminar solo necesitas la matrícula. Para agregar, selecciona un grupo activo primero.</p>
+            <p class="csv-instructions">Para actualizar o desactivar el acceso solo necesitas la matrícula. Para agregar, selecciona un grupo activo primero.</p>
 
             {#if errorIndividual}
               <div class="error-msg">{errorIndividual}</div>
@@ -625,8 +734,29 @@
               <div class="acciones-individuales">
                 <button class="btn-outline" on:click={() => prepararAccion('agregar')}>Agregar</button>
                 <button class="btn-outline" on:click={() => prepararAccion('actualizar')}>Actualizar</button>
-                <button class="btn-eliminar" on:click={prepararEliminar}>Eliminar</button>
+                <button class="btn-eliminar" on:click={prepararEliminar}>Desactivar acceso</button>
               </div>
+            {/if}
+          </div>
+
+          <div class="reportes-card" style="margin-top:16px">
+            <h2 class="card-title">Promoción de grupo</h2>
+            <p class="csv-instructions">Previsualiza el lote completo antes de crear la pertenencia del período destino. Los conflictos cancelan toda la operación.</p>
+            <div class="form-col">
+              <div class="field"><label for="promocion-grupo-origen">Grupo origen</label><select id="promocion-grupo-origen" class="input-plain input-sm" bind:value={promocion.grupo_origen_id}><option value="">Selecciona</option>{#each gruposExistentes as g}<option value={g.id}>{etiquetaGrupo(g)}</option>{/each}</select></div>
+              <div class="field"><label for="promocion-periodo-origen">Período origen</label><select id="promocion-periodo-origen" class="input-plain input-sm" bind:value={promocion.periodo_origen_id}><option value="">Selecciona</option>{#each periodos.filter(p => p.id) as p}<option value={p.id}>{p.periodo_label}</option>{/each}</select></div>
+              <div class="field"><label for="promocion-grupo-destino">Grupo destino</label><select id="promocion-grupo-destino" class="input-plain input-sm" bind:value={promocion.grupo_destino_id}><option value="">Selecciona</option>{#each gruposExistentes as g}<option value={g.id}>{etiquetaGrupo(g)}</option>{/each}</select></div>
+              <div class="field"><label for="promocion-periodo-destino">Período destino</label><select id="promocion-periodo-destino" class="input-plain input-sm" bind:value={promocion.periodo_destino_id}><option value="">Selecciona</option>{#each periodos.filter(p => p.id) as p}<option value={p.id}>{p.periodo_label}</option>{/each}</select></div>
+            </div>
+            {#if errorPromocion}<div class="error-msg">{errorPromocion}</div>{/if}
+            {#if previewPromocion}
+              <div class="preview-individual">
+                <p>{previewPromocion.validos?.length || 0} alumno(s) por promover; {previewPromocion.repetidos?.length || 0} ya estaban en destino.</p>
+                {#if previewPromocion.errores?.length}<p class="resultado-err-titulo">Hay {previewPromocion.errores.length} conflicto(s); no se aplicará el lote.</p>{/if}
+                {#if previewPromocion.aplicado}<p class="resultado-ok">Promoción aplicada y período anterior conservado.</p>{:else if previewPromocion.puede_aplicar}<button class="btn-primary" disabled={procesandoPromocion} on:click={confirmarPromocion}>Confirmar promoción</button>{/if}
+              </div>
+            {:else}
+              <button class="btn-outline" disabled={procesandoPromocion} on:click={revisarPromocion}>Revisar promoción</button>
             {/if}
           </div>
 
@@ -768,13 +898,13 @@
   {#if modalEliminar}
     <div class="modal-overlay" on:click={() => modalEliminar = null}>
       <div class="modal-box" on:click|stopPropagation>
-        <p class="modal-titulo">¿Eliminar alumno?</p>
+        <p class="modal-titulo">¿Desactivar acceso del alumno?</p>
         <p class="modal-cuerpo">
-          Se eliminará completamente a <strong>{modalEliminar.nombre || modalEliminar.matricula}</strong> del sistema (datos, usuario, reportes y asignaciones duales). Esta acción no se puede deshacer.
+          Se desactivará el acceso de <strong>{modalEliminar.nombre || modalEliminar.matricula}</strong> y se revocarán sus sesiones. Sus datos, reportes y asignaciones se conservan. Esto no da de baja su incorporación Dual.
         </p>
         <div class="modal-acciones">
           <button class="btn-eliminar" disabled={procesandoIndividual} on:click={confirmarEliminar}>
-            {procesandoIndividual ? 'Eliminando...' : 'Sí, eliminar'}
+            {procesandoIndividual ? 'Desactivando...' : 'Sí, desactivar acceso'}
           </button>
           <button class="btn-outline" disabled={procesandoIndividual} on:click={() => modalEliminar = null}>
             Cancelar

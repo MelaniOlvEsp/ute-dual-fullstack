@@ -73,8 +73,8 @@ def seed_demo():
         company = conn.execute("INSERT INTO empresas (nombre) VALUES ('Empresa sintética C01') RETURNING id").fetchone()[0]
         for index, period in enumerate(("Mayo-Agosto 2026", "Septiembre-Diciembre 2026"), start=1):
             group = conn.execute(
-                "INSERT INTO grupos (plan,carrera,zona,modalidad,cuatrimestre,letra,turno,ciclo_ingreso) "
-                "VALUES ('26','ING.NME TEC DE LA INFORMACIÓN E INNOVACION DIGITAL',1,'intensivo',%s,%s,'Matutino','2026') RETURNING id",
+                "INSERT INTO grupos (plan,carrera,carrera_id,zona,modalidad,cuatrimestre,letra,turno,ciclo_ingreso) "
+                "VALUES ('26','ING.NME TEC DE LA INFORMACIÓN E INNOVACION DIGITAL',(SELECT id FROM carreras WHERE codigo='TII'),1,'intensivo',%s,%s,'Matutino','2026') RETURNING id",
                 (index, chr(64 + index)),
             ).fetchone()[0]
             matricula = f"99000000{index}"
@@ -88,7 +88,7 @@ def seed_demo():
             )
             conn.execute("INSERT INTO ciclos_dual (cuatrimestre) VALUES (%s) ON CONFLICT DO NOTHING", (period,))
             conn.execute(
-                "INSERT INTO alumnos_dual (matricula,cuatrimestre,empresa_id) VALUES (%s,%s,%s)",
+                "INSERT INTO alumnos_dual (matricula,cuatrimestre,empresa_id,fecha_inicio) VALUES (%s,%s,%s,CURRENT_DATE)",
                 (matricula, period, company),
             )
     print("Fixtures: un tutor y dos alumnos sintéticos en grupos/períodos distintos. Claves no impresas.")

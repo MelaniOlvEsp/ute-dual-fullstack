@@ -7,8 +7,8 @@ CONFIRMADO salvo donde se indique PROPUESTO o PENDIENTE. Fechas de actividad se 
 - RN-01: solo alumno, tutor académico y coordinador Dual. El servidor aplica permisos.
 - RN-02: tutor crea grupo y carga matrícula/nombre; solo matrículas autorizadas se registran con correo institucional correspondiente. Sin verificación por correo.
 - RN-03: coordinador crea tutores; contraseña temporal y cambio obligatorio. Tutor genera recuperación temporal del alumno. No exponer claves después de la respuesta inicial.
-- RN-04: tutores pueden atender las tres carreras. Alumno solo ve sus reportes, expediente y conversaciones.
-- RN-05: cambios de grupo por período conservan pertenencia histórica. Promoción masiva con confirmación del tutor es PROPUESTA; nomenclatura oficial pendiente DP-05.
+- RN-04: el catálogo admite exclusivamente Tecnologías de la Información e Innovación Digital (TIC), Logística y Mercadotecnia; Educación y cualquier otra carrera quedan fuera. Tutores pueden atender las tres carreras. Alumno solo ve sus reportes, expediente y conversaciones.
+- RN-05: cambios de grupo por período conservan pertenencia histórica. Promoción individual y masiva con vista previa y confirmación del tutor; grupo y período destino explícitos, repetidores solo por selección manual y lote completo cancelado ante conflictos. La nomenclatura, nombres y abreviaciones son los ya definidos en la base institucional; DP-05 resuelta el 2026-10-15.
 - RN-06: la incorporación a empresa tiene fecha real de inicio. Continúa entre períodos; la baja detiene obligaciones futuras, conserva historia y permite atrasos previos si recepción sigue abierta. Semana parcial de baja: DP-03.
 
 ## Semanas y entregas

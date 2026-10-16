@@ -9,7 +9,7 @@ import { createDualRepository } from '../ute-dual-frontend/src/infrastructure/re
 import { createForumRepository } from '../ute-dual-frontend/src/infrastructure/repositories/forumRepository.js'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const contract = JSON.parse(readFileSync(resolve(root, 'ute-api-clean/tests/route_contract.json'), 'utf8'))
+const contract = JSON.parse(readFileSync(resolve(root, 'ute-api-backend/tests/route_contract.json'), 'utf8'))
 const prefixes = {
   auth: '/auth',
   'dual/alumno_dual': '/dual/alumno',
@@ -63,6 +63,7 @@ function sampleArgs(name) {
     crearEmpresa: [{ nombre: 'Empresa' }],
     asignarEmpresa: [{ matricula: '123456789' }],
     buscarAlumno: ['123456789'],
+    historialIncorporaciones: ['123456789'],
     actualizarAlumnoDual: ['123456789', { alumno_dual: false }],
     cerrarCuatrimestre: ['2026-3'],
     abrirCuatrimestre: [{ periodo_label: '2026-3' }],
@@ -72,11 +73,15 @@ function sampleArgs(name) {
     exportarCSV: ['123456789', '2026-3'],
     exportarZip: ['123456789', '2026-3'],
     crearGrupo: [{ carrera: 'TI', cuatrimestre: 3 }],
+    previewAlumnosCSV: ['00000000-0000-0000-0000-000000000001', new FormData()],
     subirAlumnosCSV: ['00000000-0000-0000-0000-000000000001', new FormData()],
     agregarAlumno: ['00000000-0000-0000-0000-000000000001', { matricula: '123456789', nombre: 'Alumno' }],
     actualizarAlumno: ['123456789', { nombre: 'Alumno' }],
     eliminarAlumno: ['123456789'],
     listarGrupos: ['TI'],
+    historialGrupos: ['123456789'],
+    previewPromocion: [{}],
+    aplicarPromocion: [{}],
     reaccionar: ['00000000-0000-0000-0000-000000000001', 'like'],
     eliminar: ['00000000-0000-0000-0000-000000000001'],
     enviar: [{ area: 'dual', asunto: 'Prueba', mensaje: 'Prueba' }],

@@ -35,8 +35,8 @@ def main():
     with connect_local() as conn:
         for number, degree in ((matricula, 1), (other, 2)):
             group = conn.execute(
-                "INSERT INTO grupos (plan,carrera,zona,modalidad,cuatrimestre,letra,ciclo_ingreso) "
-                "VALUES ('26','ING.NME TEC DE LA INFORMACIÓN E INNOVACION DIGITAL',1,'intensivo',%s,'A',%s) RETURNING id",
+                "INSERT INTO grupos (plan,carrera,carrera_id,zona,modalidad,cuatrimestre,letra,ciclo_ingreso) "
+                "VALUES ('26','ING.NME TEC DE LA INFORMACIÓN E INNOVACION DIGITAL',(SELECT id FROM carreras WHERE codigo='TII'),1,'intensivo',%s,'A',%s) RETURNING id",
                 (degree, suffix),
             ).fetchone()[0]
             conn.execute(
@@ -47,8 +47,12 @@ def main():
             "INSERT INTO usuarios (email,password_hash,roles,matricula) VALUES (%s,%s,%s,%s)",
             (f"{other}@ute.edu.mx", hash_password(password), Jsonb({"alumno": True}), other),
         )
-        for period in ("Mayo-Agosto 2026", "Septiembre-Diciembre 2026"):
-            conn.execute("INSERT INTO alumnos_dual (matricula,cuatrimestre) VALUES (%s,%s)", (other, period))
+        for period, active in (("Mayo-Agosto 2026", False),
+                               ("Septiembre-Diciembre 2026", True)):
+            conn.execute(
+                "INSERT INTO alumnos_dual (matricula,cuatrimestre,activo,fecha_inicio) VALUES (%s,%s,%s,CURRENT_DATE)",
+                (other, period, active),
+            )
     with httpx.Client(base_url=BASE, timeout=20, trust_env=False) as client:
         expect(client.get("/health"), 200)
         def login(email, secret):
@@ -75,10 +79,14 @@ def main():
         student_headers = login(f"{matricula}@ute.edu.mx", password)
         profile = expect(client.get("/auth/me", headers=student_headers), 200)
         assert profile["matricula"] == matricula and profile["roles"]["alumno"]
+        assert profile["dual_activo"] is False, "Alumno sin asignación debe devolver dual_activo=false"
         expect(client.get("/auth/tutores", headers=student_headers), 403)
-        # Perfil único aun cuando la demo tenga dos asignaciones activas.
+        # Perfil único con una incorporación histórica y otra activa.
         other_headers = login(f"{other}@ute.edu.mx", password)
-        assert expect(client.get("/auth/me", headers=other_headers), 200)["matricula"] == other
+        other_profile = expect(client.get("/auth/me", headers=other_headers), 200)
+        assert other_profile["matricula"] == other
+        assert other_profile["dual_activo"] is True, "Alumno activo sin empresa debe devolver dual_activo=true"
+        assert other_profile["empresa"] is None, "El fixture activo no tiene empresa"
         expect(client.delete("/auth/tutores/" + tutor_profile["id"], headers=admin_headers), 200)
         expect(client.get("/auth/me", headers=tutor_headers), 401)
         expect(client.post("/auth/login", json={"email": tutor, "password": changed}), 401)
