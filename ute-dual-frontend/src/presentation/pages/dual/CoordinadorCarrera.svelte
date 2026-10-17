@@ -455,9 +455,10 @@
 
 <Navbar />
 
-<div class="main-content">
+<main class="main-content">
 
   {#if vista === 'directorio'}
+    <h1 class="sr-only">Expedientes de alumnos</h1>
     <div class="page-wrap">
       <FiltrosBarra
         mostrarEstado={false}
@@ -573,6 +574,7 @@
     </div>
 
   {:else if vista === 'grupos' && $isTutorAcademico}
+    <h1 class="sr-only">Alumnos y grupos</h1>
     <div class="page-wrap-grupos">
 
       <div class="grupos-topbar">
@@ -846,6 +848,7 @@
     </div>
   
   {:else if vista === 'expediente' && alumnoSeleccionado}
+    <h1 class="sr-only">Expediente del alumno</h1>
     <div class="page-wrap">
       <div class="expediente-topbar">
         <button class="btn-back" on:click={volverDirectorio}>
@@ -887,7 +890,7 @@
     </div>
   {/if}
 
-</div>
+</main>
 
 <style>
   .main-content { padding-top: 56px; background: var(--bg-page); min-height: 100vh; }
@@ -905,6 +908,7 @@
   .tabla td { padding: 14px 18px; color: var(--text-secondary); border-bottom: 1px solid var(--border); vertical-align: middle; }
   .tabla tbody tr:last-child td { border-bottom: none; }
   .tabla tbody tr:hover { background: var(--orange-light); }
+  .tabla tbody tr:hover > .col-accion { background: var(--orange-light); }
 
   .td-matricula { font-family: monospace; font-weight: 600; color: var(--text-primary); letter-spacing: 0.02em; }
   .td-nombre { font-weight: 600; color: var(--text-primary); }

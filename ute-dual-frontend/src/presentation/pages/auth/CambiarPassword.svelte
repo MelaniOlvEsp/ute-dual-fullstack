@@ -69,7 +69,7 @@
   <title>Cambiar contraseña | Portal UTE</title>
 </svelte:head>
 
-<div class="page">
+<main class="page">
   <div class="card" in:fade>
     <div class="header">
       <div class="logo-row">
@@ -165,7 +165,7 @@
     </form>
     {/if}
   </div>
-</div>
+</main>
 
 <style>
   .cancel-link { text-align: center; font-size: 14px; color: var(--text-secondary); padding: 8px; }

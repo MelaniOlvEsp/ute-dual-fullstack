@@ -269,7 +269,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 .col-accion { position: sticky; right: 0; background: var(--bg-card); box-shadow: -6px 0 6px -6px rgba(15, 23, 42, 0.25); }
 td.col-accion { box-shadow: -6px 0 6px -6px rgba(15, 23, 42, 0.25), inset 0 -1px 0 var(--border); }   /* el borde inferior no se pinta en celdas fijas */
 th.col-accion { background: var(--bg-page); }
-tr:hover > .col-accion, tr.seleccionada > .col-accion { background: var(--orange-light); }
+tr.seleccionada > .col-accion { background: var(--orange-light); }
 [data-theme="dark"] [role="region"][tabindex="0"], [data-theme="dark"] .table-wrap, [data-theme="dark"] .table-scroll-area { color-scheme: dark; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 /* C11: el campo nativo de archivo no debe ensanchar la página en pantallas de 320 px. */

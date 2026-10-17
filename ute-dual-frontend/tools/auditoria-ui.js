@@ -33,6 +33,10 @@ window.auditarUI = async function auditarUI({ rutas, anchos = [375], temas = ['l
           await dormir(espera);
           const d = marco.contentDocument, v = marco.contentWindow;
           if (typeof entrada !== 'string' && entrada.preparar) { await entrada.preparar(d, v); await dormir(1500); }
+          // Sin transiciones: en un navegador en segundo plano se detienen a medias y el contraste se mediría con colores intermedios.
+          const quieto = d.createElement('style');
+          quieto.textContent = '*,*::before,*::after{transition:none !important;animation:none !important}';
+          d.head.appendChild(quieto);
           d.documentElement.setAttribute('data-theme', tema);
           await dormir(2000);   // las transiciones de color del cambio de tema deben terminar antes de medir el contraste
           await new Promise((ok, mal) => {

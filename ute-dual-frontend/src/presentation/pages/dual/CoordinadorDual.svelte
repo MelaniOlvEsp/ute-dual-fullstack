@@ -387,7 +387,7 @@
 
 <Navbar />
 
-<div class="main-content">
+<main class="main-content">
 
   {#if vista === 'bandeja'}
     <div class="page-wrap">
@@ -501,6 +501,7 @@
     </div>
 
   {:else if vista === 'revision' && seleccionado}
+    <h1 class="sr-only">Revisión del reporte</h1>
     <div class="revision-wrap">
       <div class="revision-topbar">
         <button class="btn-back" on:click={volverBandeja}>
@@ -898,7 +899,7 @@
 
   {/if}
 
-</div>
+</main>
 
 <style>
   .main-content { padding-top: 56px; background: var(--bg-page); min-height: 100vh; }

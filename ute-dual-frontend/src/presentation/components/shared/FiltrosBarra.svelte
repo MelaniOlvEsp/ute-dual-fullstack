@@ -24,9 +24,10 @@
   }
 </script>
 
-<div class="filters-row">
+<div class="filters-row" role="search" aria-label="Filtros de la lista">
   <input
     type="text"
+    aria-label="Buscar por matrícula o nombre"
     class="input-plain input-busqueda"
     placeholder="Buscar por matrícula o nombre…"
     bind:value={filtroBusqueda}
@@ -35,6 +36,7 @@
 
   {#if mostrarCarrera}
     <select 
+      aria-label="Filtrar por carrera"
       bind:value={filtroCarrera} 
       class="input-plain select-field select-carrera" 
       on:change={handleCarreraChange}
@@ -48,6 +50,7 @@
 
   {#if mostrarGrupo}
     <select 
+      aria-label="Filtrar por grupo"
       bind:value={filtroGrupo} 
       class="input-plain select-field select-grupo" 
       on:change={() => dispatch('buscar')} 
@@ -66,6 +69,7 @@
 
   {#if mostrarEstado}
     <select 
+      aria-label="Filtrar por estado"
       bind:value={filtroEstado} 
       class="input-plain select-field select-estado" 
       on:change={() => dispatch('buscar')}

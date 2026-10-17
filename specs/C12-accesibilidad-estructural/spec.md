@@ -1,9 +1,9 @@
 # C12 — Accesibilidad estructural
 
-Estado: DRAFT
+Estado: DONE
 Fecha: 2026-10-17
 Responsable de aprobación: responsable del proyecto
-Dependencias: C11 DONE (2026-10-17). D1 y D2 (más abajo) pendientes: bloquean pasar a READY. Es una spec de corrección: no agrega funciones, rutas ni datos. El plan maestro no tenía más incrementos; esta spec cierra los pendientes de accesibilidad que C11 dejó registrados.
+Dependencias: C11 DONE (2026-10-17). D1 y D2 resueltas el 2026-10-17 (tal como se recomendó); sin decisiones bloqueantes: solo falta la orden `IMPLEMENT C12` para pasar a READY. Es una spec de corrección: no agrega funciones, rutas ni datos. El plan maestro no tenía más incrementos; esta spec cierra los pendientes de accesibilidad que C11 dejó registrados.
 
 ## Problema y resultado esperado
 
@@ -35,7 +35,7 @@ Excluye: funciones nuevas, rediseño, cambios de API, datos o archivos, móvil f
 
 Confirmadas: se corrige con cambios de marcado y estilos mínimos sin reescribir componentes; el resultado se mide con axe-core (versión fijada) y el guion de `tools/auditoria-ui.js`; ninguna corrección cambia datos ni permisos.
 
-Pendientes bloqueantes (con recomendación):
+Resueltas por el responsable el 2026-10-17 (D1: opción a, y el mismo día el responsable decidió no hacer la prueba con lector de pantalla: D1 queda como la opción b, AC4 NO_VERIFICADA y la guía se conserva por si se hace después; el responsable recorre los cinco recorridos con el lector de pantalla y yo preparo la guía de la prueba; D2: opción a, solo interfaz). Se conserva el texto de las opciones:
 
 - **D1 — Lector de pantalla.** Las revisiones automáticas no sustituyen a una persona con un lector de pantalla. Opciones: (a) el responsable (o quien designe) recorre los cinco recorridos con Narrador de Windows o NVDA y anota lo que no se entiende; yo preparo la guía de la prueba y registro el resultado; (b) se declara NO_VERIFICADA y la spec se cierra solo con las comprobaciones automáticas. Recomendación: (a), con un recorrido corto y una guía de pasos; si no es posible ahora, (b) sin bloquear el resto.
 - **D2 — Alcance respecto del respaldo.** Opciones: (a) esta spec solo trata la interfaz y las tres observaciones del respaldo (guardas al ejecutar subcomandos a mano, documentar `probar-fallos` y poda concurrente) quedan para una spec de operación aparte cuando se vaya a usar con datos reales; (b) incluirlas aquí. Recomendación: (a), para no mezclar interfaz y operación.
@@ -62,28 +62,28 @@ Comportamiento ante fallos/reintentos: no aplica (solo presentación).
 
 | AC | Prueba o recorrido | Nivel y datos | Resultado |
 |---|---|---|---|
-| C12-AC1 | Cero violaciones de axe (todas las reglas, incluidas las de buenas prácticas) en todas las pantallas y estados de los tres roles, a 320 y 1280 px, en claro y oscuro | Auditoría en el navegador con cuentas sintéticas | NO_VERIFICADA |
-| C12-AC2 | Cada lista desplegable tiene nombre accesible y cada página una región principal y un `h1`; una prueba estática lo comprueba | Prueba de frontend sobre los `.svelte` | NO_VERIFICADA |
-| C12-AC3 | Cobertura: diálogo de depuración, buzón con hilo abierto, visor del PDF, alumno y períodos a 1280 px dentro de la auditoría | Navegador | NO_VERIFICADA |
-| C12-AC4 | Los cinco recorridos con lector de pantalla se entienden de principio a fin (según D1) | Persona con Narrador o NVDA, o NO_VERIFICADA | NO_VERIFICADA |
-| C12-AC5 | Sin regresión: pruebas de frontend, contrato y `smoke_c10.py`; el aspecto no cambia | Pruebas existentes y revisión visual | NO_VERIFICADA |
+| C12-AC1 | Cero violaciones de axe (todas las reglas, incluidas las de buenas prácticas) en todas las pantallas y estados de los tres roles, a 320 y 1280 px, en claro y oscuro | Auditoría en el navegador con cuentas sintéticas | REAL: 0 violaciones de axe (todas las reglas) en las pantallas y estados auditados de los tres roles |
+| C12-AC2 | Cada lista desplegable tiene nombre accesible y cada página una región principal y un `h1`; una prueba estática lo comprueba | Prueba de frontend sobre los `.svelte` | REAL (axe) y SIMULADA (prueba estática) |
+| C12-AC3 | Cobertura: diálogo de depuración, buzón con hilo abierto, visor del PDF, alumno y períodos a 1280 px dentro de la auditoría | Navegador | REAL |
+| C12-AC4 | Los cinco recorridos con lector de pantalla se entienden de principio a fin (según D1) | Persona con Narrador o NVDA, o NO_VERIFICADA | NO_VERIFICADA hasta que el responsable haga la prueba (guía lista) |
+| C12-AC5 | Sin regresión: pruebas de frontend, contrato y `smoke_c10.py`; el aspecto no cambia | Pruebas existentes y revisión visual | REAL |
 
 ## Evidencia de implementación
 
-Sin ejecución: spec en DRAFT. Añadir solo después de implementar, con fecha, entorno, revisión del código y clase REAL/SIMULADA/NO_VERIFICADA.
+Implementada el 2026-10-17 y verificada con axe-core en el navegador integrado; ver [evidencia C12](evidencia.md) (cambios, cobertura, hallazgos nuevos H5 y lo no probado). El responsable decidió no hacer la prueba con lector de pantalla (AC4 NO_VERIFICADA; [guía](../../docs/construction/GUIA_PRUEBA_LECTOR_DE_PANTALLA.md)). Revisión: pendiente. Sin commit ni push.
 
 ## Revisión
 
-Veredicto: pendiente.
-Revisor y modalidad (mismo agente / independiente): pendiente.
-Hallazgos materiales: no aplica antes de implementación.
-Correcciones y verificación focal: no aplica.
+Veredicto: APPROVED (cuarta revisión, 2026-10-17).
+Revisor y modalidad (mismo agente / independiente): el mismo agente que implementó; técnica (y visual en la implementación); no es una revisión independiente.
+Hallazgos materiales: cuatro revisiones. Primera: la prueba estática se saltaba las páginas sin `<Navbar>` y la evidencia afirmaba más de lo medido para el tutor a 1280 px. Segunda: dos cifras de la evidencia quedaron desactualizadas. Tercera y cuarta: sin defectos.
+Correcciones y verificación focal: la prueba estática revisa todas las páginas y se comprobó con una copia modificada; el tutor se midió de nuevo a 1280 px; evidencia corregida; frontend 48 pruebas OK.
 Limitaciones previstas: móvil físico y otros navegadores NO_VERIFICADOS; sin un lector de pantalla real el resultado de AC4 queda NO_VERIFICADA.
 
 ## Aprobaciones y cierre
 
-Aprobación de implementación: pendiente (D1 y D2, y la orden de pasar a READY).
-Aprobación de cierre: pendiente.
-Resumen final: pendiente.
-Siguiente spec: no hay más incrementos en el plan maestro; el siguiente paso natural es el uso real (hospedaje, cifrado de respaldos y datos reales), que necesita decisiones del responsable.
-Commit/push: no autorizados salvo indicación explícita.
+Aprobación de implementación: D1 y D2 resueltas el 2026-10-17; el responsable autorizó la implementación con `IMPLEMENT C12` el 2026-10-17: sin decisiones bloqueantes, la spec pasó de DRAFT a READY y a IN_PROGRESS el mismo día. Sin commit ni push.
+Aprobación de cierre: el responsable la otorgó con `CLOSE C12 + NEXT SPEC` el 2026-10-17, tras la cuarta revisión APPROVED y sabiendo lo que no se verificó (lector de pantalla real, que el responsable decidió no hacer; móvil físico; otros navegadores; zoom real al 400 %) y que H5 (manejo del foco de los diálogos) sigue abierto. C12 queda DONE. Sin commit ni push (no se ordenó).
+Resumen final: H4 corregido (listas con nombre accesible), `main` y `h1` por página, encabezados y regiones ordenados, dos defectos del buzón hallados por la cobertura nueva (fondo-botón con controles dentro y botones naranja sobre gris en oscuro) corregidos; 0 violaciones de axe-core (todas las reglas) en las pantallas y estados auditados de los tres roles; 48 pruebas de frontend, contrato y `smoke_c10` en verde. AC4 (lector de pantalla) queda NO_VERIFICADA por decisión del responsable.
+Siguiente spec: [C13 — Preparación para datos reales](../C13-preparacion-datos-reales/spec.md) (DRAFT).
+Commit/push: no autorizados; los cambios de C12 y de este cierre quedan sin commit.

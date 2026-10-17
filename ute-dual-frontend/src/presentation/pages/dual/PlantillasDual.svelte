@@ -100,7 +100,7 @@
         {#if historial.length === 0}
           <p class="texto">Aún no se ha publicado ninguna versión.</p>
         {:else}
-          <div class="tabla-wrap" role="region" aria-label="Historial de versiones" tabindex="0">
+          <div class="tabla-wrap" role="region" aria-label="Tabla de versiones publicadas" tabindex="0">
             <table class="tabla">
               <thead><tr><th>Versión</th><th>Publicada</th><th>Por</th><th>Word</th><th>PDF</th><th>Nota</th></tr></thead>
               <tbody>

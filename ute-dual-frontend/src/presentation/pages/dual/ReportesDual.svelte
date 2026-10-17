@@ -153,7 +153,7 @@
 
 <Navbar />
 
-<div style="padding-top: 56px;">
+<main style="padding-top: 56px;">
   <div class="page">
 
     {#if loading}
@@ -311,7 +311,7 @@
 
     {/if}
   </div>
-</div>
+</main>
 
 <style>
   .page { max-width: 900px; margin: 0 auto; padding: 40px 24px 64px; display: flex; flex-direction: column; gap: 24px; }

@@ -112,7 +112,7 @@
 </script>
 
 {#if show}
-  <button class="modal-overlay" on:click={cerrarModal} on:keydown={handleOverlayKeydown} aria-label="Cerrar modal">
+  <div class="modal-overlay" role="presentation" on:click|self={cerrarModal} on:keydown={handleOverlayKeydown}>
     <div class="modal-card" on:click|stopPropagation role="dialog" aria-modal="true" aria-label="Detalle del mensaje">
 
       {#if cargando}
@@ -190,11 +190,14 @@
       </button>
 
     </div>
-  </button>
+  </div>
 {/if}
 
 <style>
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px; backdrop-filter: blur(2px); border: none; cursor: default; width: 100%; text-align: left; }
+  /* C12: los botones con aspecto de enlace no deben heredar el fondo gris del navegador (en oscuro quedaba naranja sobre gris, 2:1). */
+  button.link-orange { background: none; border: none; padding: 0; font: inherit; font-weight: 600; cursor: pointer; }
+  button.link-orange:disabled { opacity: 0.5; cursor: wait; }
   .modal-card { background: var(--bg-card); border-radius: var(--radius-card); box-shadow: 0 8px 40px rgba(0,0,0,0.15); padding: 28px; width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto; position: relative; display: flex; flex-direction: column; gap: 18px; }
 
   .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }

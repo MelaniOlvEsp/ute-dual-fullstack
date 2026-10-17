@@ -64,7 +64,7 @@
   <title>Registro | Portal UTE</title>
 </svelte:head>
 
-<div class="page">
+<main class="page">
   <div class="card">
     <div class="header">
       <div class="logo-row">
@@ -152,7 +152,7 @@
       </p>
     </div>
   </div>
-</div>
+</main>
 
 <style>
   .page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; background: var(--bg-page); }
