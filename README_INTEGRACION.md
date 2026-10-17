@@ -1,6 +1,6 @@
 # Portal UTE — entorno local con Docker (C01)
 
-Estado: C01 IN_PROGRESS. Requisitos funcionales en [docs/README.md](docs/README.md). El objetivo completo todavía requiere C02–C10.
+Estado: C01 a C10 cerrados (C10 = validación integral). Requisitos funcionales en [docs/README.md](docs/README.md). Uso y operación del piloto: [docs/construction/GUIA_DE_USO_Y_OPERACION.md](docs/construction/GUIA_DE_USO_Y_OPERACION.md).
 
 ## Arranque canónico
 
@@ -75,6 +75,6 @@ No compartir logs sin revisar que no incluyan datos personales. No publicar el p
 
 ## Estado verificado de esta entrega
 
-Ver [evidencia C01](specs/C01-base-local/evidencia.md). Se ejecutaron pruebas unitarias, contrato simulado y build en host. La sesión del agente no pudo acceder al named pipe Docker Desktop; construcción/arranque Compose, smoke y navegador permanecen NO_VERIFICADA hasta ejecutar los comandos y registrar resultados.
+Ver la evidencia de cada spec en [specs/README.md](specs/README.md) (la de C01 describe la base; la de C10, el recorrido integral y la recuperación).
 
-Drive no es necesario para login/health. Entrega de PDFs todavía depende del adaptador Drive heredado, sin credenciales configuradas en este entorno. Calendario, reportes, firmas, expediente, buzón y plantillas administrables siguen sus incrementos; no presentar este arranque como producto terminado.
+Drive no es necesario para login/health, pero sí para guardar y descargar cualquier PDF (C10A: contrato de almacenamiento con Drive; sin autorizar, esas operaciones responden 503 a propósito). Ver «Almacenamiento en Drive» en [VALIDACION_Y_OPERACION_LOCAL.md](docs/construction/VALIDACION_Y_OPERACION_LOCAL.md).

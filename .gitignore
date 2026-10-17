@@ -14,3 +14,6 @@ work/
 # C10A: credenciales de Drive del piloto
 .secretos/
 **/.secretos/
+
+# C10: volcados temporales del respaldo (se vacían al terminar)
+.respaldo-tmp/

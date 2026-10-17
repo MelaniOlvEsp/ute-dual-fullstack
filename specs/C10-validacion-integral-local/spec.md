@@ -1,9 +1,9 @@
 # C10 — Validación integral local
 
-Estado: DRAFT
+Estado: DONE
 Fecha: 2026-10-17
 Responsable de aprobación: responsable del proyecto
-Dependencias: C09 DONE (2026-10-17) y C10A (con D1 y D2 resueltas) (almacenamiento en Drive; el responsable decidió el 2026-10-17 que los archivos y los respaldos viven en Drive y que no se guarda nada local). D2 (almacenamiento del piloto) quedó resuelta con esa decisión; D1 (política de respaldos, DP-11) resuelta el 2026-10-17; sigue bloqueada para pasar a READY solo por C10A (debe estar DONE) y por la orden de pasar a READY.
+Dependencias: C09 DONE (2026-10-17) y C10A DONE (2026-10-17, con Drive real probado) (almacenamiento en Drive; el responsable decidió el 2026-10-17 que los archivos y los respaldos viven en Drive y que no se guarda nada local). D2 (almacenamiento del piloto) quedó resuelta con esa decisión; D1 (política de respaldos, DP-11) resuelta el 2026-10-17; ya no hay dependencias abiertas: solo falta la orden de pasar a READY.
 
 ## Problema y resultado esperado
 
@@ -18,7 +18,7 @@ Resultado esperado: un recorrido integral reproducible con cuentas sintéticas y
 
 Incluye:
 
-0. Primer paso, heredado de C10A (cerrada el 2026-10-17 sin prueba contra Drive real): con la cuenta de pruebas autorizada, ejecutar `scripts/smoke_c10a.py` parte B y los smokes C01 a C09 con `ALMACENAMIENTO=drive`, y registrar el resultado; cualquier defecto se corrige antes de seguir (consistencia lectura-tras-escritura, papelera, cuota, token).
+0. Primer paso (regresión): C10A ya se probó con Drive real el 2026-10-17 (parte B y smokes C01 a C09 y C08B PASS). Al empezar, comprobar que el token de Drive sigue vigente (caduca a los 7 días, alrededor del 2026-10-24; reautorizar con `drive-autorizar`) y repetir `smoke_c10a.py` parte B; cualquier defecto se corrige antes de seguir. Corregir también el generador de etiquetas de períodos pasados de los smokes C07, C08, C08B y C09 (conjunto de 132 etiquetas agotado; el rango ya se amplió a 1500–1899 por D4) y comprobar que terminan; es infraestructura de pruebas, no cambia el producto. Revisar la vista previa embebida del PDF en un navegador real (Chrome), que el navegador integrado no renderiza, incluido el PDF firmado en la celda.
 1. Recorrido integral (`scripts/smoke_c10.py`) con HTTP, PostgreSQL y almacenamiento reales y cuentas sintéticas de coordinador, dos tutores y dos alumnos de grupos y períodos distintos: crear grupo y alumno; configurar empresa e inicio; registrar al alumno; ingresar al foro; descargar la plantilla; entregar dos semanas; rechazar una y reenviar; aprobar con firma; comprobar historia y expediente; cerrar la recepción con otra entrega pendiente; verificar el bloqueo y la aprobación posterior; finalizar y comprobar el promedio; abrir un segundo período y confirmar que el primero no cambia; descargar períodos anteriores; paquete y depuración con gracia.
 2. Controles negativos del mismo recorrido: acceso cruzado entre los alumnos A y B (expediente, versiones, paquetes y buzón), el tutor intentando el cierre, un fallo inyectado del almacenamiento, un PDF corrupto, el envío duplicado concurrente y la conversación completa del buzón con el hilo cerrado.
 3. Respaldo: un procedimiento y una orden que generan una copia coherente de PostgreSQL y de los documentos con un manifiesto (fecha, versión de las migraciones, conteos, SHA-256 de cada archivo de la copia). Conforme a la decisión del 2026-10-17 la copia se guarda en una subcarpeta de respaldos de Drive (con el contrato de almacenamiento de C10A) y no en el equipo; el volcado de la base pasa por un archivo temporal que se elimina al terminar; sin credenciales dentro de la copia.
@@ -44,6 +44,11 @@ D1 (DP-11), resuelta por el responsable el 2026-10-17, tal como se recomendó:
 - Retención: 8 copias semanales y 4 mensuales.
 - Prueba de restauración: una por trimestre, en un destino aislado.
 - Destino: Drive (C10A). La guía de operación debe registrar estas reglas, quién ejecuta cada paso y dónde se anota el resultado de cada prueba de restauración. La automatización de los respaldos programados sigue fuera de alcance (ADR-08): se ejecutan con la orden del procedimiento.
+
+Resueltas por el responsable el 2026-10-17 (tal como se recomendó):
+
+- D3: el respaldo en Drive va sin cifrar (la carpeta es privada de la cuenta de pruebas y los datos son sintéticos); cifrar el volcado, con una clave que el responsable guarde aparte, es requisito documentado antes de usar datos reales.
+- D4: se amplió el rango de años de las etiquetas de períodos pasados de los smokes C07, C08, C08B y C09 a 1500–1899 (1200 etiquetas posibles); es infraestructura de pruebas, sin cambio de producto. Los cuatro scripts ya lo tienen; su ejecución con el nuevo rango se confirma en el primer paso de C10.
 
 Propuestas técnicas (sujetas a esas decisiones):
 
@@ -75,27 +80,27 @@ Permisos y estados: el respaldo y la restauración los ejecuta el responsable de
 
 | AC | Prueba o recorrido | Nivel y datos | Resultado |
 |---|---|---|---|
-| C10-AC1 | Recorrido integral completo con tres roles y dos alumnos en períodos distintos: cada paso produce el estado esperado y el primer período no cambia al abrir el segundo | HTTP + PostgreSQL + almacenamiento reales con cuentas sintéticas | NO_VERIFICADA |
-| C10-AC2 | Controles negativos: acceso cruzado A/B, tutor intenta el cierre, fallo de almacenamiento inyectado, PDF corrupto, envío duplicado concurrente, buzón con hilo cerrado | Negativos HTTP reales | NO_VERIFICADA |
-| C10-AC3 / AC-24 | Respaldo coherente y restauración en un destino nuevo y aislado: manifiesto, conteos, referencias, hashes y descargas reales de originales y firmados; la base y la carpeta de Drive vivas no se modifican y no queda nada persistente en disco | PostgreSQL local y Drive reales en un proyecto de Compose y una carpeta de prueba aparte | NO_VERIFICADA |
-| C10-AC4 | Tras restaurar un respaldo anterior a una depuración, los archivos de documentos archivados vuelven a eliminarse y las notas, promedios e historial coinciden con la base viva | PostgreSQL y almacenamiento reales | NO_VERIFICADA |
-| C10-AC5 | Un respaldo incompleto o alterado (archivo faltante, hash distinto, volcado dañado) se detecta y la restauración se rechaza con un motivo | Fallos inyectados reales | NO_VERIFICADA |
-| C10-AC6 | La guía se sigue desde cero en un entorno nuevo (instalar, crear el coordinador, operar un ciclo, respaldar y restaurar) sin pasos implícitos | Ejecución real de la guía | NO_VERIFICADA |
-| C10-AC7 | Teclado completo, tema oscuro y vista móvil emulada de las pantallas principales de cada rol | Preview del build desplegado | NO_VERIFICADA |
-| C10-AC8 | Trazabilidad AC-01 a AC-24 con la evidencia de cada incremento y las lagunas declaradas; contratos y documentación coherentes con el código | Revisión documental con comprobaciones automáticas de contratos | NO_VERIFICADA |
+| C10-AC1 | Recorrido integral completo con tres roles y dos alumnos en períodos distintos: cada paso produce el estado esperado y el primer período no cambia al abrir el segundo | HTTP + PostgreSQL + almacenamiento reales con cuentas sintéticas | REAL: `smoke_c10.py` PASS (base de desarrollo y proyecto limpio con su carpeta de Drive) |
+| C10-AC2 | Controles negativos: acceso cruzado A/B, tutor intenta el cierre, fallo de almacenamiento inyectado, PDF corrupto, envío duplicado concurrente, buzón con hilo cerrado | Negativos HTTP reales | REAL (negativos del recorrido); fallos de Drive inyectados SIMULADA (C10A) |
+| C10-AC3 / AC-24 | Respaldo coherente y restauración en un destino nuevo y aislado: manifiesto, conteos, referencias, hashes y descargas reales de originales y firmados; la base y la carpeta de Drive vivas no se modifican y no queda nada persistente en disco | PostgreSQL local y Drive reales en un proyecto de Compose y una carpeta de prueba aparte | REAL con una base nueva; el estado vivo no se midió antes y después |
+| C10-AC4 | Tras restaurar un respaldo anterior a una depuración, los archivos de documentos archivados vuelven a eliminarse y las notas, promedios e historial coinciden con la base viva | PostgreSQL y almacenamiento reales | REAL |
+| C10-AC5 | Un respaldo incompleto o alterado (archivo faltante, hash distinto, volcado dañado) se detecta y la restauración se rechaza con un motivo | Fallos inyectados reales | REAL y SIMULADA (8 pruebas unitarias) |
+| C10-AC6 | La guía se sigue desde cero en un entorno nuevo (instalar, crear el coordinador, operar un ciclo, respaldar y restaurar) sin pasos implícitos | Ejecución real de la guía | REAL parcial (sin setup desde cero, alta interactiva ni OAuth nuevo) |
+| C10-AC7 | Teclado completo, tema oscuro y vista móvil emulada de las pantallas principales de cada rol | Preview del build desplegado | REAL parcial (móvil emulado, claro y oscuro, teclado; escritorio y diálogos sin repetir; hallazgos H1 a H3) |
+| C10-AC8 | Trazabilidad AC-01 a AC-24 con la evidencia de cada incremento y las lagunas declaradas; contratos y documentación coherentes con el código | Revisión documental con comprobaciones automáticas de contratos | REAL (tabla en la evidencia) |
 
 ## Evidencia de implementación
 
-Sin ejecución: spec en DRAFT. Añadir solo después de implementar, con fecha, entorno, revisión del código y clase REAL/SIMULADA/NO_VERIFICADA.
+Implementada el 2026-10-17 y verificada contra Drive real y PostgreSQL reales con datos sintéticos; ver [evidencia C10](evidencia.md) (recorrido, negativos, respaldo, restauración, guía, revisión visual, trazabilidad y hallazgos H1 a H3). Revisión: tres revisiones técnicas del mismo agente (CHANGES_REQUESTED con M1, CHANGES_REQUESTED con M2 y APPROVED). Sin push.
 
 ## Revisión
 
-Veredicto: pendiente.
-Revisor y modalidad: pendiente.
-Hallazgos materiales: no aplica antes de implementación.
-Correcciones y verificación focal: no aplica.
+Veredicto: APPROVED (tercera revisión, 2026-10-17).
+Revisor y modalidad: el mismo agente que implementó; técnica y visual (la visual, durante la implementación; C10 no cambió interfaz ni PDF después). No es una revisión independiente.
+Hallazgos materiales: M1 (los conteos del manifiesto se tomaban después del volcado) y M2 (la huella daba falsos errores si hubo cambios durante el respaldo).
+Correcciones y verificación focal: instantánea previa al volcado y comparación de huella con veredicto «no concluyente»; 281 pruebas de backend OK (1 omitida) y respaldo y restauración reales verificados en entornos limpios; ver la evidencia.
 Limitaciones previstas: validación solo con datos sintéticos, con la base en la máquina local y los archivos en Drive con una cuenta de prueba; el apagado del equipo interrumpe el servicio (sin garantía de disponibilidad) y la disponibilidad de archivos depende de Drive y del token de la cuenta; móvil físico, otros proveedores y el hospedaje quedan NO_VERIFICADOS; una restauración de datos sintéticos no demuestra la recuperación de una producción; las copias antiguas ya entregadas a terceros no se pueden recuperar.
 
 ## Aprobaciones y cierre
 
-D1 y D2 resueltas el 2026-10-17 (D1 tal como se recomendó). Pendiente: C10A DONE y la orden de pasar a READY.
+D1 y D2 resueltas el 2026-10-17 (D1 tal como se recomendó). C10A DONE (2026-10-17). D3 y D4 resueltas el 2026-10-17. El responsable autorizó la implementación con `IMPLEMENT C10` el 2026-10-17: sin decisiones bloqueantes, la spec pasó de DRAFT a READY y a IN_PROGRESS el mismo día. El responsable otorgó la aprobación de cierre con `CLOSE C10 + NEXT SPEC` el 2026-10-17, tras la tercera revisión APPROVED y sabiendo lo que no se verificó (actividad real sobre notas durante un respaldo, caducidad del token, `setup-local.ps1` y OAuth desde cero, escritorio a 1280 px, móvil físico y hospedaje) y los hallazgos H1 a H3 sin corregir. C10 queda DONE. El commit local de implementación se hizo con el cierre; no hay push.

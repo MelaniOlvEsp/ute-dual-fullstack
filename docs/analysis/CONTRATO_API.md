@@ -1,6 +1,6 @@
 # Contrato API: existente y objetivo
 
-Estado: contrato vivo. C01–C09 describen rutas implementadas (C05 a C09 DONE); C10 sigue como diseño propuesto. Fuentes ejecutables: routers en `ute-api-backend/app/presentation/api/routers`, `route_contract.json` y repositorios de `ute-dual-frontend/src/infrastructure/repositories`.
+Estado: contrato vivo. C01–C09 describen rutas implementadas (C05 a C09 DONE); C10 no cambia el contrato (73 rutas; el respaldo y la restauración son órdenes del responsable, no rutas de la API). Fuentes ejecutables: routers en `ute-api-backend/app/presentation/api/routers`, `route_contract.json` y repositorios de `ute-dual-frontend/src/infrastructure/repositories`.
 
 ## Inventario actual
 

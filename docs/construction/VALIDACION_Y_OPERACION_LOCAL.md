@@ -1,6 +1,6 @@
 # Validación y operación local
 
-Guía de preparación, no registro de comandos ejecutados. Completar valores reales y resultados en C01/C10. No requiere servicios publicados.
+Referencia de validación y operación local. Los comandos de las secciones marcadas «verificado» se ejecutaron de verdad en C01 a C10 (resultados en la evidencia de cada spec; los de C10 en [evidencia C10](../../specs/C10-validacion-integral-local/evidencia.md)); el procedimiento de uso y operación está en [GUIA_DE_USO_Y_OPERACION.md](GUIA_DE_USO_Y_OPERACION.md). No requiere servicios publicados.
 
 ## Preparación en C01
 
@@ -14,12 +14,11 @@ Guía de preparación, no registro de comandos ejecutados. Completar valores rea
 
 ## Comprobaciones existentes
 
-Desde ute-api-clean, con entorno virtual y dependencias disponibles:
+Comandos verificados con Docker (no requieren Python ni Node en el host; las pruebas están dentro de la imagen, reconstruir con docker compose up -d --build api tras cambiar código):
 
 ```text
-python -m unittest discover -s tests -q
-python -m compileall -q app
-uvicorn app.main:app --reload --port 8000
+docker compose exec -T api python -m unittest discover -s tests          # 276 pruebas OK (2026-10-17)
+docker compose exec -T -e ALMACENAMIENTO=memoria api python -m unittest discover -s tests
 ```
 
 Desde ute-dual-frontend, después de instalación reproducible:
@@ -36,7 +35,7 @@ Desde raíz:
 node --test integration-tests/api-contract.test.mjs
 ```
 
-Estas órdenes se tomaron de la estructura actual. Ejecutarlas es trabajo de C01; podrían revelar fallos. La prueba de contratos usa simulación, no PostgreSQL ni Drive reales.
+Verificado el 2026-10-17: 276 pruebas de backend, 40 de frontend y 1 de contratos (51 operaciones simuladas) en verde. La prueba de contratos usa simulación, no PostgreSQL ni Drive reales. Los smokes por incremento (docker compose --profile verification run --rm --build smoke python scripts/smoke_cNN.py, de C01 a C10; reiniciar la API entre ejecuciones por el límite de 8 inicios de sesión cada 5 minutos) son la regresión real con HTTP, PostgreSQL y Drive; scripts/smoke_c10.py es el recorrido integral.
 
 ## Matriz de verificación
 
@@ -56,11 +55,9 @@ Crear grupo y alumno; configurar empresa/inicio; registrar alumno; ingresar al f
 
 Probar también acceso cruzado alumno A/B, rol tutor intentando cierre, fallo de almacenamiento, PDF corrupto, duplicación de envío, conversación completa del buzón y descarga de períodos anteriores.
 
-## Respaldo y restauración
+## Respaldo y restauración (C10, verificado)
 
-Respaldar PostgreSQL y objetos/documentos referenciados como conjunto consistente; conservar manifiesto de versión. Guardar credenciales por separado de los backups compartibles. Restaurar únicamente a BD y carpeta nuevas de prueba, verificar conteos/referencias y descargar una muestra de originales/firmados. No declarar respaldo recuperable sin probar restauración.
-
-Antes de uso real definir responsable, frecuencia y retención. El piloto local no garantiza disponibilidad cuando se apaga el equipo. Selección de alojamiento gratuito se investiga aparte con límites actuales y consentimiento de publicación.
+Reglas (DP-11, 2026-10-17): responsable = el responsable del proyecto; copia semanal y otra antes de cada finalización o depuración; 8 recientes y 4 mensuales; una prueba de restauración por trimestre en un destino aislado; destino Drive; sin cifrar solo con datos sintéticos (D3). Órdenes: ./scripts/respaldo.ps1 (crear, -Orden listar|verificar|podar) y ./scripts/restaurar.ps1 -Id <id> -Descartar; detalle y registro en [GUIA_DE_USO_Y_OPERACION.md](GUIA_DE_USO_Y_OPERACION.md) y [REGISTRO_DE_RESPALDOS.md](REGISTRO_DE_RESPALDOS.md). El respaldo guarda el volcado de PostgreSQL, una copia de los documentos y un manifiesto en Drive; se rechaza si la base referencia archivos ausentes; la restauración corre en un proyecto Compose y una carpeta de Drive nuevos y verifica conteos, huellas, SHA-256 y descargas de muestra. Las credenciales (.secretos/) nunca viajan en el respaldo. El piloto local no garantiza disponibilidad cuando se apaga el equipo. Selección de alojamiento se investiga aparte con límites actuales y consentimiento de publicación.
 
 ## Almacenamiento en Drive (C10A)
 

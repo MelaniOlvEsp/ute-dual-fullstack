@@ -60,7 +60,7 @@ def main():
     with connect_local() as conn:
         usados = {f[0] for f in conn.execute("SELECT cuatrimestre FROM ciclos_dual").fetchall()}
         while True:
-            anio, mes = secrets.randbelow(44) + 1980, BLOQUES[secrets.randbelow(3)][0]
+            anio, mes = secrets.randbelow(400) + 1500, BLOQUES[secrets.randbelow(3)][0]
             label = construir_periodo(mes, anio)
             if label not in usados:
                 break

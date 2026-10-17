@@ -69,7 +69,7 @@ def main():
         usados = {f[0] for f in conn.execute("SELECT cuatrimestre FROM ciclos_dual").fetchall()}
         pasados = []
         while len(pasados) < 3:
-            anio = secrets.randbelow(44) + 1980  # 132 etiquetas pasadas posibles
+            anio = secrets.randbelow(400) + 1500  # 1200 etiquetas pasadas posibles
             mes = BLOQUES[secrets.randbelow(3)][0]
             label = construir_periodo(mes, anio)
             if label in usados:
@@ -434,7 +434,7 @@ def main():
           "8.50 congelado e inmutable, etiqueta «no recibida por cierre», otro período recibiendo y permisos. "
           "HTTP, PostgreSQL y almacenamiento REALES.")
     print("Preparación por SQL: períodos pasados abiertos y un instante de cierre movido (simulación del cierre anticipado). "
-          "Drive y móvil físico: NO_VERIFICADOS. Datos sintéticos conservados.")
+          "Móvil físico: NO_VERIFICADO (el almacenamiento usado lo informa /health). Datos sintéticos conservados.")
 
 
 if __name__ == "__main__":

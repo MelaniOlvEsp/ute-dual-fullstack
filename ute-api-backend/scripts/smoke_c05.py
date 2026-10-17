@@ -440,7 +440,7 @@ def main():
     print("PASS C05: validación de nota y PDF sin rastro, entrega por obligación sin depender de otras semanas, "
           "versiones inmutables con decisión conservada, original byte a byte, concurrencia, período abierto, "
           "permisos, fallos inyectados y limpieza de huérfanos. HTTP, PostgreSQL y almacenamiento REALES.")
-    print("Drive y móvil físico: NO_VERIFICADOS. Datos sintéticos conservados.")
+    print("Móvil físico: NO_VERIFICADO (el almacenamiento usado lo informa /health). Datos sintéticos conservados.")
 
 
 if __name__ == "__main__":

@@ -88,6 +88,25 @@ services:
       api:
         condition: service_healthy
 
+  # C10: respaldo y restauración (DP-11). Los respaldos viven en el espacio `respaldos` de Drive; el volcado de la base
+  # pasa por una carpeta temporal del equipo (`.respaldo-tmp`, ignorada por git) que scripts/respaldo.ps1 vacía al terminar.
+  respaldo:
+    profiles: ["respaldo"]
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    environment:
+      <<: *api-environment
+      RESPALDO_ORIGEN_CARPETA: ${RESPALDO_ORIGEN_CARPETA:-}
+      RESPALDO_TMP: /tmp/respaldo
+      API_URL: http://api:8000
+    volumes:
+      - ./.secretos:/secretos:ro
+      - ./.respaldo-tmp:/tmp/respaldo
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # C10A: autoriza Drive con la cuenta de pruebas (OAuth de usuario, alcance drive.file) y crea la carpeta raíz.
   # Uso: docker compose --profile drive run --rm --service-ports drive-autorizar
   drive-autorizar:

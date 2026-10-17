@@ -458,7 +458,7 @@ def main():
           "firma en la celda (respaldo con hoja adicional), original y firmado conservados byte a byte, versión "
           "obsoleta y concurrencia entre tutores, fallos inyectados, permisos y revisión con recepción cerrada. "
           "HTTP, PostgreSQL y almacenamiento REALES.")
-    print("Drive, móvil físico e integración con el formato real del responsable (solo réplica sintética): "
+    print("Móvil físico e integración con el formato real del responsable (solo réplica sintética): "
           "NO_VERIFICADOS. Datos sintéticos conservados.")
 
 
