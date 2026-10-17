@@ -3,7 +3,7 @@
 Estado: DRAFT
 Fecha: 2026-10-16
 Responsable de aprobación: responsable del proyecto
-Dependencias: C07 DONE (2026-10-16). Bloquean pasar a READY: dos decisiones (alcance de la exportación y enfoque del visor); ver Decisiones.
+Dependencias: C07 DONE (2026-10-16). Alcance de la exportación y enfoque del visor decididos el 2026-10-16 (ver Decisiones); la depuración de archivos queda registrada como DP-14 y se implementa en C08B. Sin decisiones bloqueantes pendientes; falta la orden de pasar a READY.
 
 ## Problema y resultado esperado
 
@@ -24,10 +24,10 @@ Incluye:
 2. Descarga de aprobados por identificador de documento versionado: firmado (por defecto) y original, para el alumno propio y para el personal; objeto ajeno o inexistente 404, rol sin permiso 403 (AC-04). Reemplaza las lecturas heredadas por puntero; se retiran `GET /dual/alumno/mis-reportes` y las tres rutas `…/reporte/{id}/pdf` (alumno, tutor y carrera) con cliente, contrato y fixtures actualizados juntos.
 3. Pantalla "Mi expediente" del alumno (selector de períodos, descarga de los suyos) y expediente del personal sobre el mismo contrato; el directorio del personal incluye a los dados de baja con un indicador, filtra por período, grupo y búsqueda y pagina por servidor (RN-29, MP-10).
 4. Visor de PDF fiable (AC-20): carga autenticada con URL temporal de objeto que se libera al cerrar, zoom y lectura, descarga siempre visible, error claro con reintento y sin acceso público alternativo; verificado con PDF de una y varias páginas, escaneado y firmado, en escritorio y móvil.
-5. Exportación según la decisión pendiente: nombres de archivo generados por el servidor, solo documentos del expediente autorizado, protección de valores interpretables como fórmulas en el CSV y fallo explícito (no archivos de error dentro del ZIP).
+5. Paquete de archivo en ZIP (decisión del 2026-10-16): el asesor académico (tutor) lo genera cuando el período está finalizado, por alumno o por carrera y período; incluye el firmado y el original de cada reporte aprobado y un manifiesto (matrícula, semana, fechas, nota validada, promedio y SHA-256 de cada archivo) con un resumen CSV protegido contra fórmulas. Nombres generados por el servidor, solo documentos del expediente autorizado y fallo explícito si no se puede leer un documento (sin archivos de error dentro del ZIP). Cada descarga queda registrada (quién, cuándo, alcance, hash del manifiesto): ese registro es el que habilita la depuración de C08B. El alumno descarga solo su propio ZIP durante una ventana de una semana desde que se finaliza la evaluación; la pantalla le avisa la fecha límite y, pasada, ya no lo ofrece (sus notas, promedios y el historial siguen visibles). No se borra ningún archivo en C08.
 6. Dejar de tratar el grado como período en las lecturas de expediente, CSV y ZIP; contratos, cliente, fixtures, documentación, pruebas y preview de los recorridos afectados.
 
-Excluye: plantillas (C09), foro y buzón (C09), restauración y recorrido integral (C10), retención y respaldos (DP-11), reapertura o rectificación (DP-10), correcciones del tutor o firma (C06) y cierre o promedio (C07, solo se leen).
+Excluye: depuración de archivos tras el archivo (DP-14, incremento C08B), plantillas (C09), foro y buzón (C09), restauración y recorrido integral (C10), respaldos (DP-11), reapertura o rectificación (DP-10), correcciones del tutor o firma (C06) y cierre o promedio (C07, solo se leen).
 
 ## Decisiones
 
@@ -49,10 +49,13 @@ Propuestas técnicas incluidas para la futura aprobación de implementación (co
 - CSV: la inyección de fórmulas se mitiga prefijando las celdas que empiezan con `=`, `+`, `-`, `@`, tabulador o retorno de carro y doblando las comillas, pero OWASP indica que no existe una estrategia segura para todas las hojas de cálculo y que Excel puede deshacer el prefijo al guardar y reabrir; la alternativa del tabulador altera los datos para quien los importe con código ([OWASP CSV Injection](https://owasp.org/www-community/attacks/CSV_Injection), [WSTG: pruebas de inyección CSV](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/21-Testing_for_CSV_Injection), [Symfony CVE-2021-41270](https://symfony.com/cve-2021-41270)).
 - ZIP: los nombres dentro del archivo deben generarlos el servidor o salir de una lista de identificadores, normalizando separadores (también la barra invertida, causa de una vulnerabilidad real en File Browser) y descartando `..`; construir el ZIP completo en memoria consume tanta RAM como el archivo, por lo que existen generadores en flujo ([safezip](https://safezip.readthedocs.io), [aviso de File Browser](https://vulert.com/vuln-db/file-browser-archive-builder-turns-backslash-filenames-into-path-traversal-zip-slip-in-github-com-), [python-zipstream](https://github.com/DISCO-team/python-zipstream)). Los resultados no incluían el código de los proyectos, solo sus descripciones.
 
-Pendientes bloqueantes (DP):
+Resueltas por el responsable del proyecto el 2026-10-16 (registradas en [DECISIONES_PENDIENTES](../../docs/analysis/DECISIONES_PENDIENTES.md)):
 
-1. **Alcance de la exportación (ZIP y CSV).** El contrato de archivos dice que el ZIP se conserva "si se conserva" y nunca se decidió. Propuesta: conservar ZIP y CSV solo para el personal, por alumno y período; el ZIP lleva los PDF firmados aprobados con nombres generados y falla con un error claro si no puede leer alguno; el alumno descarga sus aprobados uno por uno desde su expediente. Alternativas: quitar ZIP y CSV de V1, o permitir también al alumno un ZIP propio.
-2. **Enfoque del visor de PDF.** Propuesta: mantener el visor nativo sin dependencias nuevas, con descarga y "abrir en pestaña nueva" siempre visibles, y en móvil mostrar el enlace de abrir o descargar como acción principal si el navegador no lo muestra, verificado en el preview. Alternativa: incorporar PDF.js autoalojado y fijado para lectura embebida en móvil, lo que agrega una dependencia y una interfaz de navegación propia.
+1. **Exportación:** el ZIP es un paquete de archivo para que los asesores guarden los reportes fuera del sistema. Lo genera el asesor académico (tutor) con el período finalizado, por alumno o por carrera y período, con manifiesto y hashes; el alumno solo descarga el suyo durante una semana desde la finalización y se le avisa. Las notas, los promedios, las versiones y las decisiones se conservan siempre.
+2. **Depuración (DP-14):** después de descargar el paquete, el asesor podrá depurar los archivos del período con una advertencia, una confirmación de que ya guardó la copia y la opción «Conservar todo». Solo se eliminan los archivos PDF; el resto del expediente se conserva. Se implementa en C08B, no aquí.
+3. **Visor de PDF (delegado al agente por el responsable):** visor nativo sin dependencias nuevas, con descarga y «abrir en pestaña nueva» siempre visibles y, en móvil, el enlace de abrir o descargar como acción principal si el navegador no muestra el PDF; PDF.js autoalojado queda como alternativa solo si el preview o el responsable lo piden. Motivo: los visores nativos fallan de forma desigual en móvil y las guías recomiendan el respaldo de descarga antes que una dependencia (ver referencias).
+
+Pendientes bloqueantes (DP): ninguno. Propuesta a confirmar al pasar a READY, sin bloquear: la ventana de una semana del alumno se cuenta desde la finalización de la evaluación (cuando el paquete ya es definitivo) y no desde el cierre de la recepción, porque el tutor aún puede aprobar reportes entre ambos.
 
 No bloquean: DP-06, DP-09, DP-10 y DP-11 (retención, borrado y respaldos son de C10). Si durante la implementación aparece una decisión nueva que cambie permisos, notas o conservación, se detiene solo esa conducta y se presenta la decisión concreta.
 
@@ -77,7 +80,8 @@ Comportamiento ante fallos/reintentos: las descargas y el expediente son lectura
 | C08-AC3 / RN-29 | Un alumno dado de baja conserva su expediente, aparece en el directorio con indicador y sus aprobados se descargan | HTTP + PostgreSQL reales | NO_VERIFICADA |
 | C08-AC4 | El directorio pagina con orden estable y total, filtra por período, grupo y búsqueda y no responde 500 con ninguna combinación (regresión de C07) | HTTP real | NO_VERIFICADA |
 | C08-AC5 / AC-20 | Visor: carga autenticada, zoom y lectura, descarga y "abrir"; error visible con reintento si falla; sin URL pública; PDF de una y varias páginas, escaneado y firmado | Preview visual del build desplegado | NO_VERIFICADA |
-| C08-AC6 | Exportación según la decisión: nombres generados, solo documentos autorizados, protección de fórmulas en el CSV probada en una hoja de cálculo, fallo explícito si falta un documento | HTTP real + revisión manual de las exportaciones | NO_VERIFICADA |
+| C08-AC6 | Paquete ZIP por alumno y por carrera y período: solo con el período finalizado y solo el tutor; nombres generados, manifiesto con SHA-256 que coincide con los archivos, protección de fórmulas en el CSV probada en una hoja de cálculo, fallo explícito si falta un documento y descarga registrada | HTTP real + revisión manual de las exportaciones | NO_VERIFICADA |
+| C08-AC8 | Ventana del alumno: con la evaluación finalizada ve el aviso con la fecha límite y descarga solo su ZIP durante una semana; pasada la fecha 403 o 404 sin ofrecerlo; no descarga el de otro alumno ni el de la carrera; no se borra ningún archivo | HTTP + PostgreSQL reales con reloj de prueba | NO_VERIFICADA |
 | C08-AC7 | "Mi expediente" y el expediente del personal en escritorio y móvil con teclado; promedios con la etiqueta correcta | Preview visual del build desplegado | NO_VERIFICADA |
 
 ## Evidencia de implementación
@@ -94,7 +98,7 @@ Limitaciones: la retención, el borrado y los respaldos (DP-11) y la restauraci�
 
 ## Aprobaciones y cierre
 
-Aprobación de READY: pendiente (alcance de la exportación y enfoque del visor).
+Aprobación de READY: pendiente la orden del responsable (exportación y depuración decididas el 2026-10-16; visor delegado al agente).
 Aprobación de implementación: pendiente.
 Aprobación de cierre: pendiente.
 Resumen final: pendiente.
