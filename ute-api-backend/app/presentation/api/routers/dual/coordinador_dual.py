@@ -313,21 +313,6 @@ async def finalizar_evaluacion(
     )
 
 
-# Delega el caso de uso sin mezclar lógica de negocio con HTTP.
-@router.get("/reporte/{reporte_id}/pdf")
-async def descargar_reporte_pdf_coordinador(
-    reporte_id: UUID,
-    user=Depends(get_coordinador_dual),
-):
-    return to_http_response(
-        await use_cases.descargar_reporte_pdf_coordinador(
-            reporte_id=reporte_id,
-            user=user,
-            runtime=get_runtime(),
-        )
-    )
-
-
 @router.post('/firma')
 async def cargar_firma(
     imagen: UploadFile = File(...), user=Depends(get_coordinador_dual),

@@ -69,7 +69,7 @@ def main():
         usados = {f[0] for f in conn.execute("SELECT cuatrimestre FROM ciclos_dual").fetchall()}
         pasados = []
         while len(pasados) < 3:
-            anio = secrets.randbelow(24) + 2000
+            anio = secrets.randbelow(44) + 1980  # 132 etiquetas pasadas posibles
             mes = BLOQUES[secrets.randbelow(3)][0]
             label = construir_periodo(mes, anio)
             if label in usados:
@@ -326,12 +326,12 @@ def main():
         # El directorio filtrado por período pasa por `resolve_query` (regresión: el filtro con « AND »
         # interno respondía 500) y promedia por período, no por grado.
         listado = expect(client.get("/dual/carrera/alumnos", headers=tutor,
-                                    params={"cuatrimestre": etiqueta_actual}), 200)
+                                    params={"cuatrimestre": etiqueta_actual, "q": matriculas["D"]}), 200)["items"]
         fila_d = next(a for a in listado if a["matricula"] == matriculas["D"])
         assert fila_d["reportes_aprobados"] == 1 and float(fila_d["promedio"]) == 9.0, fila_d
         expect(client.get("/dual/carrera/alumnos", headers=tutor, params={
-            "cuatrimestre": etiqueta_actual, "grupo": fila_d["nomenclatura"]}), 200)
-        expect(client.get("/dual/carrera/alumnos", headers=tutor), 200)
+            "cuatrimestre": etiqueta_actual, "grupo": fila_d["nomenclatura"]}), 200)["items"]
+        expect(client.get("/dual/carrera/alumnos", headers=tutor), 200)["items"]
         resumen_actual_antes = expect(client.get(f"/dual/tutor/periodos/{id_actual}/resumen", headers=tutor), 200)
         obligaciones_d_antes = [(o["id"], o["periodo"], o["semana_inicio"]) for o in semanas("D", etiqueta_actual)]
 
@@ -415,12 +415,10 @@ def main():
         entregar("D", d_semanas[1], 8)
 
         # ---------- AC-16: el directorio promedia por período, no por grado ----------
-        where = ("WHERE EXISTS (SELECT 1 FROM obligaciones_semanales o JOIN alumnos_dual x ON x.id = o.incorporacion_id "
-                 "JOIN ciclos_dual p ON p.id = o.periodo_id WHERE x.matricula = a.matricula AND p.cuatrimestre = %s)")
-        consulta = QUERIES_CARRERA["dual.coordinador_carrera.q003"]["sql"].replace("{where}", where)
-        with connect_local() as conn:
-            filas = conn.execute(consulta, [p_principal["label"]] * 5).fetchall()
-        directorio = {f[0]: (f[-2], f[-1]) for f in filas}
+        # El directorio de C08 (paginado por servidor) filtra y promedia por período.
+        filas = expect(client.get("/dual/carrera/alumnos", headers=tutor, params={
+            "cuatrimestre": p_principal["label"], "limite": 200, "situacion": "todos"}), 200)["items"]
+        directorio = {f["matricula"]: (f["reportes_aprobados"], None if f["promedio"] is None else Decimal(str(f["promedio"]))) for f in filas}
         assert directorio[matriculas["A"]] == (3, Decimal("9.00")) and directorio[matriculas["C"]] == (2, Decimal("8.50"))
         assert directorio[matriculas["B"]] == (0, None)
 

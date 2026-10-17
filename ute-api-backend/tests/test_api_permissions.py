@@ -43,8 +43,15 @@ class PermissionTest(unittest.TestCase):
                      'eliminar_alumno', 'listar_grupos'):
             self.assertIn('get_tutor_academico', career[name])
         for name in ('listar_alumnos', 'expediente_alumno',
-                     'descargar_reporte_pdf_carrera'):
+                     'descargar_aprobado_pdf'):
             self.assertIn('get_coordinador_carrera', career[name])
+        # C08 / DP-14: el paquete de archivo lo genera solo el tutor; el coordinador consulta pero no exporta.
+        for name in ('paquete_alumno', 'paquete_carrera'):
+            self.assertIn('get_tutor_academico', career[name], name)
+        alumno = guards(ROOT / 'app/presentation/api/routers/dual/alumno_dual.py')
+        for name in ('mi_expediente', 'mi_paquete'):
+            self.assertIn('get_alumno_dual', alumno[name], name)
+            self.assertNotIn('matricula', alumno[name])
 
     def test_only_coordinator_manages_periods(self):
         # DP-04 / MP-18: el coordinador abre y cierra períodos; el tutor no.

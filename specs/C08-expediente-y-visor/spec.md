@@ -1,9 +1,10 @@
 # C08 — Expediente y visor
 
-Estado: DRAFT
+Estado: DONE
+Cierre: 2026-10-16
 Fecha: 2026-10-16
 Responsable de aprobación: responsable del proyecto
-Dependencias: C07 DONE (2026-10-16). Alcance de la exportación y enfoque del visor decididos el 2026-10-16 (ver Decisiones); la depuración de archivos queda registrada como DP-14 y se implementa en C08B. Sin decisiones bloqueantes pendientes; falta la orden de pasar a READY.
+Dependencias: C07 DONE (2026-10-16). Alcance de la exportación y enfoque del visor decididos el 2026-10-16 (ver Decisiones); la depuración de archivos queda registrada como DP-14 y se implementa en C08B. Sin decisiones bloqueantes pendientes: DRAFT → READY → IN_PROGRESS el 2026-10-16 con la orden `IMPLEMENT C08`.
 
 ## Problema y resultado esperado
 
@@ -75,32 +76,34 @@ Comportamiento ante fallos/reintentos: las descargas y el expediente son lectura
 
 | AC | Prueba o recorrido | Nivel y datos | Resultado |
 |---|---|---|---|
-| C08-AC1 / AC-19 | Alumno con dos períodos: cada uno muestra su grupo histórico, sus aprobados con documentos correctos y su promedio (provisional o final); descarga de firmado y original coincide byte a byte con lo guardado | HTTP + PostgreSQL + almacenamiento reales | NO_VERIFICADA |
-| C08-AC2 / AC-04, RN-04 | Alumno cambia identificadores de expediente, reporte, versión o documento: 404; tutor de cualquier carrera y coordinador consultan; rol sin permiso 403; sin sesión 401; las rutas heredadas retiradas | Negativos HTTP reales | NO_VERIFICADA |
-| C08-AC3 / RN-29 | Un alumno dado de baja conserva su expediente, aparece en el directorio con indicador y sus aprobados se descargan | HTTP + PostgreSQL reales | NO_VERIFICADA |
-| C08-AC4 | El directorio pagina con orden estable y total, filtra por período, grupo y búsqueda y no responde 500 con ninguna combinación (regresión de C07) | HTTP real | NO_VERIFICADA |
-| C08-AC5 / AC-20 | Visor: carga autenticada, zoom y lectura, descarga y "abrir"; error visible con reintento si falla; sin URL pública; PDF de una y varias páginas, escaneado y firmado | Preview visual del build desplegado | NO_VERIFICADA |
-| C08-AC6 | Paquete ZIP por alumno y por carrera y período: solo con el período finalizado y solo el tutor; nombres generados, manifiesto con SHA-256 que coincide con los archivos, protección de fórmulas en el CSV probada en una hoja de cálculo, fallo explícito si falta un documento y descarga registrada | HTTP real + revisión manual de las exportaciones | NO_VERIFICADA |
-| C08-AC8 | Ventana del alumno: con la evaluación finalizada ve el aviso con la fecha límite y descarga solo su ZIP durante una semana; pasada la fecha 403 o 404 sin ofrecerlo; no descarga el de otro alumno ni el de la carrera; no se borra ningún archivo | HTTP + PostgreSQL reales con reloj de prueba | NO_VERIFICADA |
-| C08-AC7 | "Mi expediente" y el expediente del personal en escritorio y móvil con teclado; promedios con la etiqueta correcta | Preview visual del build desplegado | NO_VERIFICADA |
+| C08-AC1 / AC-19 | Alumno con dos períodos: cada uno muestra su grupo histórico, sus aprobados con documentos correctos y su promedio (provisional o final); descarga de firmado y original coincide byte a byte con lo guardado | HTTP + PostgreSQL + almacenamiento reales | REAL: `smoke_c08.py` (alumno con dos períodos y grupos distintos; promedios finales 9.00 y 9.50; original y firmado coinciden en SHA-256 con lo guardado); casos de uso con dobles SIMULADA |
+| C08-AC2 / AC-04, RN-04 | Alumno cambia identificadores de expediente, reporte, versión o documento: 404; tutor de cualquier carrera y coordinador consultan; rol sin permiso 403; sin sesión 401; las rutas heredadas retiradas | Negativos HTTP reales | REAL: IDOR 404/403/401 y rutas heredadas retiradas en `smoke_c08.py` y smokes C02, C05, C06 |
+| C08-AC3 / RN-29 | Un alumno dado de baja conserva su expediente, aparece en el directorio con indicador y sus aprobados se descargan | HTTP + PostgreSQL reales | REAL: alumnos de baja en el directorio (`situacion=baja`), expediente y descarga de aprobados |
+| C08-AC4 | El directorio pagina con orden estable y total, filtra por período, grupo y búsqueda y no responde 500 con ninguna combinación (regresión de C07) | HTTP real | REAL: paginación con total, filtros por período, grupo, búsqueda y situación, comodines escapados, parámetros inválidos 422; regresión de C07 cubierta por `smoke_c07.py` |
+| C08-AC5 / AC-20 | Visor: carga autenticada, zoom y lectura, descarga y "abrir"; error visible con reintento si falla; sin URL pública; PDF de una y varias páginas, escaneado y firmado | Preview visual del build desplegado | REAL parcial: carga autenticada, URL temporal y acciones «Abrir en pestaña nueva» y «Descargar» observadas en el navegador integrado; el navegador integrado no pinta PDF incrustados, así que zoom, lectura, PDF escaneado o de varias páginas y el error con reintento NO_VERIFICADA |
+| C08-AC6 | Paquete ZIP por alumno y por carrera y período: solo con el período finalizado y solo el tutor; nombres generados, manifiesto con SHA-256 que coincide con los archivos, protección de fórmulas en el CSV probada en una hoja de cálculo, fallo explícito si falta un documento y descarga registrada | HTTP real + revisión manual de las exportaciones | REAL: ZIP por alumno y por carrera con hashes verificados contra los bytes, nombres generados, CSV con celda `=` protegida, 409 sin finalizar o con archivo faltante (sin registro), registro inmutable; apertura en una hoja de cálculo NO_VERIFICADA |
+| C08-AC8 | Ventana del alumno: con la evaluación finalizada ve el aviso con la fecha límite y descarga solo su ZIP durante una semana; pasada la fecha 403 o 404 sin ofrecerlo; no descarga el de otro alumno ni el de la carrera; no se borra ningún archivo | HTTP + PostgreSQL reales con reloj de prueba | REAL con reloj SIMULADO moviendo la finalización con SQL: a 6 días 23 h descarga, a 8 días 403 y el expediente sigue; ZIP ajeno y de carrera 403/404; no se borra ningún archivo |
+| C08-AC7 | "Mi expediente" y el expediente del personal en escritorio y móvil con teclado; promedios con la etiqueta correcta | Preview visual del build desplegado | REAL parcial: «Mi expediente» (alumno, vista angosta) y expediente y directorio del tutor (escritorio) en el navegador integrado; teclado, 375 px real y móvil físico NO_VERIFICADA |
 
 ## Evidencia de implementación
 
-Sin ejecución: spec en DRAFT. Añadir solo después de implementar, con fecha, entorno, revisión del código y clase REAL/SIMULADA/NO_VERIFICADA.
+Implementación 2026-10-16 con Compose local; detalle en [evidencia.md](evidencia.md). Backend 190 pruebas OK; JS 35/35 y contrato 66 llamadas contra 64 rutas; Vite build sin avisos nuevos; `smoke_c08.py` PASS estable y smokes C01–C07 PASS tras adaptarlos a las rutas nuevas; instalación en base nueva (esquema + 003 a 008, 008 dos veces) sin errores. Entregado: expediente por período con grupo histórico (alumno y personal), directorio paginado con bajas, descarga de aprobados, visor con acciones de abrir y descargar, paquete ZIP por alumno y por carrera con manifiesto y hashes, ventana de una semana del alumno y registro inmutable de paquetes (`008_paquetes.sql`); rutas heredadas retiradas (64 rutas).
 
 ## Revisión
 
-Veredicto: pendiente.
-Revisor y modalidad: pendiente.
-Hallazgos materiales: no aplica antes de implementación.
-Correcciones y verificación focal: no aplica.
-Limitaciones: la retención, el borrado y los respaldos (DP-11) y la restauración son de C10; el comportamiento real del visor en un móvil físico y de la protección de fórmulas en todas las hojas de cálculo solo se puede comprobar con esos dispositivos y aplicaciones; Drive y cualquier proveedor externo siguen NO_VERIFICADOS; los reportes heredados sin obligación no se cuentan.
+Veredicto: APPROVED (segunda revisión técnica, 2026-10-16).
+Revisor y modalidad: mismo agente; técnica (diff, consultas, contratos, sondas HTTP) y visual del recorrido del alumno en vista angosta y del tutor en escritorio; no es revisión independiente.
+Hallazgos materiales: M1 (la primera revisión, CHANGES_REQUESTED): el directorio y el expediente respondían 500 con `desplazamiento` fuera de rango y con un byte NUL; corregido con validación previa (422) y verificado con 190 pruebas, `smoke_c08.py` y `smoke_c07.py`; la segunda revisión no encontró defectos materiales.
+Correcciones y verificación focal: ver [evidencia](evidencia.md).
+Limitaciones: la depuración de archivos es C08B (DP-14); retención, borrado y respaldos (DP-11) y la restauración son de C10; el visor no se vio con PDF incrustados (el navegador integrado no los pinta), tampoco su error con «Reintentar», teclado, 375 px real ni móvil físico; la apertura del CSV en una hoja de cálculo no se probó; la ventana del alumno se probó con reloj simulado por SQL; el registro de paquetes acredita la generación, no la descarga; el paquete de una carrera no tiene límite de tamaño ni de tiempo; Drive y cualquier proveedor externo siguen NO_VERIFICADOS; los reportes heredados sin obligación no se cuentan; el directorio filtra por el grupo actual (el histórico está en el expediente).
 
 ## Aprobaciones y cierre
 
-Aprobación de READY: pendiente la orden del responsable (exportación y depuración decididas el 2026-10-16; visor delegado al agente).
-Aprobación de implementación: pendiente.
+Aprobación de READY: el responsable decidió la exportación y la depuración (DP-14) el 2026-10-16, delegó el visor al agente y con `IMPLEMENT C08` autorizó pasar a READY y a IN_PROGRESS el mismo día; la propuesta de contar la semana del alumno desde la finalización de la evaluación se adopta al no haber objeción.
+Aprobación de implementación: recibida mediante `IMPLEMENT C08` en este chat el 2026-10-16. Autoriza el alcance de esta spec, contratos, fixtures y documentación afectados; no autoriza C08B, C09, commit de implementación ni push (el commit se hace al aprobar el cierre).
 Aprobación de cierre: pendiente.
 Resumen final: pendiente.
 Siguiente spec: C09 solo después de implementar, revisar y cerrar C08.
 Commit/push: el commit local de implementación se hace al aprobar el cierre; no hay push salvo indicación explícita.
+
+Aprobación de cierre: el responsable otorgó aprobación de cierre el 2026-10-16 con `CLOSE C08 + NEXT SPEC`, sujeta a revisión aprobada y evidencia suficiente. Con la segunda revisión APPROVED y la evidencia registrada, C08 queda DONE con las limitaciones anteriores. El commit local de implementación se hizo con el cierre; no hay push.

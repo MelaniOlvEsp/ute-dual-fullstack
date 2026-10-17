@@ -349,29 +349,5 @@ async def abrir_cuatrimestre(data, user, *, runtime: RuntimePort):
 
 # C07: el cierre de recepción y la finalización viven en cierres.py (por ID de período); el cierre
 # heredado por etiqueta, que además renombraba el período, se retiró.
-
-# Ejecuta las reglas del caso de uso con dependencias inyectadas.
-async def descargar_reporte_pdf_coordinador(
-    reporte_id,
-    user,
-    *, runtime: RuntimePort,
-):
-    async with runtime.database.read() as cur:
-        await cur.execute(
-            'dual.coordinador_dual.q024',
-            (reporte_id,),
-        )
-        row = await cur.fetchone()
-        if not row:
-            raise ApplicationError(
-                status_code=404,
-                detail="Reporte no encontrado",
-            )
-
-    pdf_bytes = await runtime.services.obtener_pdf_bytes(dict(row))
-
-    return FileResult(
-        iter([pdf_bytes]),
-        media_type="application/pdf",
-        headers={"Content-Disposition": "inline"},
-    )
+# C08: las lecturas de PDF usan los documentos versionados (C05/C06); la lectura heredada por
+# puntero se retiró.

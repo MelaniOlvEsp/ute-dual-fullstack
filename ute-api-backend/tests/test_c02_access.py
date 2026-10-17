@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from app.application.dto.auth import RegisterSchema
 from app.application.errors import ApplicationError
 from app.application.use_cases import auth
-from app.application.use_cases.dual import alumno_dual, coordinador_carrera
+from app.application.use_cases.dual import coordinador_carrera, entregas
 from app.application.use_cases.foro import buzon
 from app.domain.passwords import validate_password
 from tests.test_new_access import Cursor, Database
@@ -83,17 +83,21 @@ class AccessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.cur.calls), 1)
 
     async def test_foreign_pdf_denied_before_storage(self):
-        runtime = self.runtime([{'matricula': 'B'}])
+        # C08: la descarga del alumno consulta solo lo propio (la consulta filtra por su matrícula).
+        runtime = self.runtime([None])
+        runtime.services.leer_documento = AsyncMock(return_value=b'%PDF-test')
         with self.assertRaises(ApplicationError) as caught:
-            await alumno_dual.descargar_reporte_pdf_alumno('report-b', {'matricula': 'A'}, runtime=runtime)
+            await entregas.descargar_version('report-b', 1, {'matricula': 'A'}, runtime=runtime)
         self.assertEqual(caught.exception.status_code, 404)
-        runtime.services.obtener_pdf_bytes.assert_not_awaited()
+        runtime.services.leer_documento.assert_not_awaited()
+        self.assertEqual(self.cur.calls[0][1], ('report-b', 'A', 1))
 
     async def test_own_pdf_reaches_storage(self):
-        runtime = self.runtime([{'matricula': 'A'}])
-        result = await alumno_dual.descargar_reporte_pdf_alumno('report-a', {'matricula': 'A'}, runtime=runtime)
+        runtime = self.runtime([{'original': 'a' * 32 + '.pdf', 'firmado': None}])
+        runtime.services.leer_documento = AsyncMock(return_value=b'%PDF-test')
+        result = await entregas.descargar_version('report-a', 1, {'matricula': 'A'}, runtime=runtime)
         self.assertEqual(result.media_type, 'application/pdf')
-        runtime.services.obtener_pdf_bytes.assert_awaited_once()
+        runtime.services.leer_documento.assert_awaited_once_with('a' * 32 + '.pdf')
 
     async def test_foreign_mailbox_reply_does_not_write(self):
         runtime = self.runtime([{'alumno_id': 'B', 'area': 'dual', 'estado': 'Enviado'}])

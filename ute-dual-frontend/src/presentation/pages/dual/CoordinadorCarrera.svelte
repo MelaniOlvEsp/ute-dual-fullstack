@@ -6,11 +6,12 @@
   import { isAuthenticated, isCoordinadorCarrera, isTutorAcademico } from '../../stores/auth.js'
   import { api } from '../../../composition/api.js'
   import Navbar from '../../components/layout/Navbar.svelte'
-  import VisorPDF from '../../components/shared/VisorPDF.svelte'
   import FiltrosBarra from '../../components/shared/FiltrosBarra.svelte'
   import LoadingSpinner from '../../components/ui/LoadingSpinner.svelte'
   import EmptyState from '../../components/ui/EmptyState.svelte'
-  import { formatFecha } from '../../utils/formatters.js'
+  import ExpedienteAlumno from '../../components/dual/ExpedienteAlumno.svelte'
+  import { SITUACIONES, paginacion } from '../../../domain/dual/expediente.js'
+  import { formatFecha, formatFechaCivil } from '../../utils/formatters.js'
 
   const location = useLocation()
   let vista = 'directorio'
@@ -28,7 +29,11 @@
     }
   }
 
+  // Directorio paginado por servidor (C08): incluye a los dados de baja (RN-29).
+  const LIMITE = 50
   let alumnos = []
+  let total = 0
+  let desplazamiento = 0
   let loading = true
   let error = ''
   let filtroCuatrimestre = ''
@@ -36,16 +41,23 @@
   let filtroBusqueda = ''
   let filtroCarrera = ''
   let filtroEstado = ''
+  let filtroSituacion = 'todos'
 
   let alumnoSeleccionado = null
-  let reportes = []
+  let expedienteDatos = null
   let loadingExpediente = false
   let errorExpediente = ''
-  let pdfSeleccionado = null
   let periodos = []
   let periodoSeleccionado = ''
   let periodoGrupoId = ''
   let carrerasInstitucionales = []
+
+  // Paquete de archivo por carrera y período finalizado (DP-14); solo lo genera el tutor.
+  let periodosFinalizados = []
+  let paqueteCarrera = ''
+  let paquetePeriodo = ''
+  let generandoPaquete = false
+  let errorPaquete = ''
 
   let formGrupo = {
     carrera: 'ING.NME TEC DE LA INFORMACIÓN E INNOVACION DIGITAL',
@@ -72,8 +84,34 @@
       navigate('/login', { replace: true })
       return
     }
-    await Promise.all([cargarAlumnos(), cargarPeriodos(), cargarCarreras()])
+    await Promise.all([cargarAlumnos(), cargarPeriodos(), cargarCarreras(), cargarPeriodosFinalizados()])
   })
+
+  async function cargarPeriodosFinalizados() {
+    try {
+      periodosFinalizados = (await api.dual.periodosEstado()).filter(p => p.evaluacion === 'finalizada')
+      if (periodosFinalizados.length && !paquetePeriodo) paquetePeriodo = periodosFinalizados[0].id
+    } catch {
+      periodosFinalizados = []
+    }
+  }
+
+  async function descargarPaqueteCarrera() {
+    errorPaquete = ''
+    if (!paqueteCarrera || !paquetePeriodo) {
+      errorPaquete = 'Selecciona la carrera y el período.'
+      return
+    }
+    const periodo = periodosFinalizados.find(p => p.id === paquetePeriodo)
+    generandoPaquete = true
+    try {
+      await api.dual.downloadCareerPackage(paqueteCarrera, paquetePeriodo, periodo?.periodo_label || 'periodo')
+    } catch (e) {
+      errorPaquete = e.message || 'No se pudo generar el paquete.'
+    } finally {
+      generandoPaquete = false
+    }
+  }
 
   async function cargarCarreras() {
     try {
@@ -102,24 +140,34 @@
     }
   }
 
-  async function cargarAlumnos() {
+  async function cargarAlumnos(reiniciar = true) {
+    if (reiniciar) desplazamiento = 0
     loading = true
     error = ''
     try {
       const params = new URLSearchParams()
-      if (filtroCuatrimestre) {
-        params.append('cuatrimestre', filtroCuatrimestre)
-      }
-      if (filtroGrupo) {
-        params.append('grupo', filtroGrupo)
-      }
-      alumnos = await api.dual.listarAlumnos(params.toString())
+      if (filtroCuatrimestre) params.append('cuatrimestre', filtroCuatrimestre)
+      if (filtroGrupo) params.append('grupo', filtroGrupo)
+      if (filtroBusqueda.trim()) params.append('q', filtroBusqueda.trim())
+      params.append('situacion', filtroSituacion)
+      params.append('limite', String(LIMITE))
+      params.append('desplazamiento', String(desplazamiento))
+      const respuesta = await api.dual.listarAlumnos(params.toString())
+      alumnos = respuesta.items
+      total = respuesta.total
     } catch (e) {
       error = e.message || 'Error al cargar alumnos.'
     } finally {
       loading = false
     }
   }
+
+  function irA(delta) {
+    desplazamiento = Math.max(0, desplazamiento + delta * LIMITE)
+    cargarAlumnos(false)
+  }
+
+  $: pagina = paginacion({ total, limite: LIMITE, desplazamiento })
 
   // La nomenclatura institucional no incluye el ciclo de ingreso: dos grupos de ciclos
   // distintos pueden compartirla, así que los selectores lo muestran como texto aparte.
@@ -128,13 +176,9 @@
   $: carreras = [...new Set(alumnos.map(a => a.carrera).filter(Boolean))].sort()
   $: grupos = [...new Set(alumnos.map(a => a.nomenclatura || a.grupo).filter(Boolean))].sort()
 
+  // La búsqueda por nombre o matrícula la hace el servidor; aquí solo se filtra por carrera la página visible.
   $: alumnosFiltrados = alumnos.filter(a => {
-    const busqueda = filtroBusqueda.toLowerCase()
-    const matchBusqueda = filtroBusqueda.trim()
-      ? a.matricula.toLowerCase().includes(busqueda) || 
-        a.nombre.toLowerCase().includes(busqueda)
-      : true
-      
+    const matchBusqueda = true
     const carreraStr = filtroCarrera.toLowerCase()
     const matchCarrera = filtroCarrera
       ? (a.carrera && a.carrera.toLowerCase() === carreraStr) || 
@@ -146,28 +190,12 @@
 
   async function abrirExpediente(alumno) {
     alumnoSeleccionado = alumno
-    reportes = []
+    expedienteDatos = null
     errorExpediente = ''
     loadingExpediente = true
     vista = 'expediente'
     try {
-      const paramCuatri = periodoSeleccionado || null
-      reportes = await api.dual.expediente(alumno.matricula, paramCuatri)
-    } catch (e) {
-      errorExpediente = e.message || 'Error al cargar el expediente.'
-    } finally {
-      loadingExpediente = false
-    }
-  }
-
-  async function cambiarPeriodo() {
-    if (!alumnoSeleccionado) return
-    reportes = []
-    errorExpediente = ''
-    loadingExpediente = true
-    try {
-      const paramCuatri = periodoSeleccionado || null
-      reportes = await api.dual.expediente(alumnoSeleccionado.matricula, paramCuatri)
+      expedienteDatos = await api.dual.expedienteAlumno(alumno.matricula)
     } catch (e) {
       errorExpediente = e.message || 'Error al cargar el expediente.'
     } finally {
@@ -177,21 +205,10 @@
 
   function volverDirectorio() {
     alumnoSeleccionado = null
-    reportes = []
-    pdfSeleccionado = null
+    expedienteDatos = null
     vista = 'directorio'
     navigate('/dual/carrera', { replace: true })
   }
-
-  async function descargarCSV(matricula) {
-    await api.dual.exportarCSV(matricula, periodoSeleccionado || undefined)
-  }
-
-  $: promedioExpediente = reportes.length
-    ? (reportes.reduce((s, r) => s + Number(r.calificacion_alumno), 0) / reportes.length).toFixed(2)
-    : null
-    
-  $: carreraCompletaExpediente = alumnoSeleccionado ? alumnoSeleccionado.carrera : '—'
 
   async function registrarGrupo() {
     guardandoGrupo = true
@@ -451,8 +468,56 @@
         bind:filtroGrupo
         bind:filtroCarrera
         bind:filtroEstado
-        on:buscar={cargarAlumnos}
+        on:buscar={() => cargarAlumnos()}
       />
+
+      <div class="filtros-extra">
+        <div class="campo-filtro">
+          <label for="filtro-periodo-dir">Período</label>
+          <select id="filtro-periodo-dir" class="input-plain input-sm" bind:value={filtroCuatrimestre} on:change={() => cargarAlumnos()}>
+            <option value="">Todos los períodos</option>
+            {#each periodos as p}
+              <option value={p.cuatrimestre}>{p.periodo_label || p.cuatrimestre}</option>
+            {/each}
+          </select>
+        </div>
+        <div class="campo-filtro">
+          <label for="filtro-situacion-dir">Situación</label>
+          <select id="filtro-situacion-dir" class="input-plain input-sm" bind:value={filtroSituacion} on:change={() => cargarAlumnos()}>
+            {#each SITUACIONES as s}<option value={s.valor}>{s.etiqueta}</option>{/each}
+          </select>
+        </div>
+      </div>
+
+      {#if $isTutorAcademico}
+        <section class="paquete-carrera" aria-labelledby="paquete-carrera-titulo">
+          <h2 id="paquete-carrera-titulo" class="paquete-titulo">Paquete de archivo por carrera</h2>
+          <p class="paquete-texto">Con el período finalizado, descarga un ZIP con los PDF firmados y originales aprobados de la carrera, con manifiesto y hashes, para guardarlo fuera del sistema.</p>
+          {#if periodosFinalizados.length === 0}
+            <p class="paquete-texto">Aún no hay períodos con la evaluación finalizada.</p>
+          {:else}
+            <div class="paquete-fila">
+              <div class="campo-filtro">
+                <label for="paquete-carrera-sel">Carrera</label>
+                <select id="paquete-carrera-sel" class="input-plain input-sm" bind:value={paqueteCarrera}>
+                  <option value="">Selecciona</option>
+                  {#each carrerasInstitucionales as c}<option value={c.codigo}>{c.nombre}</option>{/each}
+                </select>
+              </div>
+              <div class="campo-filtro">
+                <label for="paquete-periodo-sel">Período finalizado</label>
+                <select id="paquete-periodo-sel" class="input-plain input-sm" bind:value={paquetePeriodo}>
+                  {#each periodosFinalizados as p}<option value={p.id}>{p.periodo_label}</option>{/each}
+                </select>
+              </div>
+              <button class="btn-outline" disabled={generandoPaquete} on:click={descargarPaqueteCarrera}>
+                {generandoPaquete ? 'Generando paquete…' : 'Descargar paquete (ZIP)'}
+              </button>
+            </div>
+          {/if}
+          {#if errorPaquete}<p class="error-msg" role="alert">{errorPaquete}</p>{/if}
+        </section>
+      {/if}
 
       {#if loading}
         <LoadingSpinner />
@@ -469,16 +534,23 @@
                 <th>Nombre</th>
                 <th>Grupo</th>
                 <th>Empresa</th>
+                <th class="td-center">Aprobados</th>
+                <th class="td-center">Promedio</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {#each alumnosFiltrados as a}
+              {#each alumnosFiltrados as a (a.matricula)}
                 <tr>
                   <td class="td-matricula">{a.matricula}</td>
-                  <td class="td-nombre">{a.nombre}</td>
+                  <td class="td-nombre">
+                    {a.nombre}
+                    {#if !a.activo}<span class="chip-baja" title="Incorporación dada de baja; el expediente se conserva">Baja{#if a.fecha_baja}&nbsp;{formatFechaCivil(a.fecha_baja)}{/if}</span>{/if}
+                  </td>
                   <td class="td-grupo">{a.nomenclatura || '—'}</td>
                   <td>{a.empresa || 'Sin asignar'}</td>
+                  <td class="td-center">{a.reportes_aprobados}</td>
+                  <td class="td-center">{a.promedio ?? 'Sin calificación'}</td>
                   <td style="text-align: right;">
                     <button class="btn-ver" on:click={() => abrirExpediente(a)}>
                       Ver Expediente
@@ -489,6 +561,11 @@
             </tbody>
           </table>
         </div>
+        <nav class="paginacion" aria-label="Paginación del directorio">
+          <span class="count-label" role="status">{pagina.desde}–{pagina.hasta} de {pagina.total} alumnos</span>
+          <button class="btn-outline" disabled={!pagina.hayAnterior || loading} on:click={() => irA(-1)}>Anterior</button>
+          <button class="btn-outline" disabled={!pagina.haySiguiente || loading} on:click={() => irA(1)}>Siguiente</button>
+        </nav>
       {/if}
     </div>
 
@@ -769,129 +846,21 @@
     <div class="page-wrap">
       <div class="expediente-topbar">
         <button class="btn-back" on:click={volverDirectorio}>
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" style="display:inline; margin-right:4px; vertical-align:text-bottom;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" style="display:inline; margin-right:4px; vertical-align:text-bottom;" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 L3 12 m0 0 l7.5-7.5 M3 12 h18" />
           </svg>
           Volver al directorio
         </button>
-
-        {#if periodos.length > 0}
-          <div class="periodo-selector">
-            <label class="periodo-label" for="select-periodo">Periodo</label>
-            <select
-              id="select-periodo"
-              class="input-plain input-sm"
-              bind:value={periodoSeleccionado}
-              on:change={cambiarPeriodo}
-            >
-              {#each periodos as p}
-                <option value={p.cuatrimestre}>
-                  {p.periodo_label || p.cuatrimestre}
-                </option>
-              {/each}
-            </select>
-          </div>
-        {/if}
       </div>
 
-      <div class="expediente-layout">
-        <div class="ficha-card">
-          <p class="ficha-titulo">Datos del alumno</p>
-          <div class="ficha-divider"></div>
-          <div class="ficha-grid">
-            <span class="ficha-key">Nombre</span>
-            <span class="ficha-val">{alumnoSeleccionado.nombre}</span>
-            <span class="ficha-key">Matrícula</span>
-            <span class="ficha-val ficha-mono">{alumnoSeleccionado.matricula}</span>
-            <span class="ficha-key">Carrera</span>
-            <span class="ficha-val">{carreraCompletaExpediente}</span>
-            <span class="ficha-key">Grupo</span>
-            <span class="ficha-val ficha-mono">{alumnoSeleccionado.nomenclatura || '—'}</span>
-            <span class="ficha-key">Empresa</span>
-            <span class="ficha-val bold-primary">{alumnoSeleccionado.empresa || 'Sin asignar'}</span>
-            <span class="ficha-key">Turno</span>
-            <span class="ficha-val">{alumnoSeleccionado.turno || '—'}</span>
-          </div>
-
-          {#if promedioExpediente}
-            <div class="promedio-box">
-              <p class="promedio-label">Promedio General</p>
-              <p class="promedio-valor">{promedioExpediente}</p>
-            </div>
-          {/if}
-
-          <div class="ficha-acciones">
-            <button class="btn-primary" on:click={() => descargarCSV(alumnoSeleccionado.matricula)}>Exportar CSV</button>
-            <button
-              class="btn-outline"
-              on:click={async () => {
-                errorExpediente = ''
-                try {
-                  await api.dual.exportarZip(alumnoSeleccionado.matricula, periodoSeleccionado || undefined)
-                } catch (e) {
-                  errorExpediente = e.message || 'Error al descargar ZIP'
-                }
-              }}
-            >
-              Descargar todos los PDFs (ZIP)
-            </button>
-          </div>
-        </div>
-
-        <div class="expediente-der">
-          <div class="reportes-card" style="flex: 1; display: flex; flex-direction: column;">
-            <h2 class="card-title">Reportes Aprobados</h2>
-
-            {#if loadingExpediente}
-              <LoadingSpinner />
-            {:else if errorExpediente}
-              <p class="error-msg">{errorExpediente}</p>
-            {:else if reportes.length === 0}
-              <EmptyState message="Este alumno no tiene reportes aprobados aún." />
-            {:else}
-              <div class="expediente-split">
-                <div class="expediente-tabla-col">
-                  <div class="table-wrap">
-                    <table class="tabla">
-                      <thead>
-                        <tr>
-                          <th>Semana</th>
-                          <th class="td-center">Calif.</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {#each reportes as r}
-                          <tr
-                            class:row-selected={pdfSeleccionado?.id === r.id}
-                            on:click={() => pdfSeleccionado = r}
-                            style="cursor: pointer;"
-                          >
-                            <td><span class="sem-txt">Semana {r.semana}</span></td>
-                            <td class="td-cal">{r.calificacion_alumno}</td>
-                            <td style="text-align: right;">
-                              <span class="chip-reportes">Ver</span>
-                            </td>
-                          </tr>
-                        {/each}
-                      </tbody>
-                    </table>
-                  </div>
-                  <p class="count-label">
-                    {reportes.length} reporte{reportes.length !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                <div class="expediente-pdf-col">
-                  <VisorPDF
-                    url={pdfSeleccionado ? api.dual.reportePdfUrlCarrera(pdfSeleccionado.id) : ''}
-                    titulo={pdfSeleccionado ? `Semana ${pdfSeleccionado.semana}` : 'Selecciona un reporte'}
-                  />
-                </div>
-              </div>
-            {/if}
-          </div>
-        </div>
-      </div>
+      {#if loadingExpediente}
+        <LoadingSpinner />
+      {:else if errorExpediente}
+        <p class="error-msg" role="alert">{errorExpediente}</p>
+        <button class="btn-outline" on:click={() => abrirExpediente(alumnoSeleccionado)}>Reintentar</button>
+      {:else}
+        <ExpedienteAlumno datos={expedienteDatos} modo="personal" puedeExportar={$isTutorAcademico} />
+      {/if}
     </div>
   {/if}
 
@@ -954,6 +923,17 @@
   .btn-pdf:hover { background: var(--orange-hover); color: white; border-color: var(--orange-hover); }
 
   .count-label { font-size: 12px; color: var(--text-disabled); text-align: right; margin-top: 4px; font-weight: 500; }
+
+  .filtros-extra { display: flex; gap: 16px; flex-wrap: wrap; }
+  .campo-filtro { display: flex; flex-direction: column; gap: 4px; min-width: 200px; flex: 1 1 200px; }
+  .campo-filtro label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-disabled); }
+  .paquete-carrera { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .paquete-titulo { font-size: 15px; margin: 0; color: var(--text-primary); }
+  .paquete-texto { margin: 0; font-size: 13px; color: var(--text-secondary); }
+  .paquete-fila { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+  .chip-baja { display: inline-block; margin-left: 8px; font-size: 11px; font-weight: 700; color: var(--text-secondary); border: 1px solid var(--border-input); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+  .paginacion { display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+  .paginacion .count-label { margin: 0 auto 0 0; }
 
   .spinner { width: 28px; height: 28px; margin: 0 auto; border: 3px solid var(--border); border-top-color: var(--orange); border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }

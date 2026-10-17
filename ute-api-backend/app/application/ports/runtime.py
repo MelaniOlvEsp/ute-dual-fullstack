@@ -34,6 +34,8 @@ class ServicesPort(Protocol):
     obtener_pdf_bytes: Callable[..., Awaitable[bytes]]
     leer_pdf_local: Callable[..., Awaitable[bytes]]
     estampar_firma: Callable[..., tuple]
+    nuevo_paquete_temporal: Callable[..., Any]
+    construir_paquete: Callable[..., dict]
 
 
 class RuntimePort(Protocol):

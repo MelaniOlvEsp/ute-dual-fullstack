@@ -227,7 +227,7 @@ def main():
         descarga = client.get(f"/dual/alumno/reportes/{r_vieja['reporte_id']}/versiones/1/pdf", headers=alumno_a)
         assert descarga.status_code == 200 and descarga.content == original_vieja
         assert descarga.headers["content-type"] == "application/pdf"
-        tutor_ve = client.get(f"/dual/tutor/reporte/{r_vieja['reporte_id']}/pdf", headers=tutor)
+        tutor_ve = client.get(f"/dual/tutor/reportes/{r_vieja['reporte_id']}/versiones/1/pdf", headers=tutor)
         assert tutor_ve.status_code == 200 and tutor_ve.content == original_vieja
         bandeja = expect(client.get("/dual/tutor/reportes", headers=tutor), 200)
         assert any(r["id"] == r_vieja["reporte_id"] and r["estado"] == "Pendiente" for r in bandeja)
@@ -266,7 +266,7 @@ def main():
                           headers=alumno_a).content == original_vieja, "La versión anterior se conserva"
         assert client.get(f"/dual/alumno/reportes/{r_vieja['reporte_id']}/versiones/2/pdf",
                           headers=alumno_a).content == original_v2
-        assert client.get(f"/dual/tutor/reporte/{r_vieja['reporte_id']}/pdf", headers=tutor).content == original_v2
+        assert client.get(f"/dual/tutor/reportes/{r_vieja['reporte_id']}/versiones/2/pdf", headers=tutor).content == original_v2
         # Las versiones son inmutables en la propia base de datos.
         with connect_local() as conn:
             for sentencia in ("UPDATE reporte_versiones SET nota=3 WHERE reporte_id=%s AND numero=1",

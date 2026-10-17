@@ -283,22 +283,31 @@ class DirectorioPorPeriodoTests(unittest.IsolatedAsyncioTestCase):
             for filtro in filtros:
                 self.assertNotIn(" AND ", filtro, (clave, filtro))
 
-    async def _consulta_de(self, cuatrimestre, grupo):
-        from app.application.use_cases.dual import coordinador_carrera
+    async def _consulta_de(self, cuatrimestre, grupo, busqueda=None, situacion="todos"):
+        from app.application.use_cases.dual import expediente
         cursor = ScriptCursor()
-        await coordinador_carrera.listar_alumnos(cuatrimestre, grupo, {}, runtime=runtime_con(cursor))
+        await expediente.directorio(cuatrimestre, grupo, busqueda, situacion, 50, 0, {}, runtime=runtime_con(cursor))
         return cursor.calls[0]
 
-    async def test_every_filter_combination_is_accepted_and_binds_all_parameters(self):  # AC-16 / AC7
-        from app.infrastructure.database.queries.dual_coordinador_carrera import QUERIES
-        from app.infrastructure.database.repository import resolve_query
-        for cuatrimestre, grupo in ((None, None), ("Septiembre-Diciembre 2026", None), (None, "34TII-3214-I-1A"),
-                                    ("Septiembre-Diciembre 2026", "34TII-3214-I-1A")):
-            referencia, params = await self._consulta_de(cuatrimestre, grupo)
-            resolve_query(referencia)  # no debe lanzar «Filtro no permitido»
-            marcadores = QUERIES[referencia.key]["sql"].count("%s") + referencia.where.count("%s")
-            self.assertEqual(marcadores, len(params), (cuatrimestre, grupo, referencia.where))
-            self.assertEqual("a.matricula IN" in referencia.where, cuatrimestre is not None)
+    async def test_every_filter_combination_binds_all_parameters_of_the_static_query(self):  # AC-16 / C08-AC4
+        # C08: el directorio usa una consulta estática (sin cláusulas dinámicas que dependan del texto).
+        from app.infrastructure.database.queries.dual_expediente import QUERIES
+        for cuatrimestre, grupo, busqueda, situacion in (
+                (None, None, None, "todos"), ("Septiembre-Diciembre 2026", None, None, "todos"),
+                (None, "34TII-3214-I-1A", None, "activos"), ("Septiembre-Diciembre 2026", "34TII-3214-I-1A", "ana", "baja")):
+            clave, params = await self._consulta_de(cuatrimestre, grupo, busqueda, situacion)
+            self.assertEqual(clave, "dual.expediente.directorio")
+            self.assertEqual(QUERIES[clave]["sql"].count("%s"), len(params), (cuatrimestre, grupo))
+
+    async def test_directory_validates_pagination_and_situation_and_escapes_the_search(self):  # C08-AC4
+        from app.application.use_cases.dual import expediente
+        for situacion, limite, desplazamiento in (("x", 50, 0), ("todos", 0, 0), ("todos", 201, 0), ("todos", 10, -1)):
+            with self.assertRaises(ApplicationError) as caught:
+                await expediente.directorio(None, None, None, situacion, limite, desplazamiento, {},
+                                            runtime=runtime_con(ScriptCursor()))
+            self.assertEqual(caught.exception.status_code, 422, (situacion, limite, desplazamiento))
+        _, params = await self._consulta_de(None, None, "50%_x")
+        self.assertEqual(params[8:11], ("50\\%\\_x",) * 3)
 
 
 class SqlContractTests(unittest.TestCase):
@@ -327,10 +336,11 @@ class SqlContractTests(unittest.TestCase):
         self.assertNotIn('"/cierre"', router)
 
     def test_directory_average_uses_the_period_not_the_grade(self):
-        from app.infrastructure.database.queries.dual_coordinador_carrera import QUERIES
-        sql = " ".join(QUERIES["dual.coordinador_carrera.q003"]["sql"].split())
-        self.assertNotIn("rd.cuatrimestre = g.cuatrimestre", sql)
-        self.assertIn("rd.cuatrimestre = %s::text", sql)
+        from app.infrastructure.database.queries.dual_expediente import QUERIES
+        sql = " ".join(QUERIES["dual.expediente.directorio"]["sql"].split())
+        self.assertNotIn("g.cuatrimestre::text", sql)
+        self.assertIn("p.cuatrimestre = %s", sql)
+        self.assertIn("JOIN obligaciones_semanales", sql)
 
 
 if __name__ == "__main__":

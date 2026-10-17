@@ -42,13 +42,21 @@ test('repeated 401 errors invalidate session only once', async () => {
   assert.equal(calls, 1)
 })
 
-test('file export is delegated to a file adapter', async () => {
+test('package and approved downloads are delegated to a file adapter with safe names', async () => {
   const calls = []
   const api = createDualUseCases({
-    exportarCSV: async () => new Blob(['csv'])
+    miPaquete: async () => new Blob(['zip']),
+    paqueteAlumno: async () => new Blob(['zip']),
+    paqueteCarrera: async () => new Blob(['zip']),
+    descargarAprobado: async () => new Blob(['pdf'])
   }, { save: (blob, name) => calls.push(name) })
-  await api.exportarCSV('22000000', 'Mayo-Agosto 2026')
-  assert.deepEqual(calls, ['expediente_22000000.csv'])
+  await api.downloadMyPackage('p1', 'Mayo-Agosto 2026')
+  await api.downloadStudentPackage('22000000', 'p1', '../Mayo 2026')
+  await api.downloadCareerPackage('ITI', 'p1', 'Mayo-Agosto 2026')
+  await api.downloadApproved('r1', 2, 'original', 'S1')
+  assert.equal(calls.length, 4)
+  assert.ok(calls.every(name => /^[A-Za-z0-9._-]+\.(zip|pdf)$/.test(name) && !name.includes('..')), calls.join(','))
+  assert.ok(calls[3].endsWith('-v2-original.pdf'))
 })
 
 test('validation errors are shown without the technical "Value error," prefix', async () => {

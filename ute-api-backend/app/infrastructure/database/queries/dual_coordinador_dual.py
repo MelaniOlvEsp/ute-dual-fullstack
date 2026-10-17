@@ -190,13 +190,6 @@ QUERIES = {'dual.coordinador_dual.q000': {'dynamic': 'where',
                                        '                cerrado_at     = NULL\n'
                                        '            RETURNING id, cuatrimestre, '
                                        'periodo_label, fecha_inicio, fecha_fin\n'
-                                       '            '},
- 'dual.coordinador_dual.q024': {'dynamic': None,
-                                'sql': '\n'
-                                       '            SELECT archivo_pdf_url, '
-                                       'archivo_pdf_local\n'
-                                       '            FROM reportes_dual WHERE id = '
-                                       '%s\n'
                                        '            '}}
 
 QUERIES.update({

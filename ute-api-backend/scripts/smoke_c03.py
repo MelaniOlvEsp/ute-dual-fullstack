@@ -288,7 +288,7 @@ def main():
         mine = [r for r in second_rows if r["matricula"] == matricula]
         assert len(mine) == 1 and mine[0]["activo"] and mine[0]["empresa_id"] == second_company["id"]
         # Los pendientes por obligación semanal se verifican en smoke_c04.py (C04).
-        listing = expect(client.get("/dual/carrera/alumnos", headers=tutor), 200)
+        listing = expect(client.get("/dual/carrera/alumnos", headers=tutor, params={"q": matricula}), 200)["items"]
         assert sum(1 for r in listing if r["matricula"] == matricula) == 1, "Una fila por alumno"
         expect(client.get("/auth/me", headers=student), 200)
 

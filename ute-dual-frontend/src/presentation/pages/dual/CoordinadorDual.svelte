@@ -25,14 +25,10 @@
     if (queryVista === 'empresas' && vista !== 'empresas') {
       vista = 'empresas'
       cargarEmpresas()
-    } else if (queryVista === 'expediente' && vista !== 'expediente') {
-      vista = 'expediente'
-      cargarDirectorioExp()
+    } else if (queryVista === 'expediente') {
+      navigate('/dual/carrera', { replace: true })
     } else if (!queryVista && vista !== 'bandeja' && vista !== 'revision') {
       vista = 'bandeja'
-      alumnoExpSeleccionado = null
-      pdfExpSeleccionado = null
-      reportesExp = []
       cargarReportes()
     }
   }
@@ -109,17 +105,6 @@
   let confirmandoBaja = false
 
   // Expediente / directorio
-  let alumnosExpediente = []
-  let loadingAlumnos = false
-  let filtroCuatrimestreExp = ''
-  let filtroBusquedaExp = ''
-  let alumnoExpSeleccionado = null
-  let reportesExp = []
-  let loadingReportesExp = false
-  let pdfExpSeleccionado = null
-  let periodos = []
-  let periodoSeleccionadoExp = ''
-
   onMount(() => {
     if (!get(isAuthenticated) || !get(isTutorAcademico)) {
       navigate('/login', { replace: true })
@@ -129,32 +114,17 @@
     const queryVista = new URLSearchParams(window.location.search).get('vista')
     let initialVista = 'bandeja'
     if (queryVista === 'empresas') initialVista = 'empresas'
-    else if (queryVista === 'expediente') initialVista = 'expediente'
+    else if (queryVista === 'expediente') { navigate('/dual/carrera', { replace: true }); return }
 
     vista = initialVista
 
     if (vista === 'empresas') {
       cargarEmpresas()
-    } else if (vista === 'expediente') {
-      cargarPeriodos()
-      cargarDirectorioExp()
     } else {
       cargarReportes()
     }
     mounted = true
   })
-
-  async function cargarPeriodos() {
-    try {
-      periodos = await api.dual.periodos()
-      if (periodos.length && !periodoSeleccionadoExp) {
-        periodoSeleccionadoExp = periodos[0].cuatrimestre
-        filtroCuatrimestreExp = periodos[0].cuatrimestre
-      }
-    } catch {
-      periodos = []
-    }
-  }
 
   let modoNoEntregado = false
 
@@ -407,75 +377,8 @@
     }
   }
 
-  async function cargarDirectorioExp() {
-    if (vista !== 'expediente') {
-      vista = 'expediente'
-      navigate('/dual/tutor?vista=expediente', { replace: true })
-    }
-    alumnoExpSeleccionado = null
-    pdfExpSeleccionado = null
-    reportesExp = []
-    loadingAlumnos = true
-    try {
-      const params = new URLSearchParams()
-      if (periodoSeleccionadoExp) params.append('cuatrimestre', periodoSeleccionadoExp)
-      alumnosExpediente = await api.dual.listarAlumnos(params.toString())
-    } catch (e) {
-      alumnosExpediente = []
-    } finally {
-      loadingAlumnos = false
-    }
-  }
-
-  function volverDirectorio() {
-    alumnoExpSeleccionado = null
-    pdfExpSeleccionado = null
-    reportesExp = []
-    errorExp = ''
-  }
-
-  $: alumnosExpFiltrados = alumnosExpediente.filter(a => {
-    const b = filtroBusquedaExp.toLowerCase()
-    return !b || a.matricula.toLowerCase().includes(b) || a.nombre.toLowerCase().includes(b)
-  })
-
-  async function abrirExpAlumno(alumno) {
-    alumnoExpSeleccionado = alumno
-    pdfExpSeleccionado = null
-    reportesExp = []
-    loadingReportesExp = true
-    try {
-      reportesExp = await api.dual.expediente(alumno.matricula, periodoSeleccionadoExp || null)
-    } catch {
-      reportesExp = []
-    } finally {
-      loadingReportesExp = false
-    }
-  }
-
-  async function cambiarPeriodoExp() {
-    if (alumnoExpSeleccionado) {
-      filtroCuatrimestreExp = periodoSeleccionadoExp
-      await abrirExpAlumno(alumnoExpSeleccionado)
-    } else {
-      filtroCuatrimestreExp = periodoSeleccionadoExp
-      await cargarDirectorioExp()
-    }
-  }
-
-  let errorExp = ''
-
-  $: promedioExp = reportesExp.length
-    ? (reportesExp.reduce((s, r) => s + Number(r.calificacion_alumno), 0) / reportesExp.length).toFixed(2)
-    : null
-
-  async function descargarCSVExp(matricula) {
-    await api.dual.exportarCSV(matricula, periodoSeleccionadoExp || undefined)
-  }
-
   $: carreraCompletaRevision = seleccionado ? seleccionado.carrera : '—'
   $: carreraCompletaPreview = alumnoPreview ? alumnoPreview.carrera : '—'
-  $: carreraExpSel = alumnoExpSeleccionado ? alumnoExpSeleccionado.carrera : '—'
 </script>
 
 <svelte:head>
@@ -993,168 +896,6 @@
       {/if}
     </div>
 
-  {:else if vista === 'expediente'}
-    {#if !alumnoExpSeleccionado}
-    <div class="page-wrap">
-      <PageHeader
-        title="Directorio de Alumnos"
-        subtitle="Consulta y revisa expedientes de estudiantes DUAL"
-      />
-
-      <div class="reportes-card" style="padding: 16px;">
-        <div style="display: flex; gap: 8px; margin-bottom: 12px; align-items: center;">
-          {#if periodos.length > 0}
-            <select class="input-plain input-sm" bind:value={periodoSeleccionadoExp} on:change={cambiarPeriodoExp} style="flex: 1">
-              {#each periodos as p}
-                <option value={p.cuatrimestre}>
-                  {p.periodo_label || p.cuatrimestre}
-                </option>
-              {/each}
-            </select>
-          {:else}
-            <input class="input-plain" placeholder="Cuatrimestre" bind:value={filtroCuatrimestreExp} style="flex: 1" />
-          {/if}
-          <input class="input-plain" placeholder="Buscar matrícula o nombre" bind:value={filtroBusquedaExp} style="flex: 1" />
-          <button class="btn-primary" style="width: auto; padding: 0 16px;" on:click={cargarDirectorioExp}>Buscar</button>
-        </div>
-        {#if loadingAlumnos}
-          <LoadingSpinner />
-        {:else if alumnosExpFiltrados.length === 0}
-          <EmptyState message="No se encontraron alumnos." />
-        {:else}
-          <div class="table-wrap" style="max-height: calc(100vh - 400px); overflow-y: auto;">
-            <table class="reporte-table">
-              <thead><tr><th>Matrícula</th><th>Nombre</th><th></th></tr></thead>
-              <tbody>
-                {#each alumnosExpFiltrados as a}
-                  <tr>
-                    <td class="td-matricula">{a.matricula}</td>
-                    <td class="td-nombre">{a.nombre}</td>
-                    <td style="text-align: right;">
-                      <button class="btn-revisar" on:click={() => abrirExpAlumno(a)}>Ver</button>
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-          <p class="count-label">{alumnosExpFiltrados.length} alumno{alumnosExpFiltrados.length !== 1 ? 's' : ''}</p>
-        {/if}
-      </div>
-
-    </div>
-    {:else}
-    <!-- EXPEDIENTE: layout idéntico a CoordinadorCarrera -->
-    <div class="page-wrap expediente-page">
-      <div class="expediente-topbar">
-        <button class="btn-back" on:click={volverDirectorio}>
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" style="display:inline; margin-right:4px; vertical-align:text-bottom;">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 L3 12 m0 0 l7.5-7.5 M3 12 h18" />
-          </svg>
-          Volver al directorio
-        </button>
-      </div>
-
-      <div class="expediente-layout">
-        <div class="ficha-card">
-          <p class="ficha-titulo">Datos del alumno</p>
-          <div class="ficha-divider"></div>
-          <div class="ficha-grid">
-            <span class="ficha-key">Nombre</span>
-            <span class="ficha-val">{alumnoExpSeleccionado.nombre}</span>
-            <span class="ficha-key">Matrícula</span>
-            <span class="ficha-val ficha-mono">{alumnoExpSeleccionado.matricula}</span>
-            <span class="ficha-key">Carrera</span>
-            <span class="ficha-val">{carreraExpSel}</span>
-            <span class="ficha-key">Grupo</span>
-            <span class="ficha-val ficha-mono">{alumnoExpSeleccionado.nomenclatura || '—'}</span>
-            <span class="ficha-key">Empresa</span>
-            <span class="ficha-val bold-primary">{alumnoExpSeleccionado.empresa || 'Sin asignar'}</span>
-            <span class="ficha-key">Turno</span>
-            <span class="ficha-val">{alumnoExpSeleccionado.turno || '—'}</span>
-          </div>
-
-          {#if promedioExp}
-            <div class="promedio-box">
-              <p class="promedio-label">Promedio General</p>
-              <p class="promedio-valor">{promedioExp}</p>
-            </div>
-          {/if}
-
-          <div class="ficha-acciones">
-            <button class="btn-primary" on:click={() => descargarCSVExp(alumnoExpSeleccionado.matricula)}>Exportar CSV</button>
-            <button
-              class="btn-outline"
-              on:click={async () => {
-                errorExp = ''
-                try {
-                  await api.dual.exportarZip(alumnoExpSeleccionado.matricula, periodoSeleccionadoExp || undefined)
-                } catch (e) {
-                  errorExp = e.message || 'Error al descargar ZIP'
-                }
-              }}
-            >
-              Descargar todos los PDFs (ZIP)
-            </button>
-          </div>
-        </div>
-
-        <div class="expediente-der">
-          <div class="reportes-card" style="flex: 1; display: flex; flex-direction: column;">
-            <h2 class="card-title">Reportes Aprobados</h2>
-
-            {#if loadingReportesExp}
-              <LoadingSpinner />
-            {:else if errorExp}
-              <p class="error-msg">{errorExp}</p>
-            {:else if reportesExp.length === 0}
-              <EmptyState message="Este alumno no tiene reportes aprobados aún." />
-            {:else}
-              <div class="expediente-split">
-                <div class="expediente-tabla-col">
-                  <div class="table-wrap">
-                    <table class="reporte-table">
-                      <thead>
-                        <tr>
-                          <th>Semana</th>
-                          <th class="td-center">Calif.</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {#each reportesExp as r}
-                          <tr
-                            class:row-selected={pdfExpSeleccionado?.id === r.id}
-                            on:click={() => pdfExpSeleccionado = r}
-                            style="cursor: pointer;"
-                          >
-                            <td><span class="sem-txt">Semana {r.semana}</span></td>
-                            <td class="td-cal">{r.calificacion_alumno}</td>
-                            <td style="text-align: right;">
-                              <span class="chip-reportes">Ver</span>
-                            </td>
-                          </tr>
-                        {/each}
-                      </tbody>
-                    </table>
-                  </div>
-                  <p class="count-label">
-                    {reportesExp.length} reporte{reportesExp.length !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                <div class="expediente-pdf-col">
-                  <VisorPDF
-                    url={pdfExpSeleccionado ? api.dual.reportePdfUrlCoordinador(pdfExpSeleccionado.id) : ''}
-                    titulo={pdfExpSeleccionado ? `Semana ${pdfExpSeleccionado.semana}` : 'Selecciona un reporte'}
-                  />
-                </div>
-              </div>
-            {/if}
-          </div>
-        </div>
-      </div>
-    </div>
-    {/if}
   {/if}
 
 </div>
@@ -1279,33 +1020,7 @@
     border: 1px solid rgba(249, 115, 22, 0.2);
   }
 
-  .expediente-layout { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }
-  .expediente-topbar { margin-bottom: 16px; }
-
-  .expediente-page { max-width: 1200px; }
-  .expediente-split { display: grid; grid-template-columns: 260px 1fr; gap: 0; flex: 1; min-height: 0; border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; }
-  .expediente-tabla-col { border-right: 1px solid var(--border); overflow-y: auto; background: var(--bg-card); }
-  .expediente-pdf-col { min-height: 0; display: flex; flex: 1; }
-  .expediente-pdf-col :global(.visor-wrap) { border-radius: 0; border: none; width: 100%; }
-  .row-selected { background: var(--orange-light) !important; }
-
-  .expediente-der { flex: 1; min-width: 0; }
-
-  /* Ficha del alumno (compartido con CoordinadorCarrera) */
-  .ficha-card { background: var(--bg-card); border-radius: var(--radius-card); border: 1px solid var(--border); box-shadow: var(--shadow-card); padding: 24px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: calc(56px + 24px); }
-  .ficha-titulo { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-disabled); margin: 0; }
-  .ficha-divider { height: 1px; background: var(--border); width: 100%; margin-top: -4px; }
-  .ficha-grid { display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; align-items: baseline; }
-  .ficha-key { font-size: 11px; font-weight: 600; color: var(--text-disabled); text-transform: uppercase; letter-spacing: 0.02em; }
-  .ficha-val { font-size: 14px; font-weight: 500; color: var(--text-secondary); word-break: break-word; }
-  .ficha-mono { font-family: monospace; font-weight: 600; color: var(--text-primary); }
   .bold-primary { color: var(--text-primary); font-weight: 600; }
-
-  .promedio-box { background: rgba(249, 115, 22, 0.06); border: 1px solid rgba(249, 115, 22, 0.15); border-radius: 12px; padding: 14px; text-align: center; }
-  .promedio-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--orange); margin: 0 0 4px; }
-  .promedio-valor { font-size: 32px; font-weight: 800; color: var(--orange); margin: 0; line-height: 1; letter-spacing: -0.03em; }
-
-  .ficha-acciones { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
 
   .sem-txt { font-weight: 600; color: var(--text-primary); }
   .chip-reportes { display: inline-block; background: rgba(249, 115, 22, 0.08); color: var(--orange); font-weight: 700; font-size: 12px; border-radius: 6px; padding: 2px 10px; border: 1px solid rgba(249, 115, 22, 0.2); }
@@ -1317,10 +1032,6 @@
     .split-layout { grid-template-columns: 1fr; }
     .panel-pdf { height: 300px; border-right: none; border-bottom: 1px solid var(--border); }
     .empresas-layout { grid-template-columns: 1fr; }
-    .expediente-layout { grid-template-columns: 1fr; }
-    .ficha-card { position: static; }
-    .expediente-split { grid-template-columns: 1fr; }
-    .expediente-pdf-col { min-height: 0; flex: 1; }
     .reporte-table th, .reporte-table td { padding: 10px 12px; font-size: 13px; }
   }
 </style>

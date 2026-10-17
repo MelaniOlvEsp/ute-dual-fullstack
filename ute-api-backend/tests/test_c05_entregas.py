@@ -360,12 +360,13 @@ class SqlContractTests(unittest.TestCase):
             self.assertNotIn("r.fecha_fin BETWEEN", sql)
 
     def test_sequential_flow_queries_are_gone(self):
-        from app.infrastructure.database.queries.dual_alumno_dual import QUERIES
-        self.assertEqual(set(QUERIES), {"dual.alumno_dual.q005", "dual.alumno_dual.q006", "dual.alumno_dual.q011"})
+        # C08 retiró también las lecturas heredadas por puntero (mis-reportes y reporte/{id}/pdf).
+        self.assertFalse((ROOT / "ute-api-backend/app/infrastructure/database/queries/dual_alumno_dual.py").exists())
+        self.assertFalse((ROOT / "ute-api-backend/app/application/use_cases/dual/alumno_dual.py").exists())
 
     def test_legacy_deletion_of_rejected_report_and_compression_are_removed(self):
-        for ruta in ("ute-api-backend/app/application/use_cases/dual/alumno_dual.py",
-                     "ute-api-backend/app/infrastructure/documents/dual_reports.py"):
+        for ruta in ("ute-api-backend/app/infrastructure/documents/dual_reports.py",
+                     "ute-api-backend/app/application/use_cases/dual/entregas.py"):
             texto = (ROOT / ruta).read_text(encoding="utf-8")
             self.assertNotIn("comprimir_pdf", texto)
             self.assertNotIn("DELETE FROM reportes_dual", texto)

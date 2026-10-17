@@ -1,19 +1,20 @@
 
+from typing import Literal
 from fastapi import APIRouter, HTTPException, status, Depends
 from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 from fastapi import UploadFile, File, Form
 from app.presentation.api.routers.auth import get_current_user
-from app.application.dto.reportes import ReporteDualResponse
 from app.application.use_cases.dual import coordinador_carrera as use_cases
 from app.application.use_cases.dual import organization as organization_cases
+from app.application.use_cases.dual import expediente as expediente_cases
+from app.application.use_cases.dual import paquetes as paquetes_cases
 from app.domain.organization import canonical_career
 from app.bootstrap import get_runtime
 from app.presentation.api.response import to_http_response
 
 
 router = APIRouter()
-CAMPOS_CSV = ["semana", "calificacion_alumno"]
 
 
 def get_coordinador_carrera(user=Depends(get_current_user)):
@@ -42,89 +43,63 @@ async def listar_periodos(user=Depends(get_coordinador_carrera)):
     )
 
 
-# Delega el caso de uso sin mezclar lógica de negocio con HTTP.
+# C08: directorio paginado por servidor; incluye a los dados de baja (RN-29) y filtra por período,
+# grupo, situación y búsqueda.
 @router.get("/alumnos")
 async def listar_alumnos(
     cuatrimestre: str | None = None,
     grupo: str | None = None,
+    q: str | None = None,
+    situacion: str = "todos",
+    limite: int = 50,
+    desplazamiento: int = 0,
     user=Depends(get_coordinador_carrera),
 ):
     return to_http_response(
-        await use_cases.listar_alumnos(
-            cuatrimestre=cuatrimestre,
-            grupo=grupo,
-            user=user,
-            runtime=get_runtime(),
+        await expediente_cases.directorio(
+            cuatrimestre=cuatrimestre, grupo=grupo, busqueda=q, situacion=situacion,
+            limite=limite, desplazamiento=desplazamiento, user=user, runtime=get_runtime(),
         )
     )
 
 
-# Delega el caso de uso sin mezclar lógica de negocio con HTTP.
-@router.get(
-    "/alumnos/{matricula}/reportes", response_model=list[ReporteDualResponse]
-)
-# Devuelve el expediente completo (datos y reportes) de un alumno dual
-async def expediente_alumno(
-    matricula: str,
-    cuatrimestre: str | None = None,
-    user=Depends(get_coordinador_carrera),
-):
+# Expediente por período del alumno para el personal (tutor y coordinador, las tres carreras; MP-10).
+@router.get("/alumnos/{matricula}/expediente")
+async def expediente_alumno(matricula: str, user=Depends(get_coordinador_carrera)):
     return to_http_response(
-        await use_cases.expediente_alumno(
-            matricula=matricula,
-            cuatrimestre=cuatrimestre,
-            user=user,
-            runtime=get_runtime(),
-        )
+        await expediente_cases.expediente(matricula=matricula, user=user, runtime=get_runtime())
     )
 
 
-# Delega el caso de uso sin mezclar lógica de negocio con HTTP.
-@router.get("/reporte/{reporte_id}/pdf")
-async def descargar_reporte_pdf_carrera(
+# Original o firmado de un reporte aprobado, por documento versionado; una versión no aprobada es 404.
+@router.get("/reportes/{reporte_id}/versiones/{numero}/pdf")
+async def descargar_aprobado_pdf(
     reporte_id: UUID,
+    numero: int,
+    documento: Literal["original", "firmado"] = "firmado",
     user=Depends(get_coordinador_carrera),
 ):
     return to_http_response(
-        await use_cases.descargar_reporte_pdf_carrera(
-            reporte_id=reporte_id,
-            user=user,
-            runtime=get_runtime(),
+        await expediente_cases.descargar_aprobado(
+            reporte_id=reporte_id, numero=numero, documento=documento, user=user, runtime=get_runtime(),
         )
     )
 
 
-# Delega el caso de uso sin mezclar lógica de negocio con HTTP.
-@router.get("/alumnos/{matricula}/exportar-csv")
-async def exportar_csv(
-    matricula: str,
-    cuatrimestre: str | None = None,
-    user=Depends(get_coordinador_carrera),
-):
+# Paquete de archivo (ZIP) por alumno o por carrera y período finalizado; solo el tutor (DP-14).
+@router.get("/paquetes/alumno/{matricula}")
+async def paquete_alumno(matricula: str, periodo_id: UUID, user=Depends(get_tutor_academico)):
     return to_http_response(
-        await use_cases.exportar_csv(
-            matricula=matricula,
-            cuatrimestre=cuatrimestre,
-            user=user,
-            runtime=get_runtime(),
-        )
+        await paquetes_cases.paquete_de_alumno(
+            matricula=matricula, periodo_id=periodo_id, user=user, runtime=get_runtime())
     )
 
 
-# Delega el caso de uso sin mezclar lógica de negocio con HTTP.
-@router.get("/alumnos/{matricula}/exportar-zip")
-async def exportar_zip(
-    matricula: str,
-    cuatrimestre: str | None = None,
-    user=Depends(get_coordinador_carrera),
-):
+@router.get("/paquetes/carrera/{codigo}")
+async def paquete_carrera(codigo: str, periodo_id: UUID, user=Depends(get_tutor_academico)):
     return to_http_response(
-        await use_cases.exportar_zip(
-            matricula=matricula,
-            cuatrimestre=cuatrimestre,
-            user=user,
-            runtime=get_runtime(),
-        )
+        await paquetes_cases.paquete_de_carrera(
+            codigo=codigo, periodo_id=periodo_id, user=user, runtime=get_runtime())
     )
 
 

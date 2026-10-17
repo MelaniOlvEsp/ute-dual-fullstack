@@ -2,17 +2,13 @@ from contextlib import asynccontextmanager
 
 from psycopg import sql
 
-from app.application.ports.query import FILTRO_PERIODO_DIRECTORIO, QueryRef
+from app.application.ports.query import QueryRef
 from app.infrastructure.database.postgres import get_cursor, get_transaction
 from app.infrastructure.database.queries.catalog import QUERIES
 
 
 # Fragmentos permitidos para composición controlada de filtros.
 FILTERS = {
-    'dual.coordinador_carrera.q003': frozenset({
-        'ad.activo = TRUE', FILTRO_PERIODO_DIRECTORIO,
-        'g.nomenclatura = %s',
-    }),
     'dual.coordinador_carrera.q014': frozenset({'g.carrera = %s'}),
     'dual.coordinador_dual.q000': frozenset({
         'r.estado = %s', 'r.cuatrimestre = %s',

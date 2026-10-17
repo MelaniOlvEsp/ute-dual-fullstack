@@ -253,8 +253,8 @@ def main():
         assert bytes_de(f"/dual/tutor/reportes/{rid1}/versiones/1/pdf", tutor1) == original1
         assert bytes_de(f"/dual/alumno/reportes/{rid1}/versiones/1/pdf?documento=firmado", alumno_a) == firmado1
         assert bytes_de(f"/dual/alumno/reportes/{rid1}/versiones/1/pdf", alumno_a) == original1
-        assert bytes_de(f"/dual/alumno/reporte/{rid1}/pdf", alumno_a) == firmado1
-        assert bytes_de(f"/dual/tutor/reporte/{rid1}/pdf", tutor1) == firmado1
+        for ruta_heredada, sesion_heredada in ((f"/dual/alumno/reporte/{rid1}/pdf", alumno_a), (f"/dual/tutor/reporte/{rid1}/pdf", tutor1)):
+            assert client.get(ruta_heredada, headers=sesion_heredada).status_code in (404, 405), "Ruta heredada retirada en C08"
         propia = {o["id"]: o for o in semanas(alumno_a)}[a1["id"]]
         assert propia["entrega"] == "Aprobada" and not propia["puede_entregar"]
         vistas = expect(client.get(f"/dual/alumno/reportes/{rid1}/versiones", headers=alumno_a), 200)

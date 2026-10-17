@@ -1,6 +1,5 @@
 # Registro de consultas organizado por módulo.
 from app.infrastructure.database.queries.auth import QUERIES as AUTH
-from app.infrastructure.database.queries.dual_alumno_dual import QUERIES as DUAL_ALUMNO_DUAL
 from app.infrastructure.database.queries.dual_coordinador_carrera import QUERIES as DUAL_COORDINADOR_CARRERA
 from app.infrastructure.database.queries.dual_coordinador_dual import QUERIES as DUAL_COORDINADOR_DUAL
 from app.infrastructure.database.queries.foro_buzon import QUERIES as FORO_BUZON
@@ -12,8 +11,12 @@ from app.infrastructure.database.queries.dual_obligaciones import QUERIES as DUA
 from app.infrastructure.database.queries.dual_entregas import QUERIES as DUAL_ENTREGAS
 from app.infrastructure.database.queries.dual_revisiones import QUERIES as DUAL_REVISIONES
 from app.infrastructure.database.queries.dual_cierres import QUERIES as DUAL_CIERRES
+from app.infrastructure.database.queries.dual_expediente import QUERIES as DUAL_EXPEDIENTE
+from app.infrastructure.database.queries.dual_paquetes import QUERIES as DUAL_PAQUETES
 
 QUERIES = {
+    **DUAL_EXPEDIENTE,
+    **DUAL_PAQUETES,
     **DUAL_CIERRES,
     **DUAL_REVISIONES,
     **DUAL_TUTOR,
@@ -21,7 +24,6 @@ QUERIES = {
     **DUAL_OBLIGACIONES,
     **DUAL_ENTREGAS,
     **AUTH,
-    **DUAL_ALUMNO_DUAL,
     **DUAL_COORDINADOR_CARRERA,
     **DUAL_COORDINADOR_DUAL,
     **FORO_BUZON,

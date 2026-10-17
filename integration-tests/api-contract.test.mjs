@@ -34,7 +34,7 @@ const server = {
     assert.ok(matching.length > 0, `Missing FastAPI route: ${options.method} ${pathname}`)
     assert.equal(options.headers.Authorization, 'Bearer token-for-tests')
     calls.push(`${options.method} ${pathname}`)
-    const binary = pathname.endsWith('/pdf') || pathname.endsWith('/exportar-csv') || pathname.endsWith('/exportar-zip')
+    const binary = pathname.endsWith('/pdf') || /\/paquetes?(\/|$)/.test(pathname)
     return new Response(binary ? 'test-bytes' : '{}', { status: 200 })
   }
 }
@@ -59,7 +59,7 @@ function sampleArgs(name) {
     entregarObligacion: ['00000000-0000-0000-0000-000000000001', new FormData()],
     versionesReporte: ['00000000-0000-0000-0000-000000000001'],
     descargarVersion: ['00000000-0000-0000-0000-000000000001', 2],
-    misReportes: ['2026-3'],
+    miPaquete: ['00000000-0000-0000-0000-000000000002'],
     listarReportes: ['estado=Pendiente'],
     detalleReporte: ['00000000-0000-0000-0000-000000000001'],
     revisarVersion: ['00000000-0000-0000-0000-000000000001', 2, { decision: 'Aprobada' }],
@@ -74,9 +74,10 @@ function sampleArgs(name) {
     abrirCuatrimestre: [{ periodo_label: '2026-3' }],
     alumnosSinReporte: ['2026-3', 2],
     listarAlumnos: ['grupo=abc'],
-    expediente: ['123456789', '2026-3'],
-    exportarCSV: ['123456789', '2026-3'],
-    exportarZip: ['123456789', '2026-3'],
+    expedienteAlumno: ['123456789'],
+    descargarAprobado: ['00000000-0000-0000-0000-000000000001', 1, 'original'],
+    paqueteAlumno: ['123456789', '00000000-0000-0000-0000-000000000002'],
+    paqueteCarrera: ['ITI', '00000000-0000-0000-0000-000000000002'],
     crearGrupo: [{ carrera: 'TI', cuatrimestre: 3 }],
     previewAlumnosCSV: ['00000000-0000-0000-0000-000000000001', new FormData()],
     subirAlumnosCSV: ['00000000-0000-0000-0000-000000000001', new FormData()],
@@ -113,8 +114,10 @@ test('all frontend HTTP repository operations match backend route contracts', as
   assert.ok(calls.length >= 44, `Too few operations checked: ${calls.length}`)
   console.log(`Validated ${calls.length} frontend API calls against ${serverRoutes.length} backend routes`)
   assert.ok(calls.includes('GET /auth/me'))
-  assert.ok(calls.includes('GET /dual/alumno/mis-reportes'))
+  assert.ok(calls.includes('GET /dual/alumno/expediente'))
   assert.ok(calls.includes('POST /foro/buzon/'))
-  assert.ok(calls.includes('GET /dual/carrera/alumnos/123456789/exportar-zip'))
+  assert.ok(calls.includes('GET /dual/carrera/paquetes/alumno/123456789'))
+  assert.ok(calls.includes('GET /dual/carrera/paquetes/carrera/ITI'))
+  assert.ok(!calls.some(call => /mis-reportes|exportar-(csv|zip)|\/dual\/(alumno|carrera|tutor)\/reporte\//.test(call)))
   assert.ok(!calls.some(call => call.includes('/alumnos/me')))
 })

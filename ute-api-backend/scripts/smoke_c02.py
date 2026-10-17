@@ -94,22 +94,22 @@ def main():
         with connect_local() as conn:
             report_a = conn.execute("INSERT INTO reportes_dual (matricula,cuatrimestre,semana,calificacion_alumno,estado,revisado_por) VALUES (%s,'Septiembre-Diciembre 2026',1,8,'Aprobada',%s) RETURNING id", (a, tutor_id)).fetchone()[0]
             report_b = conn.execute("INSERT INTO reportes_dual (matricula,cuatrimestre,semana,calificacion_alumno,estado) VALUES (%s,'Septiembre-Diciembre 2026',1,9,'Aprobada') RETURNING id", (b,)).fetchone()[0]
-        reports = expect(client.get('/dual/alumno/mis-reportes', headers=student), 200)
-        assert all(r['matricula'] == a for r in reports) and any(r['id'] == str(report_a) for r in reports)
-        expect(client.get(f'/dual/alumno/reporte/{report_b}/pdf', headers=student), 404)
-        expect(client.get(f'/dual/alumno/reporte/{report_a}/pdf', headers=other), 404)
-        expect(client.get(f'/dual/carrera/alumnos/{b}/reportes', headers=student), 403)
+        # C08: el alumno solo consulta su propio expediente (la matrícula sale de la sesión).
+        assert expect(client.get('/dual/alumno/expediente', headers=student), 200)['alumno']['matricula'] == a
+        expect(client.get(f'/dual/alumno/reportes/{report_b}/versiones/1/pdf', headers=student), 404)
+        expect(client.get(f'/dual/alumno/reportes/{report_a}/versiones/1/pdf', headers=other), 404)
+        expect(client.get(f'/dual/carrera/alumnos/{b}/expediente', headers=student), 403)
         expect(client.patch(f'/dual/carrera/alumnos/{b}', headers=student, json={'nombre': 'No autorizado'}), 403)
         expect(client.delete(f'/dual/carrera/alumnos/{b}', headers=student), 403)
-        expect(client.get(f'/dual/carrera/alumnos/{a}/reportes', headers=tutor), 200)
-        expect(client.get(f'/dual/carrera/alumnos/{b}/reportes', headers=admin), 200)
+        expect(client.get(f'/dual/carrera/alumnos/{a}/expediente', headers=tutor), 200)
+        expect(client.get(f'/dual/carrera/alumnos/{b}/expediente', headers=admin), 200)
         # C07 (MP-11): el cierre es del coordinador, por ID de período; tutor y alumno reciben 403.
         periodo_ajeno = '00000000-0000-0000-0000-000000000001'
         expect(client.post(f'/dual/tutor/periodos/{periodo_ajeno}/cierre-recepcion', headers=tutor, json={'confirmar': True}), 403)
         expect(client.post(f'/dual/tutor/periodos/{periodo_ajeno}/finalizacion', headers=tutor, json={'confirmar': True}), 403)
         expect(client.post(f'/dual/tutor/periodos/{periodo_ajeno}/cierre-recepcion', headers=student, json={'confirmar': True}), 403)
-        expect(client.get(f'/dual/carrera/alumnos/{b}/exportar-csv', headers=student), 403)
-        expect(client.get(f'/dual/carrera/alumnos/{b}/exportar-zip', headers=student), 403)
+        expect(client.get(f'/dual/carrera/paquetes/alumno/{b}', headers=student, params={'periodo_id': periodo_ajeno}), 403)
+        expect(client.get('/dual/carrera/paquetes/carrera/TII', headers=student, params={'periodo_id': periodo_ajeno}), 403)
         message = expect(client.post('/foro/buzon/', headers=student, json={'area':'dual','asunto':'Smoke C02','mensaje':'Mensaje sintético'}), 201)
         mid = message['id']
         expect(client.get(f'/foro/buzon/{mid}', headers=other), 404)
@@ -126,7 +126,7 @@ def main():
         validate_password(temporary)
         expect(client.get('/auth/me', headers=student), 401)
         reset_session = login(f'{a}@ute.edu.mx', temporary)
-        expect(client.get('/dual/alumno/mis-reportes', headers=reset_session), 403)
+        expect(client.get('/dual/alumno/expediente', headers=reset_session), 403)
         expect(client.post('/auth/cambiar-password', headers=reset_session, json={'password_actual':temporary,'password_nueva':restored}), 200)
         expect(client.get('/auth/me', headers=reset_session), 401)
         student = login(f'{a}@ute.edu.mx', restored)

@@ -5,6 +5,7 @@
   import ChangePassword from './presentation/pages/auth/CambiarPassword.svelte'
   import Forum from './presentation/pages/foro/Foro.svelte'
   import DualReports from './presentation/pages/dual/ReportesDual.svelte'
+  import MyRecord from './presentation/pages/dual/MiExpediente.svelte'
   import DualCoordinator from './presentation/pages/dual/CoordinadorDual.svelte'
   import CareerCoordinator from './presentation/pages/dual/CoordinadorCarrera.svelte'
   import ManageUsers from './presentation/pages/dual/GestionTutores.svelte'
@@ -25,6 +26,9 @@
   </Route>
   <Route path="/dual/reportes">
     <ProtectedPage permission="dual-student"><DualReports /></ProtectedPage>
+  </Route>
+  <Route path="/dual/expediente">
+    <ProtectedPage permission="dual-student"><MyRecord /></ProtectedPage>
   </Route>
   <Route path="/dual/tutor">
     <ProtectedPage permission="tutor"><DualCoordinator /></ProtectedPage>

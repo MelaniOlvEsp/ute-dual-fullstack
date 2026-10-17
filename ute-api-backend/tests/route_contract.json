@@ -72,15 +72,6 @@
   ],
   "dual/alumno_dual": [
     {
-      "name": "mis_reportes",
-      "method": "GET",
-      "path": "/mis-reportes",
-      "params": [
-        "cuatrimestre",
-        "user"
-      ]
-    },
-    {
       "name": "mis_obligaciones",
       "method": "GET",
       "path": "/obligaciones",
@@ -123,11 +114,19 @@
       ]
     },
     {
-      "name": "descargar_reporte_pdf_alumno",
+      "name": "mi_expediente",
       "method": "GET",
-      "path": "/reporte/{reporte_id}/pdf",
+      "path": "/expediente",
       "params": [
-        "reporte_id",
+        "user"
+      ]
+    },
+    {
+      "name": "mi_paquete",
+      "method": "GET",
+      "path": "/paquete",
+      "params": [
+        "periodo_id",
         "user"
       ]
     }
@@ -320,15 +319,6 @@
       ]
     },
     {
-      "name": "descargar_reporte_pdf_coordinador",
-      "method": "GET",
-      "path": "/reporte/{reporte_id}/pdf",
-      "params": [
-        "reporte_id",
-        "user"
-      ]
-    },
-    {
       "name": "cargar_firma",
       "method": "POST",
       "path": "/firma",
@@ -362,45 +352,50 @@
       "params": [
         "cuatrimestre",
         "grupo",
+        "q",
+        "situacion",
+        "limite",
+        "desplazamiento",
         "user"
       ]
     },
     {
       "name": "expediente_alumno",
       "method": "GET",
-      "path": "/alumnos/{matricula}/reportes",
+      "path": "/alumnos/{matricula}/expediente",
       "params": [
         "matricula",
-        "cuatrimestre",
         "user"
       ]
     },
     {
-      "name": "descargar_reporte_pdf_carrera",
+      "name": "descargar_aprobado_pdf",
       "method": "GET",
-      "path": "/reporte/{reporte_id}/pdf",
+      "path": "/reportes/{reporte_id}/versiones/{numero}/pdf",
       "params": [
         "reporte_id",
+        "numero",
+        "documento",
         "user"
       ]
     },
     {
-      "name": "exportar_csv",
+      "name": "paquete_alumno",
       "method": "GET",
-      "path": "/alumnos/{matricula}/exportar-csv",
+      "path": "/paquetes/alumno/{matricula}",
       "params": [
         "matricula",
-        "cuatrimestre",
+        "periodo_id",
         "user"
       ]
     },
     {
-      "name": "exportar_zip",
+      "name": "paquete_carrera",
       "method": "GET",
-      "path": "/alumnos/{matricula}/exportar-zip",
+      "path": "/paquetes/carrera/{codigo}",
       "params": [
-        "matricula",
-        "cuatrimestre",
+        "codigo",
+        "periodo_id",
         "user"
       ]
     },

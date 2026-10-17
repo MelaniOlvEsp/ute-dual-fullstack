@@ -5,10 +5,10 @@ from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File,
 from datetime import date
 from app.presentation.api.routers.auth import get_current_user
 from app.application.dto.obligaciones import ObligacionOut
-from app.application.dto.reportes import ReporteDualResponse
-from app.application.use_cases.dual import alumno_dual as use_cases
 from app.application.use_cases.dual import entregas as entregas_cases
+from app.application.use_cases.dual import expediente as expediente_cases
 from app.application.use_cases.dual import obligaciones as obligaciones_cases
+from app.application.use_cases.dual import paquetes as paquetes_cases
 from app.bootstrap import get_runtime
 from app.presentation.api.response import to_http_response
 
@@ -24,20 +24,6 @@ def get_alumno_dual(user=Depends(get_current_user)):
             detail="Acceso restringido para este rol",
         )
     return user
-
-
-# Delega el caso de uso sin mezclar lógica de negocio con HTTP.
-@router.get("/mis-reportes", response_model=list[ReporteDualResponse])
-async def mis_reportes(
-    cuatrimestre: str | None = None, user=Depends(get_alumno_dual)
-):
-    return to_http_response(
-        await use_cases.mis_reportes(
-            cuatrimestre=cuatrimestre,
-            user=user,
-            runtime=get_runtime(),
-        )
-    )
 
 
 @router.get("/obligaciones", response_model=list[ObligacionOut])
@@ -100,16 +86,19 @@ async def descargar_version_pdf(
     )
 
 
-# Delega el caso de uso sin mezclar lógica de negocio con HTTP.
-@router.get("/reporte/{reporte_id}/pdf")
-async def descargar_reporte_pdf_alumno(
-    reporte_id: UUID,
-    user=Depends(get_alumno_dual),
-):
+# C08: expediente propio por período; la matrícula sale de la sesión, nunca de la solicitud, de modo
+# que un identificador ajeno no puede pedirse (AC-04).
+@router.get("/expediente")
+async def mi_expediente(user=Depends(get_alumno_dual)):
     return to_http_response(
-        await use_cases.descargar_reporte_pdf_alumno(
-            reporte_id=reporte_id,
-            user=user,
-            runtime=get_runtime(),
-        )
+        await expediente_cases.expediente(
+            matricula=user["matricula"], user=user, propio=True, runtime=get_runtime())
+    )
+
+
+# C08 / DP-14: el alumno descarga solo su paquete, durante la semana posterior a la finalización.
+@router.get("/paquete")
+async def mi_paquete(periodo_id: UUID, user=Depends(get_alumno_dual)):
+    return to_http_response(
+        await paquetes_cases.paquete_propio(periodo_id=periodo_id, user=user, runtime=get_runtime())
     )

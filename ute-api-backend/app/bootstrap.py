@@ -3,7 +3,7 @@ from functools import lru_cache
 
 from app.infrastructure.config.settings import settings
 from app.infrastructure.database.repository import PostgresGateway
-from app.infrastructure.documents import dual_reports, signatures
+from app.infrastructure.documents import dual_reports, paquetes, signatures
 from app.infrastructure.integrations import drive
 from app.infrastructure.security import jwt_passwords
 
@@ -36,6 +36,9 @@ class ServiceAdapter:
     leer_pdf_local = staticmethod(dual_reports.leer_pdf_local)
     # C06: firma estampada en la celda del tutor (respaldo: hoja adicional).
     estampar_firma = staticmethod(signatures.estampar_firma)
+    # C08: paquete de archivo (ZIP) con verificación de hashes.
+    nuevo_paquete_temporal = staticmethod(paquetes.nuevo_temporal)
+    construir_paquete = staticmethod(paquetes.construir_zip)
 
 
 @dataclass(frozen=True)

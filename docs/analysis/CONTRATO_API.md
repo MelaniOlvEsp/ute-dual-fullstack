@@ -1,6 +1,6 @@
 # Contrato API: existente y objetivo
 
-Estado: contrato vivo. C01–C07 describen rutas implementadas (C05, C06 y C07 DONE); C08–C10 siguen como diseño propuesto. Fuentes ejecutables: routers en `ute-api-backend/app/presentation/api/routers`, `route_contract.json` y repositorios de `ute-dual-frontend/src/infrastructure/repositories`.
+Estado: contrato vivo. C01–C08 describen rutas implementadas (C05, C06 y C07 DONE; C08 IN_PROGRESS); C09–C10 siguen como diseño propuesto. Fuentes ejecutables: routers en `ute-api-backend/app/presentation/api/routers`, `route_contract.json` y repositorios de `ute-dual-frontend/src/infrastructure/repositories`.
 
 ## Inventario actual
 
@@ -9,13 +9,13 @@ Estado: contrato vivo. C01–C07 describen rutas implementadas (C05, C06 y C07 D
 | Identidad | POST /auth/register, /login, /cambiar-password; GET /auth/me | Alinear esquema, sesiones y tres roles. |
 | Tutores | POST/GET /auth/tutores; DELETE /auth/tutores/{usuario_id} | Baja lógica y revocación; confirmar contrato compatible. |
 | Recuperación | POST /auth/alumnos/{matricula}/password-provisional | Conservar control tutor y cambio forzoso. |
-| Alumno | GET /dual/alumno/mis-reportes, /obligaciones; POST /obligaciones/{id}/entrega; GET /reportes/{id}/versiones[/{n}/pdf] | Implementado en C04–C05: obligaciones independientes con versiones (retiradas `POST /dual/alumno/` y `GET /semana-actual`). |
+| Alumno | GET /dual/alumno/expediente, /paquete, /obligaciones; POST /obligaciones/{id}/entrega; GET /reportes/{id}/versiones[/{n}/pdf] | Implementado en C04–C05 y C08: obligaciones independientes con versiones, expediente y paquete propios (retiradas `POST /dual/alumno/`, `GET /semana-actual` y `GET /mis-reportes`). |
 | Revisión | GET /dual/tutor/reportes[/{reporte_id}]; POST /reportes/{id}/versiones/{n}/revision; GET /versiones/{n}/pdf | Implementado en C06: revisión por versión, correcciones trazables y firma (retirado el PATCH heredado). |
 | Empresa | /dual/tutor/empresas, /asignaciones, /alumnos/{matricula} | Fecha real de inicio/baja y continuidad entre períodos. |
 | Calendario | /dual/tutor/cuatrimestre-actual, /abrir-cuatrimestre, /periodos[/{id}/resumen, /cierre-recepcion, /finalizacion] | Implementado en C07: recepción y evaluación separadas del calendario, cierre y finalización del coordinador (retirado `/cierre`). |
 | Firma | POST/GET /dual/tutor/firma | Versionar sin alterar firmados históricos. |
-| Grupos/expediente | /dual/carrera/grupos, /alumnos, /periodos | Historia por período y consulta propia del alumno. |
-| Descargas | /dual/alumno/reporte/{id}/pdf; equivalentes tutor/carrera; exportar-csv, exportar-zip | Autorización de objeto y contenido binario privado. |
+| Grupos/expediente | /dual/carrera/grupos, /alumnos, /periodos | Implementado en C08: directorio paginado con bajas, expediente por período con grupo histórico y consulta propia del alumno. |
+| Descargas | /dual/*/reportes/{id}/versiones/{n}/pdf; /dual/carrera/paquetes/alumno/{m}, /paquetes/carrera/{c}; /dual/alumno/paquete | Implementado en C08: autorización de objeto, solo versiones aprobadas y paquete ZIP con manifiesto (retiradas las rutas `reporte/{id}/pdf` y `exportar-csv|zip`). |
 | Foro | /foro/publicaciones y reacciones | Validar lectura/publicación y navegación. |
 | Buzón | /foro/buzon/, /mios, /{id}, respuestas, leído y cierre | Probar conversación completa y autorización. |
 
@@ -102,7 +102,14 @@ Estas son operaciones, no rutas definitivas. Antes de implementar cada spec debe
 - Retirada: `POST /dual/tutor/cierre` (cierre por etiqueta que además renombraba el período).
 - El fixture contractual contiene 65 rutas. [Spec C07](../../specs/C07-cierre-y-calificacion/spec.md) y [evidencia C07](../../specs/C07-cierre-y-calificacion/evidencia.md).
 
-### Reglas objetivo generales
+### Cambios implementados en C08 (IN_PROGRESS)
+
+- Alumno (matrícula siempre de la sesión; ninguna ruta recibe una matrícula): `GET /dual/alumno/expediente` (períodos con semanas, `grupo` histórico del período, `aprobados` con semana, fechas, `nota` validada, `declarada_nota`, `corregida`, `firmado`, `version`, `resumen` con `aprobados`, `suma`, `promedio` y `definitivo`, y `paquete` con `disponible`, `hasta` y `motivo`) y `GET /dual/alumno/paquete?periodo_id=` (ZIP propio; 403 pasados 7 días desde la finalización; 409 si el período no está finalizado; 404 si no tuvo semanas en él). Descarga de versiones propias: `GET /dual/alumno/reportes/{id}/versiones/{n}/pdf` (C05/C06).
+- Personal: `GET /dual/carrera/alumnos` ahora devuelve `{items, total, limite, desplazamiento}` (parámetros `cuatrimestre` = etiqueta de período, `grupo`, `q`, `situacion` = `todos|activos|baja`, `limite` 1–200, `desplazamiento` ≥ 0; orden estable por nombre y matrícula; incluye a los dados de baja con `activo` y `fecha_baja`; parámetros inválidos 422). `GET /dual/carrera/alumnos/{matricula}/expediente` (tutor y coordinador; alumno 403; matrícula inexistente 404). `GET /dual/carrera/reportes/{reporte_id}/versiones/{numero}/pdf?documento=original|firmado`: solo versiones aprobadas (otra cosa 404).
+- Paquetes de archivo (solo tutor, DP-14): `GET /dual/carrera/paquetes/alumno/{matricula}?periodo_id=` y `GET /dual/carrera/paquetes/carrera/{codigo}?periodo_id=`. ZIP con `manifiesto.json` (SHA-256 y tamaño de cada archivo, orden estable), `resumen.csv` (UTF-8 con BOM, CRLF, celdas con `= + - @` protegidas con apóstrofo) y los PDF en `carrera/período/grupo/matrícula/S<n>-v<n>-firmado|original.pdf` con nombres generados por el servidor. 409 si el período no está finalizado o falta algún archivo (nunca se entrega un paquete incompleto); 404 si no hay alumnos o semanas; coordinador y alumno 403. Cada generación se registra en `paquetes_archivo` (inmutable; el registro acredita la generación, no la descarga).
+- Retiradas: `GET /dual/alumno/mis-reportes`, `GET /dual/alumno/reporte/{id}/pdf`, `GET /dual/tutor/reporte/{id}/pdf`, `GET /dual/carrera/alumnos/{matricula}/reportes`, `GET /dual/carrera/reporte/{id}/pdf` y `GET /dual/carrera/alumnos/{matricula}/exportar-csv|exportar-zip`.
+- El fixture contractual contiene 64 rutas. [Spec C08](../../specs/C08-expediente-y-visor/spec.md) y [evidencia C08](../../specs/C08-expediente-y-visor/evidencia.md).
+
 
 - Cliente no decide alumno propietario ni período escribiendo una etiqueta arbitraria.
 - No inferir período objetivo de “único ciclo abierto”; usar obligación/período explícito.

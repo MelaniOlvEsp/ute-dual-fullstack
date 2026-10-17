@@ -23,13 +23,20 @@ export function createDualUseCases(repo, fileSaver, formBuilder) {
       validateReview(review)
       return repo.revisarVersion(reporteId, numero, reviewBody(review))
     },
-    async exportarCSV(matricula, periodo) {
-      const blob = await repo.exportarCSV(matricula, periodo)
-      fileSaver.save(blob, `expediente_${matricula}.csv`)
+    // C08 / DP-14: paquetes de archivo (ZIP con manifiesto y hashes). El nombre se genera en el cliente
+    // a partir de datos del servidor, nunca de un nombre de archivo del alumno.
+    async downloadMyPackage(periodoId, etiqueta) {
+      fileSaver.save(await repo.miPaquete(periodoId), `mi-paquete-${slug(etiqueta)}.zip`)
     },
-    async exportarZip(matricula, periodo) {
-      const blob = await repo.exportarZip(matricula, periodo)
-      fileSaver.save(blob, `expediente_${matricula}.zip`)
+    async downloadStudentPackage(matricula, periodoId, etiqueta) {
+      fileSaver.save(await repo.paqueteAlumno(matricula, periodoId), `paquete-${slug(matricula)}-${slug(etiqueta)}.zip`)
+    },
+    async downloadCareerPackage(codigo, periodoId, etiqueta) {
+      fileSaver.save(await repo.paqueteCarrera(codigo, periodoId), `paquete-${slug(codigo)}-${slug(etiqueta)}.zip`)
+    },
+    async downloadApproved(reporteId, numero, documento, etiqueta) {
+      const sufijo = documento === 'original' ? '-original' : '-firmado'
+      fileSaver.save(await repo.descargarAprobado(reporteId, numero, documento), `reporte-${slug(etiqueta)}-v${numero}${sufijo}.pdf`)
     }
   }
 }

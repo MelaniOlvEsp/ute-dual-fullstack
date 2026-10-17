@@ -18,7 +18,10 @@
   $: roles = $user?.roles || {}
   $: roleLabel = [roles.coordinador_dual && 'Coordinador Dual', roles.tutor_academico && 'Tutor académico', roles.alumno && 'Alumno'].filter(Boolean).join(' · ')
   $: items = [
-    ...(roles.alumno ? [{ href: '/dual/reportes', label: 'Mis reportes', icon: 'report' }] : []),
+    ...(roles.alumno ? [
+      { href: '/dual/reportes', label: 'Mis reportes', icon: 'report' },
+      { href: '/dual/expediente', label: 'Mi expediente', icon: 'folder' }
+    ] : []),
     ...(roles.tutor_academico ? [
       { href: '/dual/tutor', label: 'Revisar y firmar reportes', icon: 'report' },
       { href: '/dual/tutor?vista=empresas', label: 'Empresas y asignaciones', icon: 'building' },
