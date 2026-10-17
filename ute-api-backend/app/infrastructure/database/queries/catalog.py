@@ -13,10 +13,12 @@ from app.infrastructure.database.queries.dual_revisiones import QUERIES as DUAL_
 from app.infrastructure.database.queries.dual_cierres import QUERIES as DUAL_CIERRES
 from app.infrastructure.database.queries.dual_expediente import QUERIES as DUAL_EXPEDIENTE
 from app.infrastructure.database.queries.dual_paquetes import QUERIES as DUAL_PAQUETES
+from app.infrastructure.database.queries.dual_purgas import QUERIES as DUAL_PURGAS
 
 QUERIES = {
     **DUAL_EXPEDIENTE,
     **DUAL_PAQUETES,
+    **DUAL_PURGAS,
     **DUAL_CIERRES,
     **DUAL_REVISIONES,
     **DUAL_TUTOR,

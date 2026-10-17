@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -8,6 +9,9 @@ from psycopg import Error as DatabaseError
 from psycopg_pool import PoolTimeout
 
 from app.application.errors import ApplicationError
+from app.application.use_cases.dual import purgas as purgas_cases
+from app.bootstrap import get_runtime
+from app.infrastructure import tareas_purga
 from app.infrastructure.config.settings import settings
 from app.infrastructure.database.postgres import init_pool, close_pool, get_cursor
 from app.presentation.middleware.security import (
@@ -40,9 +44,17 @@ async def lifespan(app: FastAPI):
         except Exception as exc:
             logger.warning(f'No se pudo iniciar Sentry: {exc}')
     await init_pool()
+    # C08B: ejecuta las depuraciones de archivos cuya gracia venció.
+    tarea_purgas = asyncio.create_task(tareas_purga.ciclo(
+        purgas_cases.ejecutar_vencidas, get_runtime(), tareas_purga.intervalo_configurado()))
     try:
         yield
     finally:
+        tarea_purgas.cancel()
+        try:
+            await tarea_purgas
+        except asyncio.CancelledError:
+            pass
         await close_pool()
 
 

@@ -2,13 +2,14 @@
 from typing import Literal
 from fastapi import APIRouter, HTTPException, status, Depends
 from uuid import UUID
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StrictBool, field_validator
 from fastapi import UploadFile, File, Form
 from app.presentation.api.routers.auth import get_current_user
 from app.application.use_cases.dual import coordinador_carrera as use_cases
 from app.application.use_cases.dual import organization as organization_cases
 from app.application.use_cases.dual import expediente as expediente_cases
 from app.application.use_cases.dual import paquetes as paquetes_cases
+from app.application.use_cases.dual import purgas as purgas_cases
 from app.domain.organization import canonical_career
 from app.bootstrap import get_runtime
 from app.presentation.api.response import to_http_response
@@ -101,6 +102,40 @@ async def paquete_carrera(codigo: str, periodo_id: UUID, user=Depends(get_tutor_
         await paquetes_cases.paquete_de_carrera(
             codigo=codigo, periodo_id=periodo_id, user=user, runtime=get_runtime())
     )
+
+
+# C08B: depuración de los archivos de un período (tutor y coordinador, D2). Elimina solo los PDF, con
+# gracia de 7 días y cancelación; el alumno no tiene acceso.
+class PurgaCreate(BaseModel):
+    carrera: str | None = Field(default=None, max_length=10)
+    matricula: str | None = Field(default=None, max_length=30)
+    confirmar: StrictBool
+    frase: str = Field(max_length=200)
+
+
+@router.get("/periodos/{periodo_id}/archivo")
+async def archivo_periodo(periodo_id: UUID, user=Depends(get_coordinador_carrera)):
+    return to_http_response(await purgas_cases.resumen(periodo_id=periodo_id, user=user, runtime=get_runtime()))
+
+
+@router.post("/periodos/{periodo_id}/purgas")
+async def programar_purga(periodo_id: UUID, body: PurgaCreate, user=Depends(get_coordinador_carrera)):
+    return to_http_response(
+        await purgas_cases.programar(
+            periodo_id=periodo_id, carrera=body.carrera, matricula=body.matricula, confirmar=body.confirmar,
+            frase=body.frase, user=user, runtime=get_runtime()))
+
+
+@router.post("/periodos/{periodo_id}/purgas/{purga_id}/cancelacion")
+async def cancelar_purga(periodo_id: UUID, purga_id: UUID, user=Depends(get_coordinador_carrera)):
+    return to_http_response(
+        await purgas_cases.cancelar(periodo_id=periodo_id, purga_id=purga_id, user=user, runtime=get_runtime()))
+
+
+@router.post("/periodos/{periodo_id}/purgas/{purga_id}/ejecucion")
+async def ejecutar_purga(periodo_id: UUID, purga_id: UUID, user=Depends(get_coordinador_carrera)):
+    return to_http_response(
+        await purgas_cases.ejecutar_manual(periodo_id=periodo_id, purga_id=purga_id, user=user, runtime=get_runtime()))
 
 
 class GrupoCreate(BaseModel):

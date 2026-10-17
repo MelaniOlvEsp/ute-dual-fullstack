@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from app.application.errors import ApplicationError
+from app.application.use_cases.dual.archivado import exigir_vigente
 from app.application.responses import FileResult
 from app.domain import archive, calendar, grading
 
@@ -78,13 +79,16 @@ async def expediente(matricula, user, *, runtime, propio=False, ahora=None):
             aprobados = [_aprobado(dict(a)) for a in await cur.fetchall()]
             await cur.execute("dual.expediente.resultado", (fila["id"], matricula))
             congelado = await cur.fetchone()
+            await cur.execute("dual.purgas.estado_alumno", (matricula, fila["id"], matricula, fila["id"]))
+            archivo = _archivo([dict(f) for f in await cur.fetchall()], periodo, matricula, propio)
             periodos.append({
                 "periodo": periodo,
                 "grupo": {"nomenclatura": grupo.get("nomenclatura"), "carrera": grupo.get("carrera"),
                           "grado": grupo.get("grado"), "carrera_codigo": grupo.get("carrera_codigo")},
                 "aprobados": aprobados,
                 "resumen": _resumen(periodo, aprobados, dict(congelado) if congelado else None),
-                "paquete": _paquete(periodo, fila, propio, ahora),
+                "paquete": _paquete(periodo, fila, propio, ahora, archivo),
+                "archivo": archivo,
             })
     return {"alumno": dict(alumno), "periodos": periodos}
 
@@ -95,14 +99,41 @@ def _aprobado(fila: dict) -> dict:
         "semana_fin": fila["semana_fin"], "version": fila["version"],
         "fecha_inicio": fila["fecha_inicio"], "fecha_fin": fila["fecha_fin"], "nota": fila["nota"],
         "declarada_nota": fila["declarada_nota"], "observacion": fila["observacion"],
-        "firmado": fila["firmado"], "paginas": fila["paginas"],
+        "firmado": fila["firmado"], "paginas": fila["paginas"], "archivado_en": _civil(fila.get("archivado_en")),
         "corregida": (fila["nota"], fila["fecha_inicio"], fila["fecha_fin"]) != (
             fila["declarada_nota"], fila["declarada_inicio"], fila["declarada_fin"]),
     }
 
 
-def _paquete(periodo: dict, fila: dict, propio: bool, ahora) -> dict:
+def _civil(instante):
+    return calendar.fecha_de_cierre(instante) if instante else None
+
+
+def _archivo(purgas: list[dict], periodo: dict, matricula: str, propio: bool) -> dict:
+    """Estado de los archivos del alumno en el período (C08B): normal, programada (con la fecha de
+    eliminación) o archivado. Las notas, el promedio y el historial no dependen de este estado."""
+    programada = next((p for p in purgas if p["estado"] == "programada"), None)
+    completada = next((p for p in purgas if p["estado"] == "completada"), None)
+    estado = "programada" if programada else "archivado" if completada else "normal"
+    archivo = {
+        "estado": estado,
+        # Fechas civiles en America/Mexico_City (como `cierre_efectivo`): el cliente las muestra sin convertir.
+        "eliminacion_en": _civil(programada["ejecutar_en"]) if programada else None,
+        "archivado_en": _civil(completada["completada_en"]) if completada and not programada else None,
+        "frase_esperada": f"DEPURAR {periodo['periodo_label']} {matricula}",
+    }
+    if not propio:
+        archivo["purga_id"] = programada["purga_id"] if programada else None
+    return archivo
+
+
+def _paquete(periodo: dict, fila: dict, propio: bool, ahora, archivo: dict | None = None) -> dict:
     """Disponibilidad del paquete de archivo: del alumno (ventana de una semana) o del tutor."""
+    if archivo and archivo["estado"] == "archivado":
+        fecha = archivo["archivado_en"].isoformat() if archivo["archivado_en"] else ""
+        return {"disponible": False, "hasta": None,
+                "motivo": f"Los archivos de este período se depuraron el {fecha}; "
+                          "las notas, el promedio y el historial se conservan."}
     if propio:
         return archive.ventana_alumno(fila["evaluacion_finalizada_en"], ahora)
     if periodo["evaluacion"] != "finalizada":
@@ -120,6 +151,7 @@ async def descargar_aprobado(reporte_id, numero, documento, user, *, runtime):
     if not fila:
         raise ApplicationError(status_code=404, detail="Reporte aprobado no encontrado")
     datos = dict(fila)
+    exigir_vigente(datos, documento)
     clave = datos["firmado" if documento == "firmado" else "original"]
     if not clave:
         raise ApplicationError(status_code=404, detail="Esta versión no tiene documento firmado")

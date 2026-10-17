@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.application.errors import ApplicationError
+from app.application.use_cases.dual.archivado import exigir_vigente
 from app.application.responses import FileResult
 from app.domain import reports
 from app.domain.reports import EntregaInvalida
@@ -131,7 +132,9 @@ async def descargar_version(reporte_id, numero, user, *, runtime, documento="ori
         fila = await cur.fetchone()
     if not fila:
         raise ApplicationError(status_code=404, detail="Versión no encontrada")
-    clave = dict(fila)["firmado" if documento == "firmado" else "original"]
+    datos_fila = dict(fila)
+    exigir_vigente(datos_fila, documento)
+    clave = datos_fila["firmado" if documento == "firmado" else "original"]
     if not clave:
         raise ApplicationError(status_code=404, detail="Esta versión no tiene documento firmado")
     contenido = await runtime.services.leer_documento(clave)

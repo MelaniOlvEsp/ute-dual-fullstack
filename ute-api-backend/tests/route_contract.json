@@ -400,6 +400,45 @@
       ]
     },
     {
+      "name": "archivo_periodo",
+      "method": "GET",
+      "path": "/periodos/{periodo_id}/archivo",
+      "params": [
+        "periodo_id",
+        "user"
+      ]
+    },
+    {
+      "name": "programar_purga",
+      "method": "POST",
+      "path": "/periodos/{periodo_id}/purgas",
+      "params": [
+        "periodo_id",
+        "body",
+        "user"
+      ]
+    },
+    {
+      "name": "cancelar_purga",
+      "method": "POST",
+      "path": "/periodos/{periodo_id}/purgas/{purga_id}/cancelacion",
+      "params": [
+        "periodo_id",
+        "purga_id",
+        "user"
+      ]
+    },
+    {
+      "name": "ejecutar_purga",
+      "method": "POST",
+      "path": "/periodos/{periodo_id}/purgas/{purga_id}/ejecucion",
+      "params": [
+        "periodo_id",
+        "purga_id",
+        "user"
+      ]
+    },
+    {
       "name": "listar_carreras",
       "method": "GET",
       "path": "/carreras",

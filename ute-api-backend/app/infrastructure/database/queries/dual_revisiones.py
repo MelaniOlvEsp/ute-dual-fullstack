@@ -128,7 +128,8 @@ QUERIES = {
     "dual.revisiones.documentos": {
         "dynamic": None,
         "sql": """
-            SELECT d.clave AS original, ds.clave AS firmado, r.matricula
+            SELECT d.clave AS original, ds.clave AS firmado, r.matricula,
+                   d.archivado_en AS original_archivado, ds.archivado_en AS firmado_archivado
             FROM reportes_dual r
             JOIN reporte_versiones v ON v.reporte_id = r.id AND v.numero = %s
             JOIN documentos d ON d.id = v.documento_id

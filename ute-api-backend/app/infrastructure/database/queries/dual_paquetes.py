@@ -31,7 +31,9 @@ QUERIES = {
             SELECT rd.id AS reporte_id, o.semana_inicio, o.semana_fin, {_ORDINAL} AS ordinal,
                    v.numero AS version, rv.fecha_inicio, rv.fecha_fin, rv.nota,
                    d.clave AS original_clave, d.sha256 AS original_sha, d.tamano AS original_tamano,
-                   ds.clave AS firmado_clave, ds.sha256 AS firmado_sha, ds.tamano AS firmado_tamano
+                   ds.clave AS firmado_clave, ds.sha256 AS firmado_sha, ds.tamano AS firmado_tamano,
+                   d.id AS original_id, d.archivado_en AS original_archivado, d.purga_id AS original_purga,
+                   ds.id AS firmado_id, ds.archivado_en AS firmado_archivado, ds.purga_id AS firmado_purga
             FROM reportes_dual rd
             JOIN obligaciones_semanales o ON o.id = rd.obligacion_id
             JOIN alumnos_dual ad ON ad.id = o.incorporacion_id

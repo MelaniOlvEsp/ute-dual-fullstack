@@ -48,6 +48,9 @@ class PermissionTest(unittest.TestCase):
         # C08 / DP-14: el paquete de archivo lo genera solo el tutor; el coordinador consulta pero no exporta.
         for name in ('paquete_alumno', 'paquete_carrera'):
             self.assertIn('get_tutor_academico', career[name], name)
+        # C08B / D2: tutor y coordinador pueden depurar; el alumno no tiene acceso.
+        for name in ('archivo_periodo', 'programar_purga', 'cancelar_purga', 'ejecutar_purga'):
+            self.assertIn('get_coordinador_carrera', career[name], name)
         alumno = guards(ROOT / 'app/presentation/api/routers/dual/alumno_dual.py')
         for name in ('mi_expediente', 'mi_paquete'):
             self.assertIn('get_alumno_dual', alumno[name], name)

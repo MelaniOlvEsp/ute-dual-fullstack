@@ -43,6 +43,11 @@ export function createDualRepository(http, baseUrl) {
     descargarAprobado: (id, numero, documento = 'firmado') => http.get(`/dual/carrera/reportes/${segment(id)}/versiones/${segment(numero)}/pdf?documento=${documento === 'original' ? 'original' : 'firmado'}`, { blob: true }),
     paqueteAlumno: (matricula, periodoId) => http.get(`/dual/carrera/paquetes/alumno/${segment(matricula)}?periodo_id=${segment(periodoId)}`, { blob: true }),
     paqueteCarrera: (codigo, periodoId) => http.get(`/dual/carrera/paquetes/carrera/${segment(codigo)}?periodo_id=${segment(periodoId)}`, { blob: true }),
+    // C08B: depuración de archivos de un período (tutor y coordinador); gracia de 7 días y cancelación.
+    archivoPeriodo: periodoId => http.get(`/dual/carrera/periodos/${segment(periodoId)}/archivo`),
+    programarPurga: (periodoId, cuerpo) => http.post(`/dual/carrera/periodos/${segment(periodoId)}/purgas`, cuerpo),
+    cancelarPurga: (periodoId, purgaId) => http.post(`/dual/carrera/periodos/${segment(periodoId)}/purgas/${segment(purgaId)}/cancelacion`, {}),
+    ejecutarPurga: (periodoId, purgaId) => http.post(`/dual/carrera/periodos/${segment(periodoId)}/purgas/${segment(purgaId)}/ejecucion`, {}),
     crearGrupo: data => http.post('/dual/carrera/grupos', data),
     listarCarreras: () => http.get('/dual/carrera/carreras'),
     previewAlumnosCSV: (id, form) => http.post(`/dual/carrera/grupos/${segment(id)}/alumnos/preview`, form, { multipart: true }),

@@ -31,6 +31,7 @@ class ServiceAdapter:
     guardar_documento = staticmethod(dual_reports.guardar_documento)
     leer_documento = staticmethod(dual_reports.leer_documento)
     eliminar_documento = staticmethod(dual_reports.eliminar_documento)
+    purgar_documento = staticmethod(dual_reports.purgar_documento)
     eliminar_pdf_local = staticmethod(dual_reports.eliminar_pdf_local)
     obtener_pdf_bytes = staticmethod(dual_reports.obtener_pdf_bytes)
     leer_pdf_local = staticmethod(dual_reports.leer_pdf_local)

@@ -69,6 +69,10 @@ async def _plan(cur, periodo, alumnos):
         await cur.execute("dual.paquetes.documentos", (alumno["matricula"], periodo["id"]))
         reportes = []
         for r in (dict(f) for f in await cur.fetchall()):
+            if r.get("original_archivado") or r.get("firmado_archivado"):
+                raise ApplicationError(
+                    status_code=409,
+                    detail="Los archivos de este período ya se depuraron; el paquete ya no puede generarse.")
             archivos = []
             for tipo in ("firmado", "original"):
                 clave = r[f"{tipo}_clave"]

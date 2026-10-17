@@ -6,7 +6,12 @@
   import VisorPDF from '../shared/VisorPDF.svelte'
   import EmptyState from '../ui/EmptyState.svelte'
   import { formatFechaCivil, formatFecha } from '../../utils/formatters.js'
+  import { createEventDispatcher } from 'svelte'
+  import DepuracionDialogo from './DepuracionDialogo.svelte'
   import { etiquetaPromedio, tipoPromedio, situacionAlumno, mensajeVentana } from '../../../domain/dual/expediente.js'
+  import { mensajeArchivo } from '../../../domain/dual/archivo.js'
+
+  const dispatch = createEventDispatcher()
 
   export let datos
   export let modo = 'personal'
@@ -16,6 +21,7 @@
   let seleccionado = null
   let error = ''
   let ocupado = ''
+  let depurando = false
 
   $: alumno = datos?.alumno
   $: periodos = datos?.periodos || []
@@ -44,6 +50,30 @@
       ocupado = ''
     }
   }
+
+  // C08B: depuración de los archivos de este alumno en el período (tutor y coordinador).
+  async function programarPurga(frase) {
+    await api.dual.programarPurga(actual.periodo.id, { matricula: alumno.matricula, confirmar: true, frase })
+    depurando = false
+    dispatch('actualizar')
+  }
+
+  async function cancelarPurga() {
+    error = ''
+    ocupado = 'purga'
+    try {
+      await api.dual.cancelarPurga(actual.periodo.id, actual.archivo.purga_id)
+      dispatch('actualizar')
+    } catch (e) {
+      error = e.message || 'No se pudo cancelar la depuración.'
+    } finally {
+      ocupado = ''
+    }
+  }
+
+  $: avisoArchivo = mensajeArchivo(actual?.archivo, formatFechaCivil)
+  $: puedeDepurar = modo === 'personal' && actual?.periodo.evaluacion === 'finalizada' && actual?.archivo?.estado === 'normal'
+    && aprobados.some(a => !a.archivado_en)
 
   async function descargarPaquete() {
     error = ''
@@ -126,6 +156,16 @@
           {/if}
         </div>
 
+        {#if avisoArchivo}
+          <p class="aviso-archivo" role="status">{avisoArchivo}</p>
+        {/if}
+        {#if modo === 'personal' && actual.archivo?.estado === 'programada' && actual.archivo.purga_id}
+          <p class="paquete-texto">Depuración programada: se eliminan el {formatFechaCivil(actual.archivo.eliminacion_en)}.
+            <button class="btn-link" disabled={ocupado === 'purga'} on:click={cancelarPurga}>Cancelar depuración</button></p>
+        {:else if puedeDepurar}
+          <p class="paquete-texto"><button class="btn-link" on:click={() => depurando = true}>Depurar archivos de este alumno…</button></p>
+        {/if}
+
         {#if error}<p class="error-msg" role="alert">{error}</p>{/if}
 
         <h3 class="subtitulo">Reportes aprobados</h3>
@@ -150,6 +190,9 @@
                     </td>
                     <td>v{a.version}</td>
                     <td class="acciones">
+                      {#if a.archivado_en}
+                        <span class="archivado">Archivado el {formatFechaCivil(a.archivado_en)}</span>
+                      {:else}
                       <button class="btn-link" aria-pressed={seleccionado?.reporte_id === a.reporte_id}
                         on:click={() => seleccionado = a}>Ver</button>
                       {#if a.firmado}
@@ -160,6 +203,7 @@
                       <button class="btn-link" disabled={ocupado === `${a.reporte_id}-original`}
                         aria-label="Descargar el original de la semana {a.semana}"
                         on:click={() => descargarReporte(a, 'original')}>Original</button>
+                      {/if}
                     </td>
                   </tr>
                 {/each}
@@ -178,6 +222,16 @@
       </section>
     {/if}
   </div>
+{#if depurando}
+  <DepuracionDialogo
+    titulo="Depurar archivos del alumno"
+    sujeto={`${alumno.nombre} (${alumno.matricula}) · ${etiquetaPeriodo}`}
+    archivos={aprobados.filter(a => !a.archivado_en).reduce((n, a) => n + (a.firmado ? 2 : 1), 0)}
+    bytes={0}
+    frase={actual.archivo.frase_esperada}
+    onProgramar={programarPurga}
+    onCerrar={() => depurando = false} />
+{/if}
 {/if}
 
 <style>
@@ -196,6 +250,8 @@
   .paquete { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border: 1px dashed var(--border-input); border-radius: 10px; padding: 12px 14px; }
   .paquete-texto { margin: 0; flex: 1 1 260px; font-size: 13px; color: var(--text-secondary); }
   .paquete-texto.vencido { color: var(--text-disabled); }
+  .aviso-archivo { margin: 0; padding: 10px 14px; font-size: 13px; border: 1px solid var(--border); border-left: 3px solid var(--orange); border-radius: 8px; background: var(--bg-page); color: var(--text-primary); }
+  .archivado { font-size: 12px; color: var(--text-disabled); }
   .subtitulo { font-size: 14px; margin: 4px 0 0; color: var(--text-primary); }
   .tabla-wrap { position: relative; overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
   .tabla { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 13px; }

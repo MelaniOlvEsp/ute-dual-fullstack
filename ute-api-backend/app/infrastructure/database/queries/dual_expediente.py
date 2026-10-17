@@ -53,7 +53,8 @@ QUERIES = {
                    v.nota AS declarada_nota,
                    rv.fecha_inicio, rv.fecha_fin, rv.nota, rv.observacion, rv.revisado_en,
                    (rv.documento_firmado_id IS NOT NULL) AS firmado,
-                   d.paginas, d.tamano AS tamano_original
+                   d.paginas, d.tamano AS tamano_original,
+                   COALESCE(d.archivado_en, ds.archivado_en) AS archivado_en
             FROM reportes_dual rd
             JOIN obligaciones_semanales o ON o.id = rd.obligacion_id
             JOIN alumnos_dual ad ON ad.id = o.incorporacion_id
@@ -61,6 +62,7 @@ QUERIES = {
                           ORDER BY x.numero DESC LIMIT 1) v ON TRUE
             JOIN revisiones rv ON rv.version_id = v.id AND rv.decision = 'Aprobada'
             JOIN documentos d ON d.id = v.documento_id
+            LEFT JOIN documentos ds ON ds.id = rv.documento_firmado_id
             WHERE ad.matricula = %s AND o.periodo_id = %s AND rd.estado = 'Aprobada'
             ORDER BY o.semana_inicio
         """,
@@ -78,7 +80,8 @@ QUERIES = {
     "dual.expediente.documentos_aprobados": {
         "dynamic": None,
         "sql": """
-            SELECT d.clave AS original, ds.clave AS firmado, r.matricula
+            SELECT d.clave AS original, ds.clave AS firmado, r.matricula,
+                   d.archivado_en AS original_archivado, ds.archivado_en AS firmado_archivado
             FROM reportes_dual r
             JOIN reporte_versiones v ON v.reporte_id = r.id AND v.numero = %s
             JOIN documentos d ON d.id = v.documento_id

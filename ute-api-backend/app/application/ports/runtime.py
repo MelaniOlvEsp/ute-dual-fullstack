@@ -30,6 +30,7 @@ class ServicesPort(Protocol):
     guardar_documento: Callable[..., Awaitable[dict]]
     leer_documento: Callable[..., Awaitable[bytes]]
     eliminar_documento: Callable[..., Awaitable[Any]]
+    purgar_documento: Callable[..., Awaitable[bool]]
     eliminar_pdf_local: Callable[..., Awaitable[Any]]
     obtener_pdf_bytes: Callable[..., Awaitable[bytes]]
     leer_pdf_local: Callable[..., Awaitable[bytes]]

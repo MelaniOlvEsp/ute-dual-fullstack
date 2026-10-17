@@ -120,6 +120,16 @@ async def eliminar_documento(clave: str) -> None:
         logger.warning(f"No se pudo eliminar el documento no confirmado {clave}: {exc}")
 
 
+# C08B: eliminación definitiva de un documento depurado. A diferencia de `eliminar_documento`, un fallo
+# real (permisos, disco) se propaga para que la purga quede pendiente y se reintente; un archivo que
+# ya no existe cuenta como eliminado (idempotente).
+async def purgar_documento(clave: str) -> bool:
+    ruta = ruta_documento(clave)
+    existia = ruta.is_file()
+    await asyncio.to_thread(ruta.unlink, True)
+    return existia
+
+
 # Limpia por referencia los archivos que ninguna fila de `documentos` apunta (fallos a mitad de
 # una entrega). Solo toca archivos con la forma de clave del servidor y con antigüedad suficiente.
 def limpiar_huerfanos(claves_referenciadas: set, antiguedad_segundos: int = 3600) -> list:

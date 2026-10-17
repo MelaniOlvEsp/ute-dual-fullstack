@@ -37,7 +37,7 @@ CONFIRMADO salvo donde se indique PROPUESTO o PENDIENTE. Fechas de actividad se 
 
 ## Expediente y comunicación
 
-- RN-25: expediente conserva reportes aprobados y firma, notas, fechas, período y grupo histórico. Alumno descarga los suyos de cualquier período.
+- RN-25: expediente conserva reportes aprobados y firma, notas, fechas, período y grupo histórico. Alumno descarga los suyos de cualquier período, salvo los períodos depurados (C08B, DP-14): allí los PDF ya no existen y se conservan notas, promedios, versiones y decisiones; el alumno recibe el aviso con la fecha de eliminación antes y después.
 - RN-26: coordinador carga Word y PDF de plantilla común a las tres carreras. Versionar plantilla sin alterar reportes históricos.
 - RN-27: foro es pantalla inicial tras completar acceso obligatorio. Tutores/coordinador publican; alumnos consultan.
 - RN-28: buzón admite conversación del alumno con todos los tutores y coordinador. Otros alumnos no pueden verla. Política de respuesta a hilo cerrado: DP-09.

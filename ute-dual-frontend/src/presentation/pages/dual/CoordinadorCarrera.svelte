@@ -10,6 +10,7 @@
   import LoadingSpinner from '../../components/ui/LoadingSpinner.svelte'
   import EmptyState from '../../components/ui/EmptyState.svelte'
   import ExpedienteAlumno from '../../components/dual/ExpedienteAlumno.svelte'
+  import ArchivoDepuracion from '../../components/dual/ArchivoDepuracion.svelte'
   import { SITUACIONES, paginacion } from '../../../domain/dual/expediente.js'
   import { formatFecha, formatFechaCivil } from '../../utils/formatters.js'
 
@@ -519,6 +520,8 @@
         </section>
       {/if}
 
+      <ArchivoDepuracion periodos={periodosFinalizados} />
+
       {#if loading}
         <LoadingSpinner />
       {:else if error}
@@ -859,7 +862,8 @@
         <p class="error-msg" role="alert">{errorExpediente}</p>
         <button class="btn-outline" on:click={() => abrirExpediente(alumnoSeleccionado)}>Reintentar</button>
       {:else}
-        <ExpedienteAlumno datos={expedienteDatos} modo="personal" puedeExportar={$isTutorAcademico} />
+        <ExpedienteAlumno datos={expedienteDatos} modo="personal" puedeExportar={$isTutorAcademico}
+          on:actualizar={() => abrirExpediente(alumnoSeleccionado)} />
       {/if}
     </div>
   {/if}
