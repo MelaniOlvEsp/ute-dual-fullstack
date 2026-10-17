@@ -37,6 +37,8 @@
   let buzonAsunto = ''
   let buzonMensaje = ''
   let enviandoBuzon = false
+  // C09 (D1): hilo cerrado que el alumno continúa en un hilo nuevo enlazado.
+  let hiloAnterior = null
   let errorBuzon = ''
   let exitoBuzon = ''
 
@@ -90,7 +92,7 @@
   }
 
   async function eliminarPublicacion(pub) {
-    if (!confirm('¿Eliminar esta publicación? Esta acción no se puede deshacer.')) return
+    if (!confirm('¿Eliminar este anuncio? Dejará de mostrarse a todos; el registro se conserva.')) return
     try {
       await api.foro.eliminar(pub.id)
       publicaciones = publicaciones.filter(p => p.id !== pub.id)
@@ -137,8 +139,10 @@
       await api.buzon.enviar({
         area: MAILBOX_AREA,
         asunto: buzonAsunto.trim(),
-        mensaje: buzonMensaje.trim()
+        mensaje: buzonMensaje.trim(),
+        ...(hiloAnterior ? { hilo_anterior_id: hiloAnterior.id } : {})
       })
+      hiloAnterior = null
       exitoBuzon = 'Tu mensaje fue enviado a Formación Dual.'
       buzonAsunto = ''
       buzonMensaje = ''
@@ -173,6 +177,12 @@
     } finally {
       cargandoMios = false
     }
+  }
+
+  function iniciarHiloNuevo(evento) {
+    hiloAnterior = evento.detail
+    buzonAsunto = `Seguimiento: ${evento.detail.asunto}`.slice(0, 150)
+    cambiarTab('buzon')
   }
 
   function abrirDetalle(msg) {
@@ -302,8 +312,8 @@
                     <span class="post-autor">{pub.autor_nombre}</span>
                     <span class="post-rol">{pub.autor_rol} · {formatFecha(pub.created_at)}</span>
                   </div>
-                  {#if puedePublicar && (pub.autor_id === $user?.id)}
-                    <button class="post-delete" title="Eliminar publicación" on:click={() => eliminarPublicacion(pub)}>
+                  {#if puedePublicar && (pub.autor_id === $user?.id || roles.coordinador_dual)}
+                    <button class="post-delete" title={pub.autor_id === $user?.id ? 'Eliminar publicación' : 'Eliminar publicación (moderación)'} aria-label="Eliminar publicación" on:click={() => eliminarPublicacion(pub)}>
                       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
                       </svg>
@@ -355,6 +365,11 @@
                 <label for="correo-buzon">Tu correo</label>
                 <input id="correo-buzon" class="input-plain" type="email" value={$user?.email || ''} disabled />
               </div>
+
+              {#if hiloAnterior}
+                <p class="hilo-enlazado" role="status">Continúas el hilo cerrado «{hiloAnterior.asunto}».
+                  <button type="button" class="link-quitar" on:click={() => { hiloAnterior = null }}>Quitar enlace</button></p>
+              {/if}
 
               <div class="input-group">
                 <label for="asunto-buzon">Asunto</label>
@@ -453,6 +468,7 @@
   mensajeId={mensajeSeleccionadoId}
   puedeMarcarLeido={puedeLeerBuzon}
   on:cambio={refrescarBuzon}
+  on:nuevohilo={iniciarHiloNuevo}
 />
 
 <style>
@@ -705,6 +721,8 @@
     font-weight: 700;
     color: var(--text-primary);
   }
+  .hilo-enlazado { margin: 0 0 8px; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border); border-left: 3px solid var(--orange); border-radius: 8px; background: var(--bg-page); color: var(--text-primary); }
+  .link-quitar { background: none; border: none; padding: 0; margin-left: 6px; color: var(--orange); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
   .buzon-hint {
     font-size: 13px;
     color: var(--text-secondary);

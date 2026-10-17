@@ -37,6 +37,11 @@ class ServicesPort(Protocol):
     estampar_firma: Callable[..., tuple]
     nuevo_paquete_temporal: Callable[..., Any]
     construir_paquete: Callable[..., dict]
+    leer_limitado_plantilla: Callable[..., Awaitable[bytes]]
+    inspeccionar_plantilla: Callable[..., int]
+    guardar_plantilla: Callable[..., Awaitable[dict]]
+    leer_plantilla: Callable[..., Awaitable[bytes]]
+    eliminar_plantilla: Callable[..., Awaitable[Any]]
 
 
 class RuntimePort(Protocol):

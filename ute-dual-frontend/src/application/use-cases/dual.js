@@ -34,6 +34,11 @@ export function createDualUseCases(repo, fileSaver, formBuilder) {
     async downloadCareerPackage(codigo, periodoId, etiqueta) {
       fileSaver.save(await repo.paqueteCarrera(codigo, periodoId), `paquete-${slug(codigo)}-${slug(etiqueta)}.zip`)
     },
+    // C09: el nombre lo genera el cliente a partir de la versión y el tipo, no de un archivo del servidor.
+    async downloadTemplate(numero, tipo) {
+      const extension = tipo === 'word' ? 'docx' : 'pdf'
+      fileSaver.save(await repo.descargarPlantilla(numero, tipo), `Plantilla_Reporte_Dual_v${numero}.${extension}`)
+    },
     async downloadApproved(reporteId, numero, documento, etiqueta) {
       const sufijo = documento === 'original' ? '-original' : '-firmado'
       fileSaver.save(await repo.descargarAprobado(reporteId, numero, documento), `reporte-${slug(etiqueta)}-v${numero}${sufijo}.pdf`)

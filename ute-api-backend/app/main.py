@@ -20,7 +20,7 @@ from app.presentation.middleware.security import (
 )
 from app.presentation.api.routers import auth
 from app.presentation.api.routers.dual import (
-    alumno_dual, coordinador_dual, coordinador_carrera,
+    alumno_dual, coordinador_dual, coordinador_carrera, plantillas,
 )
 from app.presentation.api.routers.foro import publicaciones, buzon
 
@@ -87,6 +87,7 @@ app.include_router(
     coordinador_carrera.router, prefix='/dual/carrera',
     tags=['Dual - Carrera'],
 )
+app.include_router(plantillas.router, prefix='/dual/plantillas', tags=['Dual - Plantillas'])
 app.include_router(publicaciones.router, prefix='/foro', tags=['Foro'])
 app.include_router(buzon.router, prefix='/foro/buzon', tags=['Foro - Buzón'])
 

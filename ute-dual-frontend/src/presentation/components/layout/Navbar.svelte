@@ -29,6 +29,7 @@
       { href: '/dual/carrera?vista=grupos', label: 'Alumnos y grupos', icon: 'group' },
       { href: '/dual/accesos', label: 'Recuperar acceso de alumno', icon: 'key' }
     ] : []),
+    ...(roles.tutor_academico || roles.coordinador_dual ? [{ href: '/dual/plantillas', label: 'Plantilla del reporte', icon: 'report' }] : []),
     ...(roles.coordinador_dual ? [
       ...(!roles.tutor_academico ? [{ href: '/dual/carrera', label: 'Consulta de expedientes', icon: 'folder' }] : []),
       { href: '/dual/periodos', label: 'Períodos', icon: 'calendar' },

@@ -3,7 +3,7 @@ from functools import lru_cache
 
 from app.infrastructure.config.settings import settings
 from app.infrastructure.database.repository import PostgresGateway
-from app.infrastructure.documents import dual_reports, paquetes, signatures
+from app.infrastructure.documents import dual_reports, paquetes, plantillas, signatures
 from app.infrastructure.integrations import drive
 from app.infrastructure.security import jwt_passwords
 
@@ -40,6 +40,12 @@ class ServiceAdapter:
     # C08: paquete de archivo (ZIP) con verificación de hashes.
     nuevo_paquete_temporal = staticmethod(paquetes.nuevo_temporal)
     construir_paquete = staticmethod(paquetes.construir_zip)
+    # C09: plantilla común Word + PDF.
+    leer_limitado_plantilla = staticmethod(plantillas.leer_limitado)
+    inspeccionar_plantilla = staticmethod(plantillas.inspeccionar)
+    guardar_plantilla = staticmethod(plantillas.guardar_plantilla)
+    leer_plantilla = staticmethod(plantillas.leer_plantilla)
+    eliminar_plantilla = staticmethod(plantillas.eliminar_plantilla)
 
 
 @dataclass(frozen=True)

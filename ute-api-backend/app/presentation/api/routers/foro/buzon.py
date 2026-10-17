@@ -112,3 +112,14 @@ async def cerrar_mensaje(mensaje_id: UUID, user=Depends(get_current_user)):
             runtime=get_runtime(),
         )
     )
+
+# C09 (D1): reapertura explícita del hilo cerrado, solo personal.
+@router.patch("/{mensaje_id}/reabrir")
+async def reabrir_mensaje(mensaje_id: UUID, user=Depends(get_current_user)):
+    return to_http_response(
+        await use_cases.reabrir_mensaje(
+            mensaje_id=mensaje_id,
+            user=user,
+            runtime=get_runtime(),
+        )
+    )

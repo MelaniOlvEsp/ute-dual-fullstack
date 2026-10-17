@@ -39,7 +39,7 @@ test('only auth, Dual and forum routes are registered', () => {
     .map(match => match[1]).sort()
   assert.deepEqual(routes, [
     '/', '/cambiar-password', '/dual/accesos',
-    '/dual/carrera', '/dual/expediente', '/dual/periodos', '/dual/reportes', '/dual/tutor', '/dual/tutores', '/foro',
+    '/dual/carrera', '/dual/expediente', '/dual/periodos', '/dual/plantillas', '/dual/reportes', '/dual/tutor', '/dual/tutores', '/foro',
     '/login', '/register'
   ])
 })

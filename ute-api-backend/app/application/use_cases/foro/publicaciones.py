@@ -103,17 +103,21 @@ async def eliminar_publicacion(publicacion_id, user, *, runtime: RuntimePort):
                 detail="Publicación no encontrada",
             )
 
+        # C09 (D2): el autor elimina lo suyo y el coordinador puede moderar cualquier anuncio.
         autor_id = dict(row)["autor_id"]
-        if str(autor_id) != str(user["id"]):
+        es_moderador = bool((user.get("roles") or {}).get("coordinador_dual"))
+        if str(autor_id) != str(user["id"]) and not es_moderador:
             raise ApplicationError(
                 status_code=403,
-                detail="Solo puedes eliminar tus propias publicaciones",
+                detail="Solo el autor o el coordinador pueden eliminar este anuncio",
             )
 
+        # Eliminación lógica: el anuncio se conserva con quién y cuándo lo eliminó y deja de mostrarse.
         await cur.execute(
-            'foro.publicaciones.q006', (publicacion_id,)
+            'foro.publicaciones.q006', (user["id"], publicacion_id)
         )
 
+    logger.info(f"Anuncio {publicacion_id} eliminado por {user['sub']}")
     return {"mensaje": "Publicación eliminada"}
 
 

@@ -60,6 +60,16 @@ async def enviar_mensaje(data, user, *, runtime: RuntimePort):
     if data.area != "dual":
         raise ApplicationError(status_code=422, detail="Área no disponible")
     async with runtime.database.transaction() as cur:
+        if data.hilo_anterior_id is not None:
+            # Solo se enlaza un hilo propio y cerrado; otro identificador no se revela (404).
+            await cur.execute('foro.buzon.hilo_propio', (data.hilo_anterior_id, user["id"]))
+            anterior = await cur.fetchone()
+            if not anterior:
+                raise ApplicationError(status_code=404, detail="Mensaje no encontrado")
+            if dict(anterior)["estado"] != "Cerrado":
+                raise ApplicationError(
+                    status_code=409,
+                    detail="El hilo anterior sigue abierto; responde en ese hilo.")
         await cur.execute(
             'foro.buzon.q001',
             (
@@ -69,6 +79,7 @@ async def enviar_mensaje(data, user, *, runtime: RuntimePort):
                 data.area,
                 data.asunto,
                 data.mensaje,
+                data.hilo_anterior_id,
             ),
         )
         nuevo = dict(await cur.fetchone())
@@ -151,18 +162,17 @@ async def responder_mensaje(mensaje_id, data, user, *, runtime: RuntimePort):
                 detail="Mensaje no encontrado",
             )
 
+        # C09 (D1): un hilo cerrado es de solo lectura para todos; el personal lo reabre o el alumno
+        # abre un hilo nuevo enlazado. Ya no se reabre solo al responder.
+        if msg["estado"] == "Cerrado":
+            raise ApplicationError(
+                status_code=409,
+                detail="El hilo está cerrado. El personal puede reabrirlo; si eres alumno, abre un hilo nuevo.")
         await cur.execute(
             'foro.buzon.q006',
             (mensaje_id, user["id"], _rol_label(roles), data.texto),
         )
         respuesta = dict(await cur.fetchone())
-
-        # Si ya estaba cerrado y hay actividad nueva, se reabre a Enviado
-        if msg["estado"] == "Cerrado":
-            await cur.execute(
-                'foro.buzon.q007',
-                (mensaje_id,),
-            )
 
     logger.info(f"Respuesta en mensaje {mensaje_id} por {user['sub']}")
     return respuesta
@@ -206,3 +216,16 @@ async def cerrar_mensaje(mensaje_id, user, *, runtime: RuntimePort):
         )
 
     return {"mensaje": "Mensaje cerrado"}
+
+# C09 (D1): solo el personal reabre un hilo cerrado; reabrir un hilo abierto no cambia nada.
+async def reabrir_mensaje(mensaje_id, user, *, runtime: RuntimePort):
+    roles = user.get("roles", {}) or {}
+    if not _puede_leer_area(roles, "dual"):
+        raise ApplicationError(403, "Solo el personal puede reabrir mensajes")
+    async with runtime.database.transaction() as cur:
+        msg = await _obtener_mensaje(cur, mensaje_id)
+        if msg["estado"] != "Cerrado":
+            return {"mensaje": "El hilo ya estaba abierto", "repetido": True}
+        await cur.execute('foro.buzon.reabrir', (user["id"], mensaje_id))
+
+    return {"mensaje": "Hilo reabierto", "repetido": False}

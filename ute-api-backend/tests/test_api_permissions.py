@@ -71,3 +71,18 @@ class PermissionTest(unittest.TestCase):
         for name in ('crear_tutor', 'listar_tutores', 'eliminar_tutor'):
             self.assertIn('get_coordinator', auth[name])
         self.assertIn('get_tutor', auth['password_provisional'])
+
+    def test_templates_are_published_by_the_coordinator_and_downloaded_by_any_authenticated_role(self):
+        # C09 (MP-12, MP-13): publicar e historial solo el coordinador; vigente y descargas, cualquier rol con sesión.
+        plantillas = guards(ROOT / 'app/presentation/api/routers/dual/plantillas.py')
+        for name in ('publicar_plantilla', 'listar_plantillas'):
+            self.assertIn('get_coordinator', plantillas[name], name)
+        for name in ('plantilla_vigente', 'descargar_plantilla'):
+            self.assertIn('get_current_user', plantillas[name], name)
+
+    def test_announcements_need_staff_and_reopening_is_checked_in_the_use_case(self):
+        publicaciones = guards(ROOT / 'app/presentation/api/routers/foro/publicaciones.py')
+        for name in ('crear_publicacion', 'eliminar_publicacion'):
+            self.assertIn('get_publicador', publicaciones[name], name)
+        buzon = guards(ROOT / 'app/presentation/api/routers/foro/buzon.py')
+        self.assertIn('get_current_user', buzon['reabrir_mensaje'])

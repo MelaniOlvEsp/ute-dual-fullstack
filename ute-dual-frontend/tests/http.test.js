@@ -59,6 +59,15 @@ test('package and approved downloads are delegated to a file adapter with safe n
   assert.ok(calls[3].endsWith('-v2-original.pdf'))
 })
 
+test('template downloads use generated names and the repository by version and type', async () => {
+  const calls = []
+  const api = createDualUseCases({
+    descargarPlantilla: async (numero, tipo) => { calls.push([numero, tipo]); return new Blob(['x']) }
+  }, { save: (blob, name) => calls.push(name) })
+  await api.downloadTemplate(3, 'word')
+  await api.downloadTemplate(3, 'pdf')
+  assert.deepEqual(calls, [[3, 'word'], 'Plantilla_Reporte_Dual_v3.docx', [3, 'pdf'], 'Plantilla_Reporte_Dual_v3.pdf'])
+})
 test('validation errors are shown without the technical "Value error," prefix', async () => {
   const http = createHttpClient({
     baseUrl: '', getToken: () => 'token', onUnauthorized: () => {},

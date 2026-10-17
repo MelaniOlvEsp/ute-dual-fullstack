@@ -70,6 +70,27 @@
     }
   }
 
+  // C09 (D1): solo el personal reabre; el hilo cerrado es de solo lectura para todos.
+  async function reabrirMensaje() {
+    procesando = true
+    error = ''
+    try {
+      await api.buzon.reabrir(mensajeId)
+      detalle = { ...detalle, estado: 'Leido' }
+      dispatch('cambio')
+    } catch (e) {
+      error = e.message || 'No se pudo reabrir el hilo'
+    } finally {
+      procesando = false
+    }
+  }
+
+  // El alumno que necesita seguir un hilo cerrado abre uno nuevo enlazado al anterior.
+  function abrirHiloNuevo() {
+    dispatch('nuevohilo', { id: mensajeId, asunto: detalle.asunto })
+    cerrarModal()
+  }
+
   async function cerrarMensaje() {
     procesando = true
     try {
@@ -124,7 +145,14 @@
 
         {#if error}<div class="error-msg">{error}</div>{/if}
 
-        {#if detalle.estado !== 'Cerrado'}
+        {#if detalle.hilo_anterior_id}
+          <p class="hilo-nota">Este hilo continúa uno anterior ya cerrado.</p>
+        {/if}
+
+        {#if detalle.estado === 'Cerrado'}
+          <p class="hilo-cerrado" role="status">Este hilo está cerrado y es de solo lectura.
+            {puedeMarcarLeido ? 'Puedes reabrirlo para continuar la conversación.' : 'Si necesitas seguir con el tema, abre un hilo nuevo.'}</p>
+        {:else}
           <div class="respuesta-box">
             <textarea
               class="input-plain respuesta-textarea"
@@ -144,7 +172,13 @@
             <button class="link-orange" on:click={marcarLeido} disabled={procesando}>Marcar como leído</button>
           {/if}
           {#if puedeMarcarLeido && detalle.estado !== 'Cerrado'}
-            <button class="link-orange" on:click={cerrarMensaje} disabled={procesando}>Dar por resuelto</button>
+            <button class="link-orange" on:click={cerrarMensaje} disabled={procesando}>Cerrar hilo (solo lectura)</button>
+          {/if}
+          {#if puedeMarcarLeido && detalle.estado === 'Cerrado'}
+            <button class="link-orange" on:click={reabrirMensaje} disabled={procesando}>Reabrir hilo</button>
+          {/if}
+          {#if !puedeMarcarLeido && detalle.estado === 'Cerrado'}
+            <button class="link-orange" on:click={abrirHiloNuevo}>Abrir un hilo nuevo sobre este tema</button>
           {/if}
         </div>
       {/if}
@@ -170,6 +204,8 @@
   .estado-badge { flex-shrink: 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 4px 10px; border-radius: 20px; }
   .estado-enviado { background: var(--orange-light); color: var(--orange); }
   .estado-leido { background: #EFF6FF; color: #2563EB; }
+  .hilo-cerrado { margin: 0; padding: 10px 14px; font-size: 13px; border: 1px solid var(--border); border-left: 3px solid var(--text-disabled); border-radius: 8px; background: var(--bg-page); color: var(--text-secondary); }
+  .hilo-nota { margin: 0; font-size: 12px; color: var(--text-secondary); }
   .estado-cerrado { background: var(--bg-page); color: var(--text-secondary); }
 
   .hilo { display: flex; flex-direction: column; gap: 10px; }

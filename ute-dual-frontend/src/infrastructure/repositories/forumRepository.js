@@ -18,7 +18,9 @@ export function createForumRepository(http) {
         `/foro/buzon/${encodeURIComponent(id)}/respuestas`, { texto }
       ),
       marcarLeido: id => http.patch(`/foro/buzon/${encodeURIComponent(id)}/leido`),
-      cerrar: id => http.patch(`/foro/buzon/${encodeURIComponent(id)}/cerrar`)
+      cerrar: id => http.patch(`/foro/buzon/${encodeURIComponent(id)}/cerrar`),
+      // C09 (D1): solo el personal reabre un hilo cerrado.
+      reabrir: id => http.patch(`/foro/buzon/${encodeURIComponent(id)}/reabrir`)
     }
   }
 }

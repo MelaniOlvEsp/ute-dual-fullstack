@@ -15,6 +15,7 @@ const prefixes = {
   'dual/alumno_dual': '/dual/alumno',
   'dual/coordinador_dual': '/dual/tutor',
   'dual/coordinador_carrera': '/dual/carrera',
+  'dual/plantillas': '/dual/plantillas',
   'foro/publicaciones': '/foro',
   'foro/buzon': '/foro/buzon'
 }
@@ -78,6 +79,11 @@ function sampleArgs(name) {
     descargarAprobado: ['00000000-0000-0000-0000-000000000001', 1, 'original'],
     paqueteAlumno: ['123456789', '00000000-0000-0000-0000-000000000002'],
     paqueteCarrera: ['ITI', '00000000-0000-0000-0000-000000000002'],
+    plantillaVigente: [],
+    plantillas: [],
+    publicarPlantilla: [new FormData()],
+    descargarPlantilla: [3, 'word'],
+    reabrir: ['00000000-0000-0000-0000-000000000001'],
     archivoPeriodo: ['00000000-0000-0000-0000-000000000002'],
     programarPurga: ['00000000-0000-0000-0000-000000000002', { carrera: 'TII', confirmar: true, frase: 'x' }],
     cancelarPurga: ['00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003'],

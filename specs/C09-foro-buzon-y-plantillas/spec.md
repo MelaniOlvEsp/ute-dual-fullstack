@@ -1,9 +1,10 @@
 # C09 — Foro, buzón y plantillas
 
-Estado: DRAFT
+Estado: DONE
+Cierre: 2026-10-17
 Fecha: 2026-10-17
 Responsable de aprobación: responsable del proyecto
-Dependencias: C08 y C08B DONE (2026-10-17). Bloqueada para pasar a READY por las decisiones D1 a D3 de abajo (DP-09 y el alcance de la plantilla); lo demás está confirmado en RN-26, RN-27 y RN-28.
+Dependencias: C08 y C08B DONE (2026-10-17). D1 a D3 resueltas por el responsable el 2026-10-17 (ver Decisiones); DRAFT → READY → IN_PROGRESS el 2026-10-17 con la orden `IMPLEMENT C09`. Lo demás está confirmado en RN-26, RN-27 y RN-28.
 
 ## Problema y resultado esperado
 
@@ -25,8 +26,8 @@ Incluye:
 2. Descarga autenticada de la versión vigente (y de las anteriores por número) para todos los roles (MP-13), por identificador y con nombres generados por el servidor; se retira la descarga estática pública y las pantallas dejan de enlazar `/plantillas/…`.
 3. Pantalla del coordinador para publicar la pareja (carga de los dos archivos, validación visible, historial) y enlaces de descarga de la vigente para el alumno y el personal.
 4. Foro como pantalla inicial de todos los roles tras el acceso obligatorio (RN-27, AC-22): el cambio de contraseña obligatorio sigue yendo primero; las herramientas de cada rol se alcanzan desde la navegación.
-5. Buzón conforme a la decisión D1 (cierre, reapertura y respuesta en hilos cerrados) y comprobación de la conversación completa alumno, tutor, coordinador, alumno (AC-23) sin acceso de otros alumnos.
-6. Anuncios conforme a la decisión D2.
+5. Buzón conforme a D1 (cierre y reapertura solo del personal, hilo cerrado de solo lectura y hilo nuevo enlazado) y comprobación de la conversación completa alumno, tutor, coordinador, alumno (AC-23) sin acceso de otros alumnos.
+6. Anuncios conforme a D2 (el coordinador modera, eliminación lógica conservada, sin edición).
 7. Contratos, cliente, fixtures, documentación, pruebas y preview de los recorridos afectados.
 
 Excluye: cambios al reporte o a su revisión (C05 a C07), expediente, paquetes y depuración (C08, C08B), notificaciones por correo o push, adjuntos en el foro y el buzón, edición de anuncios (D2 propone no editar), respaldo y restauración (C10, DP-11) y reapertura o rectificación de períodos (DP-10).
@@ -35,13 +36,13 @@ Excluye: cambios al reporte o a su revisión (C05 a C07), expediente, paquetes y
 
 Confirmadas: la plantilla común sirve a las tres carreras y se versiona sin alterar reportes históricos (RN-26); el foro es la pantalla inicial de todos tras el acceso obligatorio y los tutores y el coordinador publican mientras los alumnos consultan (RN-27); el buzón es una conversación del alumno con todos los tutores y el coordinador y otros alumnos no la ven (RN-28); alumno 403 al publicar anuncios por API (AC-22); tutor y coordinador ven todo el buzón y el alumno solo sus hilos (MP-15, MP-16).
 
-Bloqueantes para pasar a READY (se presentan en la respuesta de cierre de la spec anterior):
+Resueltas por el responsable el 2026-10-17 (se registran en DP-09):
 
-- D1 (DP-09): política del hilo cerrado: quién cierra, si el alumno puede responder, si hay reapertura y quién reabre.
-- D2 (DP-09): moderación de anuncios: quién puede eliminar, si se conserva lo eliminado y si se puede editar.
-- D3: alcance de la plantilla administrable: pareja Word + PDF (RN-26) frente al Excel de asistencia que hoy se descarga junto a ellos.
+- D1 (DP-09): solo el personal (tutor y coordinador) cierra y reabre un hilo; un hilo cerrado es de solo lectura para todos, así que responder a él devuelve 409 con el motivo y el alumno, si necesita seguir, abre un hilo nuevo (la pantalla lo indica y puede enlazarlo con el anterior). Se retira la reapertura automática al responder; se añade la reapertura explícita del personal.
+- D2 (DP-09): el autor elimina sus anuncios y el coordinador puede eliminar cualquiera; lo eliminado se conserva (eliminación lógica con autor e instante de la eliminación) y deja de mostrarse; los anuncios no se editan; las reacciones se mantienen.
+- D3: la plantilla administrable es la pareja Word + PDF (RN-26). El Excel de asistencia deja de servirse como archivo público del frontend y queda fuera del sistema (el coordinador lo conserva y lo distribuye por su cuenta); si más adelante se quiere administrar, será otro incremento.
 
-Propuestas técnicas (sujetas a esas decisiones):
+Propuestas técnicas (conformes con esas decisiones):
 
 - Tabla `plantillas_version` con `numero` único y creciente, `publicada_por`, `publicada_en`, `vigente` (índice único parcial: una sola vigente), clave, tamaño y SHA-256 del Word y del PDF y número de páginas del PDF; disparadores que impiden modificar o borrar versiones salvo el cambio del indicador `vigente` hecho por la propia publicación. Los archivos se guardan con claves generadas por el servidor fuera de la carpeta pública, como los documentos de C05.
 - Publicación atómica: se validan los dos archivos, se escriben ambos con claves nuevas y, en una sola transacción con bloqueo, se inserta la versión y se pasa la vigencia; si algo falla, se eliminan los archivos escritos y no queda pareja incompleta. El lector resuelve un único puntero (la versión vigente), nunca archivos sueltos.
@@ -72,26 +73,28 @@ Permisos y estados: publicar plantillas solo el coordinador; descargarlas todos 
 
 | AC | Prueba o recorrido | Nivel y datos | Resultado |
 |---|---|---|---|
-| C09-AC1 / AC-21 | El coordinador publica una pareja Word/PDF: todos descargan la vigente; si falla la validación o el guardado de cualquiera de los dos archivos no se publica nada y quedan limpios; las versiones anteriores siguen disponibles e inmutables | HTTP + PostgreSQL + almacenamiento reales con fallos inyectados | NO_VERIFICADA |
-| C09-AC2 | Carga maliciosa rechazada (tipo falso, DOCX con macros, ZIP sobredimensionado, PDF dañado, nombre con rutas); tutor y alumno 403 al publicar; sin sesión 401 | Negativos HTTP reales | NO_VERIFICADA |
-| C09-AC3 / AC-22 | El login termina en el foro para los tres roles y el cambio obligatorio ocurre antes; el alumno no publica anuncios por API | HTTP real + preview visual | NO_VERIFICADA |
-| C09-AC4 / AC-23 | Alumno envía, tutor responde, coordinador consulta y alumno responde: la conversación persiste y otro alumno recibe 404 | HTTP + PostgreSQL reales | NO_VERIFICADA |
-| C09-AC5 | La política del hilo cerrado de D1: quién cierra, qué pasa al responder, reapertura y límites | HTTP real | NO_VERIFICADA |
-| C09-AC6 | Moderación de anuncios de D2: quién elimina, qué se conserva y qué ve cada rol | HTTP + PostgreSQL reales | NO_VERIFICADA |
-| C09-AC7 | Plantilla, foro y buzón en escritorio y móvil con teclado | Preview visual del build desplegado | NO_VERIFICADA |
+| C09-AC1 / AC-21 | El coordinador publica una pareja Word/PDF: todos descargan la vigente; si falla la validación o el guardado de cualquiera de los dos archivos no se publica nada y quedan limpios; las versiones anteriores siguen disponibles e inmutables | HTTP + PostgreSQL + almacenamiento reales con fallos inyectados | REAL: `smoke_c09.py` (publicación todo o nada, descargas byte a byte, vigente única, anteriores inmutables y disponibles; rechazos sin filas ni archivos sueltos); fallos del almacenamiento con dobles SIMULADA |
+| C09-AC2 | Carga maliciosa rechazada (tipo falso, DOCX con macros, ZIP sobredimensionado, PDF dañado, nombre con rutas); tutor y alumno 403 al publicar; sin sesión 401 | Negativos HTTP reales | REAL: tipo falso, DOCX con macros o tipo macro, rutas con `..`, bomba ZIP, `.doc`, PDF dañado o falso, falta uno de los archivos y 413; tutor y alumno 403 y sin sesión 401 |
+| C09-AC3 / AC-22 | El login termina en el foro para los tres roles y el cambio obligatorio ocurre antes; el alumno no publica anuncios por API | HTTP real + preview visual | REAL parcial: el alumno no publica anuncios (403); el login de coordinador y alumno termina en `/foro` en el navegador integrado y el cambio obligatorio va antes (pruebas JS de `homeFor`); el login de tutor no se recorrió en pantalla |
+| C09-AC4 / AC-23 | Alumno envía, tutor responde, coordinador consulta y alumno responde: la conversación persiste y otro alumno recibe 404 | HTTP + PostgreSQL reales | REAL: alumno, tutor, coordinador y alumno conversan y el hilo persiste en orden; otro alumno 404 al ver, responder y 403 al reabrir |
+| C09-AC5 | La política del hilo cerrado de D1: quién cierra, qué pasa al responder, reapertura y límites | HTTP real | REAL: cierre solo del personal, 409 al responder (alumno, tutor y coordinador), marcar leído no reabre, la base rechaza respuestas en un hilo cerrado, reapertura explícita idempotente, hilo nuevo enlazado (ajeno 404, abierto 409) |
+| C09-AC6 | Moderación de anuncios de D2: quién elimina, qué se conserva y qué ve cada rol | HTTP + PostgreSQL reales | REAL: el autor y el coordinador eliminan, otro tutor y el alumno 403, el anuncio se conserva con autor e instante y deja de listarse, la base rechaza editar o restablecer |
+| C09-AC7 | Plantilla, foro y buzón en escritorio y móvil con teclado | Preview visual del build desplegado | REAL parcial: plantilla (coordinador y alumno), buzón con hilo cerrado y enlace, foro con moderación y navegación en el navegador integrado a 623 px; teclado, tema oscuro y móvil físico NO_VERIFICADA |
 
 ## Evidencia de implementación
 
-Sin ejecución: spec en DRAFT. Añadir solo después de implementar, con fecha, entorno, revisión del código y clase REAL/SIMULADA/NO_VERIFICADA.
+Implementación 2026-10-17 con Compose local; detalle en [evidencia.md](evidencia.md). Backend 237 pruebas OK (23 nuevas); JS 40/40 y contrato 75 llamadas contra 73 rutas; Vite build sin avisos nuevos propios; `smoke_c09.py` PASS (dos corridas) y smokes C01–C08B PASS; migración `010_plantillas_foro.sql` aplicada dos veces. Entregado: plantilla común Word + PDF versionada y atómica con validación real de la carga, descarga autenticada y pantalla del coordinador (se retiran los archivos estáticos públicos), foro como pantalla inicial de los tres roles, política del buzón de D1 (hilo cerrado de solo lectura, reapertura del personal, hilo nuevo enlazado) y moderación de anuncios de D2 (eliminación lógica conservada). Revisada (APPROVED) y cerrada el 2026-10-17.
 
 ## Revisión
 
-Veredicto: pendiente.
-Revisor y modalidad: pendiente.
-Hallazgos materiales: no aplica antes de implementación.
-Correcciones y verificación focal: no aplica.
-Limitaciones previstas: respaldos y restauración (DP-11) son de C10; no hay notificaciones por correo; Drive y cualquier proveedor externo siguen NO_VERIFICADOS; el comportamiento en un móvil físico y con otros editores de Word solo se comprueba con esos dispositivos.
+Veredicto: APPROVED (revisión técnica, 2026-10-17).
+Revisor y modalidad: mismo agente; técnica (diff completo, migración, consultas, permisos, contratos y evidencia) y visual reutilizando el preview de la implementación más el login de tutor en pantalla; no es revisión independiente.
+Hallazgos materiales: ninguno.
+Correcciones y verificación focal: no aplica; los defectos hallados durante la implementación están en [evidencia](evidencia.md).
+Limitaciones: no se subieron archivos desde el formulario del navegador (el navegador integrado no permite elegir archivos; la publicación se probó por HTTP real) y el estado «aún no hay plantilla vigente» solo está cubierto por pruebas; teclado completo, tema oscuro y móvil físico; apertura de la plantilla en Word real u otros editores; la validación del DOCX no revisa relaciones externas ni objetos incrustados más allá de macros, rutas, tamaño y compresión, y no hay antivirus; la plantilla inicial la publica el coordinador (los archivos antiguos siguen en el historial de git) y el Excel de asistencia queda fuera del sistema (D3); sin notificaciones por correo; respaldos y restauración son de C10 (DP-11); Drive y cualquier proveedor externo siguen NO_VERIFICADOS.
 
 ## Aprobaciones y cierre
 
-Pendiente: decisiones D1 a D3 y orden de pasar a READY.
+D1 a D3 aprobadas por el responsable el 2026-10-17 (tal como se recomendaron). Con `IMPLEMENT C09` autorizó pasar a READY y a IN_PROGRESS el 2026-10-17.
+
+Aprobación de cierre: el responsable otorgó aprobación de cierre el 2026-10-17 con `CLOSE C09 + NEXT SPEC`, sujeta a revisión aprobada y evidencia suficiente. Con la revisión APPROVED y la evidencia registrada, C09 queda DONE con las limitaciones anteriores. El commit local de implementación se hizo con el cierre; no hay push.

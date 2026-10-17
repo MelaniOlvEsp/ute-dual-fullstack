@@ -13,4 +13,5 @@ SET ROLE ute_dual_app;
 \i /opt/ute/migrations/007_cierre.sql
 \i /opt/ute/migrations/008_paquetes.sql
 \i /opt/ute/migrations/009_depuracion.sql
+\i /opt/ute/migrations/010_plantillas_foro.sql
 SQL

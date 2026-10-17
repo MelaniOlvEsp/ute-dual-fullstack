@@ -8,6 +8,7 @@
   import MyRecord from './presentation/pages/dual/MiExpediente.svelte'
   import DualCoordinator from './presentation/pages/dual/CoordinadorDual.svelte'
   import CareerCoordinator from './presentation/pages/dual/CoordinadorCarrera.svelte'
+  import Templates from './presentation/pages/dual/PlantillasDual.svelte'
   import ManageUsers from './presentation/pages/dual/GestionTutores.svelte'
   import Periods from './presentation/pages/dual/PeriodosDual.svelte'
   import ResetStudent from './presentation/pages/dual/RecuperarAlumno.svelte'
@@ -29,6 +30,9 @@
   </Route>
   <Route path="/dual/expediente">
     <ProtectedPage permission="dual-student"><MyRecord /></ProtectedPage>
+  </Route>
+  <Route path="/dual/plantillas">
+    <ProtectedPage permission="files"><Templates /></ProtectedPage>
   </Route>
   <Route path="/dual/tutor">
     <ProtectedPage permission="tutor"><DualCoordinator /></ProtectedPage>

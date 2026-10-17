@@ -645,6 +645,54 @@
         "mensaje_id",
         "user"
       ]
+    },
+    {
+      "name": "reabrir_mensaje",
+      "method": "PATCH",
+      "path": "/{mensaje_id}/reabrir",
+      "params": [
+        "mensaje_id",
+        "user"
+      ]
+    }
+  ],
+  "dual/plantillas": [
+    {
+      "name": "plantilla_vigente",
+      "method": "GET",
+      "path": "/vigente",
+      "params": [
+        "user"
+      ]
+    },
+    {
+      "name": "listar_plantillas",
+      "method": "GET",
+      "path": "/",
+      "params": [
+        "user"
+      ]
+    },
+    {
+      "name": "publicar_plantilla",
+      "method": "POST",
+      "path": "/",
+      "params": [
+        "word",
+        "pdf",
+        "nota",
+        "user"
+      ]
+    },
+    {
+      "name": "descargar_plantilla",
+      "method": "GET",
+      "path": "/{numero}/{tipo}",
+      "params": [
+        "numero",
+        "tipo",
+        "user"
+      ]
     }
   ]
 }

@@ -5,9 +5,8 @@ export function homeFor(user) {
   if (!user) return '/login'
   if (user.must_change_password) return '/cambiar-password'
   const roles = user.roles || {}
-  if (roles.tutor_academico) return '/dual/tutor'
-  if (roles.coordinador_dual) return '/dual/carrera'
-  if (roles.alumno) return '/dual/reportes'
+  // C09 (RN-27, AC-22): el foro es la pantalla inicial de todos los roles; el cambio obligatorio va antes.
+  if (roles.tutor_academico || roles.coordinador_dual || roles.alumno) return '/foro'
   return '/login'
 }
 

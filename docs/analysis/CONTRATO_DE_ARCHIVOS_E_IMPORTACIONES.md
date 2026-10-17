@@ -22,6 +22,8 @@ Coordinador publica pareja Word (.docx) y PDF; ambos para las tres carreras. Arc
 
 El alumno descarga la versión vigente; no exigirle reentregar un reporte histórico por cambiar plantilla. El Excel existente no forma parte del alcance confirmado.
 
+Implementado en C09: el coordinador publica la pareja con `POST /dual/plantillas/` (multipart `word` y `pdf`, nota opcional). Se valida el contenido real: el PDF con el inspector de entregas (legible, sin cifrar, 10 MB máximo) y el DOCX como contenedor ZIP OOXML (firma `PK`, `[Content_Types].xml` y `word/document.xml`, tipo principal de documento sin macros, sin `vbaProject.bin`, sin rutas absolutas o con `..`, máximo 500 entradas, 100 MB descomprimidos y razón de compresión de 200 por entrada, 10 MB de archivo); el nombre del cliente se ignora y solo se contrasta la extensión. Los archivos se guardan con claves generadas por el servidor en una carpeta privada (`plantillas`), nunca públicos; la versión se inserta y pasa a ser la vigente en una sola transacción con bloqueo, y si algo falla se eliminan los archivos escritos. Todos los roles autenticados descargan por versión y tipo (`GET /dual/plantillas/{numero}/{word|pdf}`) con nombre generado `Plantilla_Reporte_Dual_v{n}.{docx|pdf}`; el historial (`GET /dual/plantillas/`) es del coordinador. Los archivos estáticos del frontend (`public/plantillas`) se retiraron; el Excel de asistencia queda fuera del sistema (DP-09 D3). Limitación: no se revisan relaciones externas ni objetos incrustados dentro del DOCX más allá de las macros.
+
 ## CSV de alumnos
 
 Operación existente del tutor sobre grupo seleccionado. Propuesta de contrato:

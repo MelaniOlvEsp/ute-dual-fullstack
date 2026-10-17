@@ -46,6 +46,8 @@ class BuzonMensajeCreate(BaseModel):
     area: Literal["dual"]
     asunto: str = Field(..., min_length=3, max_length=150)
     mensaje: str = Field(..., min_length=1, max_length=500)
+    # C09 (D1): el alumno que necesita seguir un hilo cerrado abre uno nuevo y lo enlaza.
+    hilo_anterior_id: Optional[UUID] = None
 
     @field_validator("asunto", "mensaje")
     @classmethod
@@ -64,6 +66,7 @@ class BuzonMensajeOut(BaseModel):
     mensaje: str
     estado: Literal["Enviado", "Leido", "Cerrado"]
     created_at: datetime
+    hilo_anterior_id: Optional[UUID] = None
 
 
 # Respuesta dentro del hilo de un mensaje de buzón (alumno o coordinador)

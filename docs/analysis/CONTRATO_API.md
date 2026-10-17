@@ -1,6 +1,6 @@
 # Contrato API: existente y objetivo
 
-Estado: contrato vivo. C01–C08 describen rutas implementadas (C05, C06 y C07 DONE; C08 IN_PROGRESS); C09–C10 siguen como diseño propuesto. Fuentes ejecutables: routers en `ute-api-backend/app/presentation/api/routers`, `route_contract.json` y repositorios de `ute-dual-frontend/src/infrastructure/repositories`.
+Estado: contrato vivo. C01–C09 describen rutas implementadas (C05 a C09 DONE); C10 sigue como diseño propuesto. Fuentes ejecutables: routers en `ute-api-backend/app/presentation/api/routers`, `route_contract.json` y repositorios de `ute-dual-frontend/src/infrastructure/repositories`.
 
 ## Inventario actual
 
@@ -16,8 +16,8 @@ Estado: contrato vivo. C01–C08 describen rutas implementadas (C05, C06 y C07 D
 | Firma | POST/GET /dual/tutor/firma | Versionar sin alterar firmados históricos. |
 | Grupos/expediente | /dual/carrera/grupos, /alumnos, /periodos | Implementado en C08: directorio paginado con bajas, expediente por período con grupo histórico y consulta propia del alumno. |
 | Descargas | /dual/*/reportes/{id}/versiones/{n}/pdf; /dual/carrera/paquetes/alumno/{m}, /paquetes/carrera/{c}; /dual/alumno/paquete | Implementado en C08: autorización de objeto, solo versiones aprobadas y paquete ZIP con manifiesto (retiradas las rutas `reporte/{id}/pdf` y `exportar-csv|zip`). |
-| Foro | /foro/publicaciones y reacciones | Validar lectura/publicación y navegación. |
-| Buzón | /foro/buzon/, /mios, /{id}, respuestas, leído y cierre | Probar conversación completa y autorización. |
+| Foro | /foro/publicaciones y reacciones | Implementado en C09: foro como pantalla inicial y eliminación lógica de anuncios (autor o coordinador). |
+| Buzón | /foro/buzon/, /mios, /{id}, respuestas, leído, cierre y reapertura | Implementado en C09: hilo cerrado de solo lectura, reapertura del personal e hilo nuevo enlazado. |
 
 Los prefijos carrera/coordinador_dual heredados no representan roles nuevos. No renombrar todo sin beneficio: adaptar cliente y servidor en el mismo incremento.
 
@@ -119,6 +119,14 @@ Estas son operaciones, no rutas definitivas. Antes de implementar cada spec debe
 - Expediente (`GET /dual/alumno/expediente` y `GET /dual/carrera/alumnos/{matricula}/expediente`): cada período incluye `archivo` (`estado` `normal|programada|archivado`, `eliminacion_en` y `archivado_en` como fechas civiles, `frase_esperada` y, solo para el personal, `purga_id`) y cada aprobado `archivado_en`; el `paquete` de un período depurado deja de estar disponible con el motivo.
 - Descarga de un documento archivado (`…/versiones/{n}/pdf` de alumno, tutor y carrera): 410 con la fecha; la generación de paquetes de un período con archivos depurados responde 409.
 - El fixture contractual contiene 68 rutas. [Spec C08B](../../specs/C08B-archivo-y-depuracion/spec.md) y [evidencia C08B](../../specs/C08B-archivo-y-depuracion/evidencia.md).
+
+### Cambios implementados en C09 (DONE)
+
+- Plantilla común (`/dual/plantillas`): `GET /vigente` (cualquier rol autenticado; `{"vigente": null}` si aún no hay), `GET /{numero}/{word|pdf}` (descarga autenticada con `Content-Disposition: attachment` y nombre generado `Plantilla_Reporte_Dual_v{n}.{docx|pdf}`; versión inexistente 404, tipo inválido 422), `GET /` (historial, solo coordinador) y `POST /` (multipart `word` + `pdf` + `nota` opcional, solo coordinador; 201 con la versión; 422 con el motivo si cualquiera de los dos no es válido, 413 sobre 10 MB; todo o nada). Las versiones son inmutables y la nueva pasa a ser la vigente en la misma transacción. Sin sesión 401; tutor y alumno 403 al publicar o consultar el historial. Se retira la descarga pública estática `/plantillas/*` del frontend.
+- Buzón (DP-09 D1): responder a un hilo cerrado responde 409 para todos los roles y ya no lo reabre; `PATCH /foro/buzon/{id}/reabrir` (solo personal; devuelve `repetido`; el hilo pasa a «Leído» y registra autor e instante; alumno 403, sin sesión 401); `PATCH …/leido` no reabre un hilo cerrado; `POST /foro/buzon/` acepta `hilo_anterior_id` para enlazar un hilo propio cerrado (ajeno o inexistente 404, abierto 409) y el detalle devuelve `hilo_anterior_id`, `cerrado_en` y `reabierto_en`.
+- Anuncios (DP-09 D2): `DELETE /foro/publicaciones/{id}` lo permite al autor y al coordinador (otro tutor 403, alumno 403); es una eliminación lógica que conserva el anuncio con autor e instante, deja de listarse y no admite reacciones (404); repetir devuelve 404. Los anuncios no se editan.
+- Foro como pantalla inicial: tras el acceso obligatorio los tres roles aterrizan en `/foro` (frontend, `homeFor`).
+- El fixture contractual contiene 73 rutas. [Spec C09](../../specs/C09-foro-buzon-y-plantillas/spec.md) y [evidencia C09](../../specs/C09-foro-buzon-y-plantillas/evidencia.md).
 
 ### Reglas objetivo generales
 

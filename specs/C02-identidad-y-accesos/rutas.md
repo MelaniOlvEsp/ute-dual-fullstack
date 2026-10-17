@@ -50,7 +50,7 @@ Inventario estático del código del 2026-10-14. No acredita ejecución HTTP. A 
 | DELETE `/dual/carrera/alumnos/{matricula}` | `get_tutor_academico` | Consulta T/C transversal; edición y grupos T. DELETE desactiva acceso, conserva expediente. |
 | POST `/foro/publicaciones` | `get_publicador` | Lectura autenticada; publicar/borrar T/C; reacciones A por usuario. DP-09 no se redefine. |
 | GET `/foro/publicaciones` | `get_current_user` | Lectura autenticada; publicar/borrar T/C; reacciones A por usuario. DP-09 no se redefine. |
-| DELETE `/foro/publicaciones/{publicacion_id}` | `get_publicador` | Lectura autenticada; publicar/borrar T/C; reacciones A por usuario. DP-09 no se redefine. |
+| DELETE `/foro/publicaciones/{publicacion_id}` | `get_publicador` | El autor elimina lo suyo y C modera cualquier anuncio (C09, DP-09 D2); eliminación lógica conservada; otro T 403. |
 | POST `/foro/publicaciones/{publicacion_id}/reaccion` | `get_reactor` | Lectura autenticada; publicar/borrar T/C; reacciones A por usuario. DP-09 no se redefine. |
 | POST `/foro/buzon/` | `get_remitente` | Crear/míos A; detalle/respuesta propietario o T/C; listado/leído/cierre T/C. |
 | GET `/foro/buzon/` | `get_current_user` | Crear/míos A; detalle/respuesta propietario o T/C; listado/leído/cierre T/C. |
@@ -59,6 +59,9 @@ Inventario estático del código del 2026-10-14. No acredita ejecución HTTP. A 
 | POST `/foro/buzon/{mensaje_id}/respuestas` | `get_current_user` | Crear/míos A; detalle/respuesta propietario o T/C; listado/leído/cierre T/C. |
 | PATCH `/foro/buzon/{mensaje_id}/leido` | `get_current_user` | Crear/míos A; detalle/respuesta propietario o T/C; listado/leído/cierre T/C. |
 | PATCH `/foro/buzon/{mensaje_id}/cerrar` | `get_current_user` | Crear/míos A; detalle/respuesta propietario o T/C; listado/leído/cierre T/C. |
+| PATCH `/foro/buzon/{mensaje_id}/reabrir` | `get_current_user` (personal en el caso de uso) | Solo T/C reabren (C09, DP-09 D1); un hilo cerrado es de solo lectura (respuesta 409) y el alumno abre un hilo nuevo enlazado. |
+| GET `/dual/plantillas/vigente` y `/dual/plantillas/{numero}/{tipo}` | `get_current_user` | Cualquier rol autenticado descarga la plantilla vigente o una versión (C09, MP-13); sin sesión 401. |
+| GET `/dual/plantillas/` y POST `/dual/plantillas/` | `get_coordinator` | Solo C: historial y publicación de la pareja Word + PDF (C09, MP-12); T y A 403. |
 
 ## Evidencia negativa y límites
 

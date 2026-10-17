@@ -5,9 +5,9 @@ import { validateRegistration } from '../src/domain/auth/credentials.js'
 import { createAuthUseCases, decodeSession } from '../src/application/use-cases/auth.js'
 
 test('only the three approved roles can navigate', () => {
-  assert.equal(homeFor({ roles: { coordinador_dual: true } }), '/dual/carrera')
-  assert.equal(homeFor({ roles: { tutor_academico: true } }), '/dual/tutor')
-  assert.equal(homeFor({ roles: { alumno: true } }), '/dual/reportes')
+  assert.equal(homeFor({ roles: { coordinador_dual: true } }), '/foro')
+  assert.equal(homeFor({ roles: { tutor_academico: true } }), '/foro')
+  assert.equal(homeFor({ roles: { alumno: true } }), '/foro')
   assert.equal(homeFor({ roles: { admin: true } }), '/login')
   assert.equal(homeFor({ must_change_password: true, roles: { alumno: true } }), '/cambiar-password')
   assert.equal(hasAccess({ roles: { admin: true } }, 'files'), false)
