@@ -18,6 +18,7 @@ param(
     [Parameter(Mandatory = $true)][ValidatePattern('^\d{8}T\d{6}Z-[a-z0-9]{1,20}$')][string]$Id,
     [string]$Registro = '',
     [switch]$Descartar,
+    [string]$Identidad = '',
     [string]$ProyectoOrigen = ''
 )
 $ErrorActionPreference = 'Continue'
@@ -31,6 +32,8 @@ function Origen-Python($argumentos) { & docker @origen --profile respaldo run --
 function Prueba-Python($argumentos) { & docker @prueba --profile respaldo run --rm --build respaldo python scripts/respaldo.py @argumentos | ForEach-Object { Write-Host $_ }; return [int]$LASTEXITCODE }
 $script:destinoCreado = $false
 function Limpiar-Temporales { Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $tmp 'restaurar.dump') }
+# La copia temporal de la clave privada se necesita también para restaurar los documentos: se borra solo al terminar o al fallar.
+function Limpiar-Identidad { Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $tmp 'identidad.txt') }
 function Descartar-Destino {
     if ($Descartar -and $script:destinoCreado) {
         Prueba-Python @('descartar-carpeta') | Out-Null
@@ -38,7 +41,7 @@ function Descartar-Destino {
         Write-Host 'Proyecto de prueba y carpeta de restauración eliminados.'
     }
 }
-function Fallar($mensaje, $codigo = 2) { Write-Host "RESTAURACIÓN RECHAZADA: $mensaje"; Limpiar-Temporales; Descartar-Destino; exit $codigo }
+function Fallar($mensaje, $codigo = 2) { Write-Host "RESTAURACIÓN RECHAZADA: $mensaje"; Limpiar-Temporales; Limpiar-Identidad; Descartar-Destino; exit $codigo }
 
 # Identificador de la carpeta viva (solo en memoria): variable de entorno o .secretos\drive_config.json.
 $vivo = $env:DRIVE_CARPETA_ID
@@ -46,12 +49,19 @@ if (-not $vivo -and (Test-Path .secretos\drive_config.json)) { $vivo = (Get-Cont
 if (-not $vivo) { Write-Error 'No se encontró la carpeta de Drive de origen.'; exit 1 }
 $env:RESPALDO_ORIGEN_CARPETA = $vivo
 
-# 1. Verificación y descarga del volcado (en el entorno de origen, de solo lectura).
-if ((Origen-Python @('descargar-volcado', '--id', $Id)) -ne 0) { Fallar 'el respaldo no está íntegro.' }
+# Clave privada (solo si el respaldo está cifrado): se copia a la carpeta temporal y se borra al terminar, también si algo falla.
+if ($Identidad) {
+    if (-not (Test-Path -LiteralPath $Identidad)) { Fallar 'no existe el archivo de clave privada indicado en -Identidad.' 1 }
+    Copy-Item -LiteralPath $Identidad -Destination (Join-Path $tmp 'identidad.txt')
+}
+
+# 1. Verificación y descarga del volcado (en el entorno de origen, de solo lectura); si está cifrado, se descifra aquí.
+if ((Origen-Python @('descargar-volcado', '--id', $Id)) -ne 0) { Fallar 'el respaldo no está íntegro o falta la clave privada correcta (use -Identidad).' }
 
 # 2. Destino aislado: carpeta de Drive nueva y proyecto de Compose aparte.
 if ((Origen-Python @('carpeta-restauracion')) -ne 0) { Fallar 'no se pudo crear la carpeta de destino.' 1 }
 $script:destinoCreado = $true
+$env:RESPALDO_ENTORNO = 'restauracion'   # habilita los subcomandos que escriben en el destino aislado
 $env:DRIVE_CARPETA_ID = (Get-Content (Join-Path $tmp 'destino.id') -Raw).Trim()
 $env:API_PORT = '8101'
 & docker @prueba up -d --wait postgres api
@@ -75,5 +85,7 @@ if ($codigo -eq 0) {
     $codigo = Prueba-Python (@('verificar-restauracion', '--id', $Id) + $extra)
 }
 
+Limpiar-Temporales
+Limpiar-Identidad
 Descartar-Destino
 exit $codigo

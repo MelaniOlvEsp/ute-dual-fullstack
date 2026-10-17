@@ -1,18 +1,26 @@
-"""Respaldo y restauración del piloto (C10, DP-11).
+"""Respaldo y restauración del piloto (C10, DP-11; cifrado y endurecimiento en C13).
 
 Un respaldo vive en el espacio `respaldos` de Drive (contrato de almacenamiento de C10A) y consta de: el volcado de
-PostgreSQL (`respaldo-<id>.dump`, formato personalizado), una copia de cada documento no archivado (`doc-<clave>`,
-sin repetir los que otro respaldo ya guardó, porque los documentos son de solo escritura) y un manifiesto
+PostgreSQL (`respaldo-<id>.dump.age`), una copia de cada documento no archivado (`doc-<clave>.<huella>.age`, sin repetir
+los que otro respaldo ya guardó para el mismo destinatario, porque los documentos son de solo escritura) y un manifiesto
 (`respaldo-<id>.json`) que se escribe al final: sin manifiesto el respaldo no existe. El volcado lo genera
-`scripts/respaldo.ps1` dentro del contenedor de PostgreSQL; este script lo sube, copia los documentos y verifica.
+`scripts/respaldo.ps1` dentro del contenedor de PostgreSQL; este script lo cifra, lo sube, copia los documentos y verifica.
+
+Cifrado (C13, D1): todo se cifra con age (clave pública del destinatario) ANTES de subirse; Drive solo ve texto cifrado.
+La máquina que respalda solo conoce la clave pública; la clave privada la guarda el responsable fuera del equipo y solo
+se necesita para restaurar. El manifiesto `version: 2` registra el método, la huella del destinatario, la huella del
+texto cifrado (que se verifica sin la clave) y la del contenido (que se verifica al descifrar). Los respaldos sin cifrar
+(`version: 1`, solo con `--sin-cifrar`, para datos sintéticos) se siguen pudiendo verificar y restaurar.
 
 Orden (coherencia): primero la base y después los documentos. Como los documentos nunca se sobrescriben y la
 depuración solo elimina, la copia de archivos es un superconjunto de lo que la base referencia; los archivos sin
 fila son huérfanos inofensivos. Un archivo que la base referencia, no está archivado y falta en el almacenamiento
 se informa como error y el respaldo no se da por bueno. El manifiesto no incluye credenciales ni identificadores de Drive.
 
-Subcomandos: crear, listar, verificar, podar, carpeta-restauracion, restaurar-documentos, verificar-restauracion,
-descartar-carpeta, probar-fallos. No imprime credenciales; los identificadores solo viajan por archivos temporales.
+Subcomandos: generar-clave, instantanea, crear, listar, verificar, podar, carpeta-restauracion, descargar-volcado,
+restaurar-documentos, verificar-restauracion, descartar-carpeta, probar-fallos, quitar-prueba. Los que escriben en una
+base o en una carpeta de Drive de restauración solo corren dentro de `restaurar.ps1` (variable RESPALDO_ENTORNO).
+No imprime credenciales ni la clave privada; los identificadores solo viajan por archivos temporales.
 """
 from __future__ import annotations
 
@@ -30,7 +38,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from app.infrastructure.storage.base import ArchivoNoEncontrado
+from app.infrastructure.storage.base import ArchivoNoEncontrado, ArchivoYaExiste
 from app.infrastructure.storage.registro import get_storage
 
 ESPACIO, DOCUMENTOS = "respaldos", "documentos"
@@ -40,12 +48,72 @@ TABLAS = ("usuarios", "alumnos", "ciclos_dual", "documentos", "reportes_dual", "
 PREFIJO_RESTAURACION = "Formación Dual (restauración"
 RETENCION_SEMANALES, RETENCION_MENSUALES = 8, 4
 ID_RESPALDO = re.compile(r"^\d{8}T\d{6}Z-[a-z0-9]{1,20}$")
+ETIQUETAS_PRUEBA = frozenset({"faltante", "hash", "danado", "alterado", "sinmanifiesto"})   # variantes de `probar-fallos`
+CANDADO = "en-curso.lock"
+VIGENCIA_CANDADO = 2 * 3600
+ENCABEZADO_AGE = b"age-encryption.org/"
+
+
+class ClaveNoDisponible(Exception):
+    """Falta la clave pública (para cifrar) o la clave privada (para descifrar)."""
+
+
+class ClaveIncorrecta(Exception):
+    """La clave privada no corresponde al destinatario con el que se cifró."""
 
 
 def sha256(contenido: bytes) -> str:
     return hashlib.sha256(contenido).hexdigest()
 
 
+# --- cifrado (age) -----------------------------------------------------------------------------------------
+def destinatario():
+    """Clave pública de age: variable RESPALDO_CLAVE_PUBLICA o el archivo `respaldo_clave_publica.txt` de `.secretos`."""
+    from pyrage import x25519
+    texto = os.environ.get("RESPALDO_CLAVE_PUBLICA", "").strip()
+    if not texto:
+        archivo = Path(os.environ.get("RESPALDO_CLAVE_PUBLICA_ARCHIVO", "/secretos/respaldo_clave_publica.txt"))
+        if archivo.is_file():
+            texto = next((l.strip() for l in archivo.read_text(encoding="utf-8").splitlines() if l.strip().startswith("age1")), "")
+    if not texto:
+        raise ClaveNoDisponible("Falta la clave pública de cifrado (RESPALDO_CLAVE_PUBLICA o .secretos/respaldo_clave_publica.txt).")
+    try:
+        return x25519.Recipient.from_str(texto)
+    except Exception as error:
+        raise ClaveNoDisponible("La clave pública de cifrado no es válida.") from error
+
+
+def identidad():
+    """Clave privada de age (solo para restaurar): el archivo temporal que `restaurar.ps1` deja y borra, o RESPALDO_IDENTIDAD_ARCHIVO."""
+    from pyrage import x25519
+    ruta = Path(os.environ.get("RESPALDO_IDENTIDAD_ARCHIVO", str(TMP / "identidad.txt")))
+    if not ruta.is_file():
+        raise ClaveNoDisponible("El respaldo está cifrado y no se proporcionó la clave privada (use -Identidad).")
+    linea = next((l.strip() for l in ruta.read_text(encoding="utf-8").splitlines() if l.strip().startswith("AGE-SECRET-KEY-")), "")
+    try:
+        return x25519.Identity.from_str(linea)
+    except Exception as error:
+        raise ClaveNoDisponible("El archivo de clave privada no tiene una clave de age válida.") from error
+
+
+def huella_destinatario(r) -> str:
+    return sha256(str(r).encode())[:16]
+
+
+def cifrar(contenido: bytes, r) -> bytes:
+    import pyrage
+    return pyrage.encrypt(contenido, [r])
+
+
+def descifrar(cifrado: bytes, i) -> bytes:
+    import pyrage
+    try:
+        return pyrage.decrypt(cifrado, [i])
+    except Exception as error:
+        raise ClaveIncorrecta("La clave privada no corresponde a este respaldo (o el contenido está alterado).") from error
+
+
+# --- utilidades --------------------------------------------------------------------------------------------
 def origen():
     """Almacenamiento que guarda los respaldos: el vivo, o la carpeta indicada para una restauración."""
     carpeta = os.environ.get("RESPALDO_ORIGEN_CARPETA", "").strip()
@@ -59,6 +127,18 @@ def origen():
 def conectar():
     from local_admin import connect_local
     return connect_local()
+
+
+def exigir_entorno_restauracion(orden: str) -> bool:
+    """Los subcomandos que escriben (una base, una carpeta de Drive) solo corren dentro de `restaurar.ps1`."""
+    if os.environ.get("RESPALDO_ENTORNO", "") != "restauracion":
+        print(f"Se niega a ejecutar «{orden}» fuera de un entorno de restauración: escribiría en la base o en la carpeta de este "
+              f"entorno. Use scripts/restaurar.ps1.")
+        return False
+    if os.environ.get("RESPALDO_ORIGEN_CARPETA", "").strip() == os.environ.get("DRIVE_CARPETA_ID", "").strip():
+        print(f"Se niega a ejecutar «{orden}»: el destino es la misma carpeta que contiene los respaldos.")
+        return False
+    return True
 
 
 def conteos(conn) -> dict:
@@ -92,18 +172,36 @@ def migraciones() -> dict:
     return {a.name: sha256(a.read_bytes()) for a in archivos if a.is_file()}
 
 
-def ids_de(alm) -> list[str]:
+def es_prueba(id_: str) -> bool:
+    return id_.split("-", 1)[-1] in ETIQUETAS_PRUEBA
+
+
+def ids_de(alm, incluir_pruebas: bool = False) -> list[str]:
+    """Respaldos por manifiesto, del más reciente al más antiguo; las variantes de `probar-fallos` no cuentan."""
     nombres = [f["clave"] for f in alm.listar(ESPACIO)]
-    return sorted((n[len("respaldo-"):-len(".json")] for n in nombres if n.startswith("respaldo-") and n.endswith(".json")),
-                  reverse=True)
+    ids = (n[len("respaldo-"):-len(".json")] for n in nombres if n.startswith("respaldo-") and n.endswith(".json"))
+    return sorted((i for i in ids if incluir_pruebas or not es_prueba(i)), reverse=True)
 
 
 def leer_manifiesto(alm, id_: str) -> dict:
     return json.loads(alm.leer(ESPACIO, f"respaldo-{id_}.json"))
 
 
-def verificar_respaldo(alm, id_: str) -> tuple[list[str], dict | None]:
-    """Comprueba manifiesto, volcado y cada documento (existencia y SHA-256). Devuelve (problemas, manifiesto)."""
+def cifrado_de(manifiesto: dict) -> bool:
+    return manifiesto.get("version", 1) >= 2 and "cifrado" in manifiesto
+
+
+def copia_de(documento: dict) -> str:
+    """Clave de la copia de un documento en el espacio de respaldos (v1: `doc-<clave>`; v2: `doc-<clave>.<huella>.age`)."""
+    return documento.get("copia") or "doc-" + documento["clave"]
+
+
+def verificar_respaldo(alm, id_: str, clave=None) -> tuple[list[str], dict | None]:
+    """Comprueba manifiesto, volcado y cada documento. Devuelve (problemas, manifiesto).
+
+    Sin cifrar: existencia y SHA-256. Cifrado: existencia, formato y SHA-256 del texto cifrado, que no necesitan la clave;
+    con la clave privada (`clave`) además se descifra y se compara el SHA-256 del contenido.
+    """
     problemas: list[str] = []
     try:
         manifiesto = leer_manifiesto(alm, id_)
@@ -111,25 +209,81 @@ def verificar_respaldo(alm, id_: str) -> tuple[list[str], dict | None]:
         return [f"El respaldo {id_} no tiene manifiesto (incompleto)."], None
     except ValueError:
         return [f"El manifiesto del respaldo {id_} está dañado."], None
+    cifrado = cifrado_de(manifiesto)
     v = manifiesto["volcado"]
     try:
         volcado = alm.leer(ESPACIO, v["clave"])
         if len(volcado) != v["tamano"] or sha256(volcado) != v["sha256"]:
             problemas.append("El volcado de la base no coincide con el manifiesto (tamaño o SHA-256).")
-        elif not volcado.startswith(b"PGDMP"):
+        elif cifrado and not volcado.startswith(ENCABEZADO_AGE):
+            problemas.append("El volcado no tiene el formato cifrado esperado.")
+        elif not cifrado and not volcado.startswith(b"PGDMP"):
             problemas.append("El volcado no tiene el formato de pg_dump.")
+        elif cifrado and clave is not None:
+            claro = descifrar(volcado, clave)
+            if sha256(claro) != v["sha256_claro"] or not claro.startswith(b"PGDMP"):
+                problemas.append("El volcado descifrado no coincide con el manifiesto.")
     except ArchivoNoEncontrado:
         problemas.append("Falta el volcado de la base.")
     for d in manifiesto["documentos"]:
         try:
-            if sha256(alm.leer(ESPACIO, "doc-" + d["clave"])) != d["sha256"]:
-                problemas.append(f"El documento {d['clave'][:8]}… tiene otro SHA-256.")
+            copia = alm.leer(ESPACIO, copia_de(d))
         except ArchivoNoEncontrado:
             problemas.append(f"Falta el documento {d['clave'][:8]}… en la copia.")
+            continue
+        if cifrado:
+            if sha256(copia) != d["sha256_cifrado"] or not copia.startswith(ENCABEZADO_AGE):
+                problemas.append(f"El documento {d['clave'][:8]}… tiene otro SHA-256 (texto cifrado).")
+            elif clave is not None and sha256(descifrar(copia, clave)) != d["sha256"]:
+                problemas.append(f"El documento {d['clave'][:8]}… descifrado tiene otro SHA-256.")
+        elif sha256(copia) != d["sha256"]:
+            problemas.append(f"El documento {d['clave'][:8]}… tiene otro SHA-256.")
     return problemas, manifiesto
 
 
+# --- candado entre respaldo y poda --------------------------------------------------------------------------
+def tomar_candado(alm, ahora: float | None = None) -> bool:
+    """Marca que hay un respaldo en curso; falso si hay otro vigente. Un candado de más de 2 horas se considera abandonado."""
+    ahora = time.time() if ahora is None else ahora
+    for _ in range(2):
+        try:
+            alm.guardar(ESPACIO, CANDADO, json.dumps({"desde": ahora}).encode())
+            return True
+        except ArchivoYaExiste:
+            if candado_vigente(alm, ahora):
+                return False
+            alm.eliminar(ESPACIO, CANDADO)   # abandonado: se retira y se reintenta
+    return False
+
+
+def candado_vigente(alm, ahora: float | None = None) -> bool:
+    ahora = time.time() if ahora is None else ahora
+    try:
+        desde = json.loads(alm.leer(ESPACIO, CANDADO)).get("desde", 0)
+    except (ArchivoNoEncontrado, ValueError):
+        return False
+    return ahora - desde < VIGENCIA_CANDADO
+
+
+def soltar_candado(alm) -> None:
+    alm.eliminar(ESPACIO, CANDADO)
+
+
 # ---------------------------------------------------------------------------------------------------------
+def generar_clave(args) -> int:
+    """Genera el par de claves de age. La privada queda en un archivo temporal que `respaldo.ps1` mueve a la ruta elegida."""
+    from pyrage import x25519
+    TMP.mkdir(parents=True, exist_ok=True)
+    nueva = x25519.Identity.generate()
+    publica = str(nueva.to_public())
+    (TMP / "identidad-nueva.txt").write_text(
+        f"# Clave privada de respaldo (age). Creada {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}\n"
+        f"# Clave pública: {publica}\n{nueva}\n", encoding="utf-8")
+    (TMP / "clave_publica.txt").write_text(publica + "\n", encoding="utf-8")
+    print(f"Par de claves generado. Clave pública: {publica}")
+    return 0
+
+
 def tomar_instantanea(conn) -> dict:
     return {"conteos": conteos(conn), "huella": huella(conn), "instante": time.time()}
 
@@ -153,9 +307,16 @@ def crear(args) -> int:
     alm = origen()
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     id_ = f"{ts}-{args.etiqueta}"
-    if not ID_RESPALDO.fullmatch(id_):
-        print("Etiqueta no válida (minúsculas y números).")
+    if not ID_RESPALDO.fullmatch(id_) or args.etiqueta in ETIQUETAS_PRUEBA:
+        print("Etiqueta no válida (minúsculas y números; las etiquetas de las pruebas de fallos están reservadas).")
         return 1
+    r = None
+    if not args.sin_cifrar:
+        try:
+            r = destinatario()
+        except ClaveNoDisponible as error:
+            print(f"RESPALDO RECHAZADO: {error} El cifrado es obligatorio; solo con datos sintéticos se puede usar --sin-cifrar.")
+            return 1
     volcado = Path(args.volcado).read_bytes()
     if not volcado.startswith(b"PGDMP"):
         print("El archivo no es un volcado de pg_dump en formato personalizado.")
@@ -165,20 +326,38 @@ def crear(args) -> int:
     except (OSError, ValueError) as error:
         print(f"RESPALDO RECHAZADO: falta la instantánea previa al volcado ({error}).")
         return 1
+    if not tomar_candado(alm):
+        print("RESPALDO RECHAZADO: hay otro respaldo en curso (candado vigente en el espacio de respaldos).")
+        return 1
+    try:
+        return _crear(args, alm, ts, id_, r, volcado, previa)
+    finally:
+        soltar_candado(alm)
+
+
+def _crear(args, alm, ts, id_, r, volcado, previa) -> int:
     antes, huella_antes, inicio = previa["conteos"], previa["huella"], previa["instante"]
-    clave_volcado = f"respaldo-{id_}.dump"
-    alm.guardar(ESPACIO, clave_volcado, volcado)
+    sufijo = ".dump.age" if r else ".dump"
+    clave_volcado = f"respaldo-{id_}{sufijo}"
+    almacenado = cifrar(volcado, r) if r else volcado
+    alm.guardar(ESPACIO, clave_volcado, almacenado)
     with conectar() as conn:
         despues, huella_despues, instante_despues = conteos(conn), huella(conn), time.time()
         filas = conn.execute("SELECT clave, sha256, tamano, archivado_en IS NOT NULL FROM documentos ORDER BY created_at").fetchall()
     documentos, depuradas, faltantes, alterados, copiados, reutilizados = [], [], [], [], 0, 0
+    marca = huella_destinatario(r) if r else ""
     for clave, sha, tamano, archivado in filas:
         if archivado:
             depuradas.append(clave)
             continue
-        destino = "doc-" + clave
+        entrada = {"clave": clave, "sha256": sha, "tamano": tamano}
+        if r:
+            entrada["copia"] = f"doc-{clave}.{marca}.age"
+        destino = copia_de(entrada)
         if alm.existe(ESPACIO, destino):
             reutilizados += 1
+            if r:   # el cifrado es aleatorio: la huella del texto cifrado solo se conoce leyendo la copia que ya existe
+                entrada["sha256_cifrado"] = sha256(alm.leer(ESPACIO, destino))
         else:
             try:
                 contenido = alm.leer(DOCUMENTOS, clave)
@@ -188,26 +367,34 @@ def crear(args) -> int:
             if sha256(contenido) != sha:
                 alterados.append(clave)
                 continue
-            alm.guardar(ESPACIO, destino, contenido)
+            guardado = cifrar(contenido, r) if r else contenido
+            alm.guardar(ESPACIO, destino, guardado)
+            if r:
+                entrada["sha256_cifrado"] = sha256(guardado)
             copiados += 1
-        documentos.append({"clave": clave, "sha256": sha, "tamano": tamano})
+        documentos.append(entrada)
     if (faltantes or alterados) and not args.permitir_inconsistencias:
         alm.eliminar(ESPACIO, clave_volcado)   # sin manifiesto el respaldo no existe: se retira el volcado suelto
         print(f"RESPALDO RECHAZADO: {len(faltantes)} documento(s) referenciado(s) sin archivo en el almacenamiento y "
               f"{len(alterados)} con otro SHA-256. La base y los archivos no son coherentes; nada se dio por respaldado.")
         return 2
+    volcado_info = {"clave": clave_volcado, "sha256": sha256(almacenado), "tamano": len(almacenado)}
+    if r:
+        volcado_info.update(sha256_claro=sha256(volcado), tamano_claro=len(volcado))
     manifiesto = {
-        "version": 1, "id": id_, "etiqueta": args.etiqueta, "creado": ts,
+        "version": 2 if r else 1, "id": id_, "etiqueta": args.etiqueta, "creado": ts,
         "instantes": {"conteos_antes_del_volcado": inicio, "conteos_despues_del_volcado": instante_despues, "documentos_listos": time.time()},
         "migraciones": migraciones(),
         "conteos": {"antes": antes, "despues": despues}, "huellas": [huella_antes, huella_despues],
-        "volcado": {"clave": clave_volcado, "sha256": sha256(volcado), "tamano": len(volcado)},
+        "volcado": volcado_info,
         "documentos": documentos, "depuraciones": depuradas,
         "inconsistencias": {"faltantes": faltantes, "alterados": alterados},
         "nota": "Orden: base primero y documentos después; sin credenciales ni identificadores de Drive."}
+    if r:
+        manifiesto["cifrado"] = {"metodo": "age", "destinatario": marca}
     alm.guardar(ESPACIO, f"respaldo-{id_}.json", json.dumps(manifiesto, ensure_ascii=False, indent=1).encode())
-    print(f"Respaldo {id_} creado: volcado {len(volcado)} bytes, {len(documentos)} documento(s) "
-          f"({copiados} copiados, {reutilizados} ya guardados), {len(depuradas)} depurado(s) sin copia.")
+    print(f"Respaldo {id_} creado ({'cifrado con age' if r else 'SIN CIFRAR'}): volcado {len(volcado)} bytes, "
+          f"{len(documentos)} documento(s) ({copiados} copiados, {reutilizados} ya guardados), {len(depuradas)} depurado(s) sin copia.")
     return 0
 
 
@@ -215,15 +402,27 @@ def listar(args) -> int:
     alm = origen()
     for id_ in ids_de(alm):
         m = leer_manifiesto(alm, id_)
-        print(f"{id_}  documentos={len(m['documentos'])}  volcado={m['volcado']['tamano']}")
+        print(f"{id_}  {'cifrado' if cifrado_de(m) else 'SIN CIFRAR'}  documentos={len(m['documentos'])}  volcado={m['volcado']['tamano']}")
     return 0
 
 
 def verificar(args) -> int:
-    problemas, _ = verificar_respaldo(origen(), args.id)
+    clave = None
+    if args.con_clave:
+        try:
+            clave = identidad()
+        except ClaveNoDisponible as error:
+            print(f"PROBLEMA: {error}")
+            return 3
+    try:
+        problemas, _ = verificar_respaldo(origen(), args.id, clave)
+    except ClaveIncorrecta as error:
+        print(f"PROBLEMA: {error}")
+        return 3
     for p in problemas:
         print("PROBLEMA:", p)
-    print("Respaldo íntegro." if not problemas else f"Respaldo NO íntegro ({len(problemas)} problema(s)).")
+    modo = "con la clave privada" if clave is not None else "sin la clave (texto cifrado y huellas)"
+    print(f"Respaldo íntegro ({modo})." if not problemas else f"Respaldo NO íntegro ({len(problemas)} problema(s)).")
     return 0 if not problemas else 2
 
 
@@ -240,21 +439,30 @@ def plan_de_retencion(ids: list[str]) -> set[str]:
 
 def podar(args) -> int:
     alm = origen()
+    if candado_vigente(alm):
+        print("PODA RECHAZADA: hay un respaldo en curso; eliminar copias ahora podría dejarlo incompleto. Repite al terminar.")
+        return 1
     ids = ids_de(alm)
     conservar = plan_de_retencion(ids)
     eliminar = [i for i in ids if i not in conservar]
-    referenciados = {d["clave"] for i in conservar for d in leer_manifiesto(alm, i)["documentos"]}
-    huerfanos = [f["clave"] for f in alm.listar(ESPACIO) if f["clave"].startswith("doc-") and f["clave"][4:] not in referenciados]
+    referenciados = {copia_de(d) for i in conservar for d in leer_manifiesto(alm, i)["documentos"]}
+    huerfanos = [f["clave"] for f in alm.listar(ESPACIO) if f["clave"].startswith("doc-") and f["clave"] not in referenciados]
     print(f"Respaldos: {len(ids)}; se conservan {len(conservar)}, se eliminarían {len(eliminar)} y {len(huerfanos)} copia(s) de documento sin uso.")
     if not args.aplicar:
         print("Simulación: nada se eliminó (use --aplicar).")
         return 0
-    for i in eliminar:
-        m = leer_manifiesto(alm, i)
-        alm.eliminar(ESPACIO, f"respaldo-{i}.json")   # primero el manifiesto: sin él el respaldo deja de existir
-        alm.eliminar(ESPACIO, m["volcado"]["clave"])
-    for clave in huerfanos:
-        alm.eliminar(ESPACIO, clave)
+    if not tomar_candado(alm):   # la poda también marca que trabaja, para que no empiece un respaldo a medias
+        print("PODA RECHAZADA: hay un respaldo en curso.")
+        return 1
+    try:
+        for i in eliminar:
+            m = leer_manifiesto(alm, i)
+            alm.eliminar(ESPACIO, f"respaldo-{i}.json")   # primero el manifiesto: sin él el respaldo deja de existir
+            alm.eliminar(ESPACIO, m["volcado"]["clave"])
+        for clave in huerfanos:
+            alm.eliminar(ESPACIO, clave)
+    finally:
+        soltar_candado(alm)
     print("Poda aplicada.")
     return 0
 
@@ -272,6 +480,8 @@ def carpeta_restauracion(args) -> int:
 
 
 def descartar_carpeta(args) -> int:
+    if not exigir_entorno_restauracion("descartar-carpeta"):
+        return 1
     from app.infrastructure.storage import credenciales
     destino = (TMP / "destino.id").read_text(encoding="utf-8").strip()
     drive = credenciales.fabrica_servicio()
@@ -285,13 +495,29 @@ def descartar_carpeta(args) -> int:
     return 0
 
 
+def _clave_para(manifiesto: dict):
+    """La clave privada, solo si el respaldo está cifrado; con mensaje claro si falta o no corresponde."""
+    return identidad() if cifrado_de(manifiesto) else None
+
+
 def restaurar_documentos(args) -> int:
     """Se ejecuta con la base restaurada y el almacenamiento (DRIVE_CARPETA_ID) del destino aislado."""
-    alm, destino = origen(), get_storage()
-    if os.environ.get("RESPALDO_ORIGEN_CARPETA", "").strip() == os.environ.get("DRIVE_CARPETA_ID", "").strip():
-        print("Se niega a restaurar sobre la misma carpeta que contiene los respaldos.")
+    if not exigir_entorno_restauracion("restaurar-documentos"):
         return 1
-    problemas, manifiesto = verificar_respaldo(alm, args.id)
+    alm, destino = origen(), get_storage()
+    try:
+        manifiesto = leer_manifiesto(alm, args.id)
+        clave = _clave_para(manifiesto)
+        problemas, manifiesto = verificar_respaldo(alm, args.id, clave)
+    except ClaveNoDisponible as error:
+        print(f"RESTAURACIÓN RECHAZADA: {error}")
+        return 3
+    except ClaveIncorrecta as error:
+        print(f"RESTAURACIÓN RECHAZADA: {error}")
+        return 3
+    except ArchivoNoEncontrado:
+        print(f"RESTAURACIÓN RECHAZADA: el respaldo {args.id} no tiene manifiesto.")
+        return 2
     if problemas:
         for p in problemas:
             print("PROBLEMA:", p)
@@ -300,27 +526,34 @@ def restaurar_documentos(args) -> int:
     # Registro de depuraciones: el del respaldo más reciente (o el indicado) para que lo eliminado a propósito no reaparezca.
     registro_id = args.registro or ids_de(alm)[0]
     depuradas = set(leer_manifiesto(alm, registro_id)["depuraciones"]) | set(manifiesto["depuraciones"])
-    en_manifiesto = {d["clave"] for d in manifiesto["documentos"]}
+    en_manifiesto = {d["clave"]: d for d in manifiesto["documentos"]}
     with conectar() as conn:
         filas = conn.execute("SELECT clave, sha256, archivado_en IS NOT NULL FROM documentos").fetchall()
     copiados = omitidos = 0
-    for clave, sha, archivado in filas:
-        if archivado or clave in depuradas:
+    for clave_doc, sha, archivado in filas:
+        if archivado or clave_doc in depuradas:
             omitidos += 1
             continue
-        if clave not in en_manifiesto:
-            print(f"PROBLEMA: la base restaurada referencia un documento que el respaldo no copió ({clave[:8]}…).")
+        if clave_doc not in en_manifiesto:
+            print(f"PROBLEMA: la base restaurada referencia un documento que el respaldo no copió ({clave_doc[:8]}…).")
             return 2
-        contenido = alm.leer(ESPACIO, "doc-" + clave)
-        destino.guardar(DOCUMENTOS, clave, contenido)
+        contenido = alm.leer(ESPACIO, copia_de(en_manifiesto[clave_doc]))
+        if clave is not None:
+            contenido = descifrar(contenido, clave)
+        if sha256(contenido) != sha:
+            print(f"PROBLEMA: el documento {clave_doc[:8]}… restaurado tiene otro SHA-256 que la base.")
+            return 2
+        destino.guardar(DOCUMENTOS, clave_doc, contenido)
         copiados += 1
-    for clave in depuradas:       # lo depurado se elimina de nuevo si reapareciera
-        destino.eliminar(DOCUMENTOS, clave)
+    for clave_doc in depuradas:       # lo depurado se elimina de nuevo si reapareciera
+        destino.eliminar(DOCUMENTOS, clave_doc)
     print(f"Documentos restaurados: {copiados}; omitidos por archivados o depurados: {omitidos}.")
     return 0
 
 
 def verificar_restauracion(args) -> int:
+    if not exigir_entorno_restauracion("verificar-restauracion"):
+        return 1
     import httpx
     from psycopg.types.json import Jsonb
     from app.infrastructure.security.jwt_passwords import hash_password
@@ -383,19 +616,24 @@ def verificar_restauracion(args) -> int:
                         descargas += 1
     for e in errores:
         print("ERROR:", e)
-    print(f"Restauración {'VERIFICADA' if not errores else 'CON ERRORES'}: referencias comprobadas {referencias}, "
+    print(f"Restauración {'VERIFICADA' if not errores else 'CON ERRORES'}"
+          f"{' (respaldo cifrado)' if cifrado_de(manifiesto) else ' (respaldo SIN CIFRAR)'}: referencias comprobadas {referencias}, "
           f"depurados tras el respaldo {depurados_despues}, descargas de muestra correctas {descargas}.")
     return 0 if not errores else 2
 
 
 def probar_fallos(args) -> int:
-    """AC5: respaldos alterados a propósito (copias del manifiesto) deben detectarse. Se eliminan al terminar."""
+    """AC5: respaldos alterados a propósito (copias del manifiesto) deben detectarse. Se eliminan al terminar.
+
+    Las variantes usan etiquetas reservadas: no cuentan para la retención ni como «el más reciente».
+    """
     alm = origen()
     base = leer_manifiesto(alm, args.id)
     if not base["documentos"]:
         print("Se necesita un respaldo con al menos un documento.")
         return 1
     creados, resultados = [], {}
+    cifrado = cifrado_de(base)
 
     def variante(nombre, cambio, volcado=None):
         id_ = f"{base['creado']}-{nombre}"
@@ -403,16 +641,26 @@ def probar_fallos(args) -> int:
         m["id"] = id_
         cambio(m)
         if volcado is not None:
-            alm.guardar(ESPACIO, f"respaldo-{id_}.dump", volcado)
-            m["volcado"] = {"clave": f"respaldo-{id_}.dump", "sha256": sha256(volcado), "tamano": len(volcado)}
+            sufijo = ".dump.age" if cifrado else ".dump"
+            alm.guardar(ESPACIO, f"respaldo-{id_}{sufijo}", volcado)
+            m["volcado"] = {"clave": f"respaldo-{id_}{sufijo}", "sha256": sha256(volcado), "tamano": len(volcado)}
         alm.guardar(ESPACIO, f"respaldo-{id_}.json", json.dumps(m).encode())
-        creados.append(id_)
+        creados.append((id_, m["volcado"]["clave"]))
         return id_
 
+    def inexistente(m):
+        extra = {"clave": "inexistente-" + secrets.token_hex(6) + ".pdf", "sha256": "0" * 64, "tamano": 1}
+        if cifrado:
+            extra.update(sha256_cifrado="0" * 64, copia=f"doc-{extra['clave']}.x.age")
+        m["documentos"].append(extra)
+
+    def otro_hash(m):
+        m["documentos"][0].update({"sha256_cifrado" if cifrado else "sha256": "f" * 64})
+
     try:
-        faltante = variante("faltante", lambda m: m["documentos"].append({"clave": "inexistente-" + secrets.token_hex(6) + ".pdf", "sha256": "0" * 64, "tamano": 1}))
-        distinto = variante("hash", lambda m: m["documentos"][0].update(sha256="f" * 64))
-        danado = variante("danado", lambda m: None, volcado=b"PGDMP" + secrets.token_bytes(64))
+        faltante = variante("faltante", inexistente)
+        distinto = variante("hash", otro_hash)
+        danado = variante("danado", lambda m: None, volcado=(ENCABEZADO_AGE + secrets.token_bytes(64)) if cifrado else b"PGDMP" + secrets.token_bytes(64))
         alterado = variante("alterado", lambda m: m["volcado"].update(sha256="e" * 64))
         sin_manifiesto_id = f"{base['creado']}-sinmanifiesto"
         for nombre, id_ in (("documento faltante", faltante), ("SHA-256 distinto", distinto), ("volcado alterado", alterado),
@@ -421,11 +669,11 @@ def probar_fallos(args) -> int:
             resultados[nombre] = bool(problemas)
         print("DANADO_ID", danado)
     finally:
-        for id_ in creados:
+        for id_, clave_volcado in creados:
             if id_ != danado:
-                for clave in (f"respaldo-{id_}.json", f"respaldo-{id_}.dump"):
+                for clave in (f"respaldo-{id_}.json", clave_volcado):
                     alm.eliminar(ESPACIO, clave)
-        # el variante «dañado» queda para que respaldo.ps1 pruebe pg_restore --list; lo retira el procedimiento
+        # el variante «dañado» queda para que respaldo.ps1 pruebe pg_restore --list; lo retira `quitar-prueba`
     for nombre, detectado in resultados.items():
         print(f"  {nombre}: {'detectado' if detectado else 'NO DETECTADO'}")
     return 0 if all(resultados.values()) else 2
@@ -433,33 +681,56 @@ def probar_fallos(args) -> int:
 
 def quitar_prueba(args) -> int:
     alm = origen()
-    for clave in (f"respaldo-{args.id}.json", f"respaldo-{args.id}.dump"):
-        alm.eliminar(ESPACIO, clave)
+    if not es_prueba(args.id):
+        print("Solo se quitan variantes de prueba (etiquetas reservadas de probar-fallos); un respaldo real se elimina con `podar`.")
+        return 1
+    for sufijo in (".json", ".dump", ".dump.age"):
+        alm.eliminar(ESPACIO, f"respaldo-{args.id}{sufijo}")
     return 0
 
 
 def descargar_volcado(args) -> int:
+    """Verifica el respaldo y deja el volcado (descifrado si hace falta) en el archivo temporal para restaurar."""
     alm = origen()
-    problemas, manifiesto = verificar_respaldo(alm, args.id) if not args.sin_verificar else ([], leer_manifiesto(alm, args.id))
+    try:
+        manifiesto = leer_manifiesto(alm, args.id)
+        clave = _clave_para(manifiesto)
+        problemas, manifiesto = verificar_respaldo(alm, args.id, clave) if not args.sin_verificar else ([], manifiesto)
+    except ClaveNoDisponible as error:
+        print(f"PROBLEMA: {error}")
+        return 3
+    except ClaveIncorrecta as error:
+        print(f"PROBLEMA: {error}")
+        return 3
+    except ArchivoNoEncontrado:
+        print(f"PROBLEMA: el respaldo {args.id} no tiene manifiesto.")
+        return 2
     if problemas:
         for p in problemas:
             print("PROBLEMA:", p)
         return 2
     TMP.mkdir(parents=True, exist_ok=True)
-    (TMP / "restaurar.dump").write_bytes(alm.leer(ESPACIO, manifiesto["volcado"]["clave"]))
-    print(f"Volcado del respaldo {args.id} listo para restaurar.")
+    contenido = alm.leer(ESPACIO, manifiesto["volcado"]["clave"])
+    if clave is not None:
+        contenido = descifrar(contenido, clave)
+    (TMP / "restaurar.dump").write_bytes(contenido)
+    print(f"Volcado del respaldo {args.id} listo para restaurar ({'descifrado' if clave is not None else 'sin cifrar'}).")
     return 0
 
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = p.add_subparsers(dest="orden", required=True)
+    sub.add_parser("generar-clave").set_defaults(f=generar_clave)
     s = sub.add_parser("instantanea"); s.add_argument("--salida", default="antes.json"); s.set_defaults(f=instantanea)
     s = sub.add_parser("crear"); s.add_argument("--volcado", required=True); s.add_argument("--etiqueta", default="semanal")
     s.add_argument("--antes", default="antes.json", help="instantánea tomada antes del volcado (en la carpeta temporal)")
+    s.add_argument("--sin-cifrar", action="store_true", help="solo con datos sintéticos")
     s.add_argument("--permitir-inconsistencias", action="store_true"); s.set_defaults(f=crear)
     sub.add_parser("listar").set_defaults(f=listar)
-    s = sub.add_parser("verificar"); s.add_argument("--id", required=True); s.set_defaults(f=verificar)
+    s = sub.add_parser("verificar"); s.add_argument("--id", required=True)
+    s.add_argument("--con-clave", action="store_true", help="descifra y compara también el contenido (necesita la clave privada)")
+    s.set_defaults(f=verificar)
     s = sub.add_parser("podar"); s.add_argument("--aplicar", action="store_true"); s.set_defaults(f=podar)
     sub.add_parser("carpeta-restauracion").set_defaults(f=carpeta_restauracion)
     sub.add_parser("descartar-carpeta").set_defaults(f=descartar_carpeta)

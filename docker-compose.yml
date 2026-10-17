@@ -98,6 +98,9 @@ services:
     environment:
       <<: *api-environment
       RESPALDO_ORIGEN_CARPETA: ${RESPALDO_ORIGEN_CARPETA:-}
+      # C13: clave PÚBLICA de age (la privada nunca entra al contenedor salvo la copia temporal de restaurar.ps1) y entorno de restauración.
+      RESPALDO_CLAVE_PUBLICA: ${RESPALDO_CLAVE_PUBLICA:-}
+      RESPALDO_ENTORNO: ${RESPALDO_ENTORNO:-}
       RESPALDO_TMP: /tmp/respaldo
       API_URL: http://api:8000
     volumes:

@@ -1,6 +1,6 @@
 # Guía de uso y operación del piloto
 
-Estado: escrita en C10 (2026-10-17) y seguida con comandos reales en la validación de C10; ver
+Estado: escrita en C10 y ampliada en C13 (2026-10-17) y seguida con comandos reales en la validación de C10; ver
 [evidencia C10](../../specs/C10-validacion-integral-local/evidencia.md) para lo que se probó y lo que no. Está pensada
 para el responsable del piloto (coordinador y encargado de la máquina). No requiere hospedaje: el sistema corre en
 Docker en un equipo y los archivos viven en Drive. **Sin garantía de disponibilidad**: si el equipo se apaga, el
@@ -65,37 +65,100 @@ escribiendo la frase de confirmación que la pantalla indica; hay una **gracia d
 fondo elimina de Drive solo los PDF cubiertos por el paquete (aprobado vigente, original y firmado). Notas, promedios, historial y
 filas se conservan. Una depuración no alcanza a los respaldos (sección 6), que la restauración vuelve a aplicar.
 
-## 6. Respaldo y restauración (DP-11)
+## 6. Respaldo y restauración (DP-11; cifrado en C13)
 
 **Política aprobada el 2026-10-17:** el responsable del proyecto ejecuta y vigila los respaldos; una copia semanal y otra antes
 de cada finalización de período o depuración; se conservan las 8 copias más recientes y la más antigua de cada uno de los 4
 meses más recientes; **una prueba de restauración por trimestre** en un destino aislado; el destino es Drive (espacio `respaldos`);
-la automatización queda fuera de alcance (ADR-08). Las copias **no van cifradas** (D3): válido solo con datos sintéticos; antes
-de usar datos reales hay que cifrar el volcado con una clave que se guarde aparte.
+la automatización queda fuera de alcance (ADR-08). Desde C13 **todo respaldo va cifrado con age** (D1): el volcado y cada
+documento se cifran antes de subirse y Drive solo guarda texto cifrado. La máquina que respalda conoce solo la **clave pública**;
+la **clave privada** la guarda el responsable fuera del equipo y de Drive y solo se necesita para restaurar.
+
+### 6.1 Clave de cifrado: crearla, guardarla y probarla
+
+1. **Crear el par (una sola vez):** `./scripts/respaldo.ps1 -Orden generar-clave -Salida <ruta>` con una ruta **fuera del repositorio**
+   (por ejemplo una carpeta de tu usuario o una memoria USB). La clave privada queda en esa ruta (solo tu usuario la puede leer) y la
+   pública en `.secretos\respaldo_clave_publica.txt`. El comando no sobrescribe una clave existente y nunca imprime la privada.
+2. **Guardarla (lo más importante):** copia el archivo de la clave privada a **dos lugares distintos fuera de este equipo y de
+   Drive**: un gestor de contraseñas o una memoria USB cifrada, y una **copia sellada** (impresa o en una memoria USB, en un sobre
+   cerrado) con una segunda persona designada por la universidad, para que los respaldos no dependan de una sola persona (decisión D1).
+   No la subas a Drive, al repositorio, a un chat ni al correo.
+3. **Probarla:** después de guardarla, comprueba que se puede usar: `./scripts/respaldo.ps1 -Orden verificar -Id <id> -Identidad <ruta>`
+   descifra el volcado y los documentos y compara sus SHA-256. Hazlo con cada copia de la clave y en cada prueba trimestral.
+4. **Si se pierde la clave privada, no hay forma de restaurar los respaldos cifrados** (age no tiene puerta trasera): los respaldos
+   anteriores quedan ilegibles y hay que empezar de nuevo con un par nuevo (procedimiento en el paso 6). Si se sospecha que la clave
+   se filtró, se hace lo mismo y, cuando el respaldo nuevo esté verificado, se eliminan los anteriores (`podar` no sirve para esto:
+   se retiran a mano los respaldos viejos del espacio de respaldos de Drive).
+5. **Rotación:** al cambiar el par, los respaldos nuevos usan la clave nueva (las copias de documentos llevan la huella del
+   destinatario en su nombre y no se mezclan); conserva la clave anterior mientras existan respaldos hechos con ella.
+6. **Crear un par nuevo cuando ya existe uno** (pérdida, filtración o rotación). `generar-clave` no sobrescribe nada, así que:
+   1. Cambia de nombre `.secretos\respaldo_clave_publica.txt` (por ejemplo a `respaldo_clave_publica.2026-10-17.txt`). No lo borres
+      mientras existan respaldos hechos con esa clave: te sirve para saber con cuál se hicieron.
+   2. Ejecuta `./scripts/respaldo.ps1 -Orden generar-clave -Salida <otra ruta>` (una ruta distinta a la de la clave anterior).
+   3. Guarda la clave privada nueva como en los pasos 1 y 2 (dos lugares y copia sellada).
+   4. Haz un respaldo (`./scripts/respaldo.ps1`) y compruébalo con la clave nueva:
+      `./scripts/respaldo.ps1 -Orden verificar -Id <id> -Identidad <ruta nueva>`; anota la fecha del cambio en
+      [REGISTRO_DE_RESPALDOS.md](REGISTRO_DE_RESPALDOS.md).
+   5. Los respaldos hechos con la clave anterior se siguen restaurando solo con esa clave anterior; si se perdió, ya no se pueden
+      abrir: cuando el nuevo esté verificado y haya pasado la prueba de restauración, elimínalos a mano de Drive.
 
 | Qué | Orden (PowerShell, desde la carpeta del proyecto) |
 |---|---|
-| Respaldo semanal | `./scripts/respaldo.ps1` |
+| Respaldo semanal (cifrado) | `./scripts/respaldo.ps1` |
 | Antes de finalizar / depurar | `./scripts/respaldo.ps1 -Etiqueta periodo` / `-Etiqueta depuracion` |
-| Ver respaldos | `./scripts/respaldo.ps1 -Orden listar` |
-| Comprobar uno (manifiesto, volcado, SHA-256 de cada documento) | `./scripts/respaldo.ps1 -Orden verificar -Id <id>` |
+| Ver respaldos (cifrado o SIN CIFRAR) | `./scripts/respaldo.ps1 -Orden listar` |
+| Comprobar uno sin la clave (manifiesto, volcado y SHA-256 del texto cifrado) | `./scripts/respaldo.ps1 -Orden verificar -Id <id>` |
+| Comprobarlo con la clave (descifra y compara el contenido) | `./scripts/respaldo.ps1 -Orden verificar -Id <id> -Identidad <ruta>` |
 | Retención (simulación; `-Aplicar` elimina de verdad) | `./scripts/respaldo.ps1 -Orden podar` |
-| Prueba de restauración aislada | `./scripts/restaurar.ps1 -Id <id> -Descartar` |
+| Prueba de restauración aislada | `./scripts/restaurar.ps1 -Id <id> -Identidad <ruta> -Descartar` |
+| Solo con datos sintéticos: respaldo sin cifrar | `./scripts/respaldo.ps1 -SinCifrar` |
 
-- El respaldo sube a Drive el volcado de PostgreSQL, una copia de cada documento (sin repetir los ya guardados) y un manifiesto
-  con fecha, huellas de migraciones, conteos, SHA-256 y el registro de depuraciones. Primero se vuelca la base y después se copian
-  los documentos. **Se rechaza** (código 2) si la base referencia documentos que no están en Drive: nada se da por respaldado.
-  El volcado pasa por `.respaldo-tmp/` (ignorada por git) y se elimina al terminar.
+- El respaldo sube a Drive el volcado de PostgreSQL y una copia de cada documento (cifrados, sin repetir los ya guardados) y un
+  manifiesto con fecha, método de cifrado, huellas de migraciones, conteos, SHA-256 y el registro de depuraciones. Primero se vuelca
+  la base y después se copian los documentos. **Se rechaza** (código 2) si la base referencia documentos que no están en Drive, y
+  **sin clave pública el respaldo se rechaza** (código 1): nada se da por respaldado. El volcado y la copia temporal de la clave
+  pasan por `.respaldo-tmp/` (ignorada por git) y se eliminan al terminar, también si algo falla.
+- **Un respaldo en curso bloquea la poda** y viceversa (un candado en el espacio de respaldos; se considera abandonado a las 2 horas).
 - La restauración **nunca** toca la base ni la carpeta vivas: crea una carpeta de Drive nueva, un proyecto Compose aparte
-  (`c10-restauracion`, base nueva, API en el puerto 8101), restaura el volcado, copia los documentos, vuelve a eliminar lo que
-  una depuración posterior ya había borrado y verifica conteos, huellas de notas y revisiones, SHA-256 de cada documento y una
-  muestra de descargas por la API restaurada. `-Descartar` elimina al final el proyecto de prueba y la carpeta de Drive.
+  (`c10-restauracion`, base nueva, API en el puerto 8101), descifra y restaura el volcado, descifra y copia los documentos, vuelve a
+  eliminar lo que una depuración posterior ya había borrado y verifica conteos, huellas de notas y revisiones, SHA-256 de cada
+  documento y una muestra de descargas por la API restaurada. **Sin la clave, o con una incorrecta, se rechaza antes de crear nada.**
+  `-Descartar` elimina al final el proyecto de prueba y la carpeta de Drive. Los respaldos sin cifrar anteriores a C13 (`version 1`)
+  se siguen pudiendo comprobar y restaurar (sin `-Identidad`) y se muestran como «SIN CIFRAR».
+- Los subcomandos de `respaldo.py` que escriben en una base o en una carpeta (`restaurar-documentos`, `verificar-restauracion`,
+  `descartar-carpeta`) solo corren dentro de `restaurar.ps1`; fuera se niegan. `probar-fallos` crea variantes alteradas a propósito de
+  un respaldo (etiquetas reservadas: no cuentan para la retención ni como «el más reciente») para comprobar que se detectan y
+  `quitar-prueba --id <id>` retira una variante que haya quedado; no se usan en la operación normal.
 - **Dónde anotar:** cada respaldo relevante y cada prueba de restauración se anotan en
-  [REGISTRO_DE_RESPALDOS.md](REGISTRO_DE_RESPALDOS.md) (fecha, id, resultado, quién). Un respaldo sin prueba de restauración no se
-  declara recuperable.
-- Para **recuperar de verdad** tras perder el equipo: instalar (sección 2) con la misma carpeta de Drive y el mismo permiso,
-  y restaurar el último respaldo íntegro; la restauración de prueba ensaya exactamente esos pasos.
+  [REGISTRO_DE_RESPALDOS.md](REGISTRO_DE_RESPALDOS.md) (fecha, id, resultado, quién). Un respaldo sin prueba de restauración con la
+  clave no se declara recuperable.
+- Para **recuperar de verdad** tras perder el equipo: instalar (sección 2) con la misma carpeta de Drive y el mismo permiso, y
+  restaurar el último respaldo íntegro con la clave privada; la restauración de prueba ensaya exactamente esos pasos.
 
+### 6.2 Lista de comprobación antes de usar datos reales
+
+Marca cada punto antes de cargar datos de alumnos (decisión del responsable; no es una autorización de publicar el sistema):
+
+- [ ] Base **nueva** (ADR-09): no se migran datos de la demostración ni de pruebas.
+- [ ] Par de claves creado, clave privada guardada en dos lugares fuera del equipo y copia sellada con la segunda persona (6.1).
+- [ ] Un respaldo **cifrado** hecho, `verificar -Identidad` correcto con **cada** copia de la clave y una **prueba de restauración**
+      aislada con la clave anotada en el registro de respaldos.
+- [ ] Ningún respaldo `SIN CIFRAR` con datos reales (`listar` los muestra) y `.respaldo-tmp/` vacía.
+- [ ] Cuenta de Drive definitiva: **cuenta de Workspace de la universidad** con la aplicación «interna» (sin caducidad semanal; ver 6.3).
+      Con la aplicación en modo de prueba el permiso caduca cada 7 días y no sirve para datos reales.
+- [ ] Cuentas iniciales: coordinador con contraseña propia y cambio obligatorio en el primer ingreso; tutores creados por el coordinador.
+- [ ] Respaldos programados por el responsable: semanal y antes de cada finalización o depuración; prueba de restauración trimestral.
+- [ ] Qué hacer si se pierde la clave privada o el acceso a Drive: leído por el responsable y por la segunda persona (6.1 y sección 7).
+- [ ] Hospedaje, aviso de privacidad y consentimiento de datos personales: **decisiones fuera de este repositorio**; no se publica el
+      sistema hasta resolverlas (se investigan aparte, con límites actuales y consentimiento de publicación).
+
+### 6.3 Acceso a Drive sin caducidad semanal (pendiente de la cuenta)
+
+C13 deja preparado el cambio, pero **no se pudo verificar** porque todavía no hay una cuenta de Workspace de la universidad. Cuando
+exista: crear el proyecto de Google Cloud dentro de esa organización, configurar la pantalla de consentimiento como **interna**,
+crear el cliente OAuth «Aplicación de escritorio», guardar su JSON como `.secretos/client_secret.json` y ejecutar de nuevo la
+autorización (sección 2, paso 4) con la cuenta institucional; no cambia ningún caso de uso. Después comprobar que `/health` sigue en
+`ok` más de 7 días. Hasta entonces el sistema solo sirve con datos sintéticos.
 ## 7. Si algo falla
 
 | Síntoma | Causa probable | Qué hacer |
@@ -103,7 +166,8 @@ de usar datos reales hay que cifrar el volcado con una clave que se guarde apart
 | Entregas y descargas responden «El almacenamiento de archivos no está disponible» | Permiso de Drive caducado, sin red o cuota llena | `/health`: `token_caducado` → reautorizar (sección 2); `cuota` → liberar espacio en Drive; `red` → reintentar |
 | Una descarga responde 404 «Archivo PDF no encontrado» o un error de integridad | El archivo falta en Drive o su SHA-256 no coincide con el registrado | No se entrega nada; restaurar desde un respaldo y avisar al responsable |
 | `Demasiados intentos` al iniciar sesión | Límite de 8 inicios por 5 minutos | Esperar unos minutos |
-| El respaldo termina con «RESPALDO RECHAZADO» | Hay documentos referenciados que no están en Drive | Revisar la lista; no corregir a mano la base; restaurar o avisar |
+| El respaldo termina con «RESPALDO RECHAZADO» | Hay documentos referenciados que no están en Drive, falta la clave pública o hay otro respaldo en curso | Revisar el mensaje; no corregir a mano la base; sin clave pública, crear el par (6.1) |
+| La restauración dice «falta la clave privada» o «no corresponde» | No se pasó -Identidad o es de otro par | Usar la clave privada con la que se hizo el respaldo; si se perdió, no hay recuperación (6.1) |
 | Un contenedor no arranca | Revisar `docker compose logs --tail 100 api postgres web` (sin compartir datos personales) | No usar `down -v`: borra la base |
 
 ## 8. Límites conocidos y qué no se validó
@@ -111,5 +175,5 @@ de usar datos reales hay que cifrar el volcado con una clave que se guarde apart
 - Datos sintéticos únicamente; una restauración de prueba no demuestra la recuperación de una producción.
 - Hospedaje, otros proveedores y **móvil físico**: NO_VERIFICADOS. Vista móvil solo emulada en un navegador.
 - El permiso de Drive en modo de prueba caduca cada 7 días; la cuota gratuita y los límites reales de Drive no se ejercieron a escala.
-- Las copias antiguas ya entregadas a terceros no se pueden recuperar; los respaldos no están cifrados (D3).
-- Interfaz: C11 corrigió los hallazgos H1 a H3 de C10 (desborde móvil, contraste y tablas). Quedan el hallazgo H4 (listas desplegables sin nombre accesible) y reglas de buenas prácticas de axe sin corregir; ver la evidencia de C11. Sin lector de pantalla real ni móvil físico.
+- Las copias antiguas ya entregadas a terceros no se pueden recuperar. Los respaldos se cifran con age (C13); sin la clave privada no se pueden restaurar. La base viva y el tráfico no se cifran en reposo (hospedaje).
+- Interfaz: C11 corrigió los hallazgos H1 a H3 de C10 (desborde móvil, contraste y tablas). C12 corrigió H4 y las reglas de estructura de axe; queda el hallazgo H5 (manejo del foco de los diálogos) y la prueba con lector de pantalla, que no se hizo ([guía](GUIA_PRUEBA_LECTOR_DE_PANTALLA.md) por si se hace después). Sin móvil físico.

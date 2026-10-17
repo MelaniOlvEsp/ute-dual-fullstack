@@ -34,6 +34,7 @@ Los requisitos confirmados prevalecen sobre el comportamiento heredado. Una prop
 - [Validación y operación local](construction/VALIDACION_Y_OPERACION_LOCAL.md)
 - [Guía de uso y operación del piloto](construction/GUIA_DE_USO_Y_OPERACION.md)
 - [Registro de respaldos y pruebas de restauración](construction/REGISTRO_DE_RESPALDOS.md)
+- [Guía de prueba con lector de pantalla](construction/GUIA_PRUEBA_LECTOR_DE_PANTALLA.md)
 - [Índice de specs](../specs/README.md)
 - [Plantilla de spec](../specs/_template/spec.md)
 - [C01: base local](../specs/C01-base-local/spec.md)
