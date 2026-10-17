@@ -14,7 +14,7 @@ Estado inicial: documentación creada; ningún incremento implementado o aceptad
 | C06 — Revisión y firma | Correcciones trazables, rechazo con nota y firmado visualmente validado. | US-08; AC-12/13 | C05; DP-02/07/08 |
 | C07 — Cierre y calificación | Cierre manual de recepción, revisión posterior, finalización y promedio. | US-11/12; AC-14/15/16/17/18 | C06; DP-04/11 |
 | C08 — Expediente y visor | Historia propia y del personal, descarga privada y visor fiable. | US-10/11; AC-04/19/20 | C07 |
-| C08B — Archivo y depuración | Depuración de los archivos de un período tras descargar el paquete ZIP: advertencia, confirmación y «Conservar todo»; se conservan notas, promedios y el historial. | DP-14 (RN-25/RN-29) | C08 DONE; DP-14 resuelta 2026-10-16 (detalle y respaldos DP-11 al redactar la spec) |
+| C08B — Archivo y depuración | Depuración de los archivos de un período tras descargar el paquete ZIP: advertencia, confirmación y «Conservar todo»; se conservan notas, promedios y el historial. | DP-14 (RN-25/RN-29) | C08 DONE (2026-10-16); DP-14 resuelta 2026-10-16 (detalle y respaldos DP-11 al redactar la spec) |
 | C09 — Foro, buzón y plantillas | Entrada al foro, conversación funcional y pareja Word/PDF administrable. | US-05/13/14; AC-21/22/23 | C08; DP-09 |
 | C10 — Validación integral local | Recorrido completo, controles negativos, restauración, guía de uso y operación. | Todas; AC-24 | C09; responsable/retención DP-11 |
 
@@ -38,7 +38,7 @@ DP-01/03/04: antes del calendario. Resueltas el 2026-10-15 para C04: DP-01 compl
 DP-05: resuelta el 2026-10-15; conservar catálogo, abreviaciones y nomenclatura de la base institucional y aplicar la promoción aprobada.
 DP-06/08: antes de carga de reportes. DP-08, DP-12 (fechas declaradas: solo inicio ≤ fin) y DP-13 (entrega solo con período abierto) resueltas el 2026-10-15 para C05; DP-06 solo afecta el tratamiento especial de períodos vacacionales, que C05 no incluye.
 DP-02/07: antes de revisión/firma. La spec C06 pasó a READY el 2026-10-16 y a IN_PROGRESS el mismo día (C05 DONE); DP-02, DP-07 y DP-08 ya están resueltas (DP-02/07 el 2026-10-16).
-DP-11: antes de cierre/uso real. La spec C07 se cerró el 2026-10-16 (DP-04, DP-03 y DP-11 resueltas el mismo día). La spec C08 está en DRAFT desde el 2026-10-16 con la exportación ZIP y el visor decididos (DP-14 define el archivo y la depuración, que se implementa en C08B); falta la orden de pasar a READY.
+DP-11: antes de cierre/uso real. La spec C07 se cerró el 2026-10-16 (DP-04, DP-03 y DP-11 resueltas el mismo día). La spec C08 se cerró el 2026-10-16 (exportación ZIP y visor implementados; DP-14 define el archivo y la depuración, que se implementa en C08B). La spec C08B está en DRAFT desde ese día, con tres decisiones bloqueantes (alcance y prueba de la copia, quién depura y relación con la ventana del alumno).
 DP-09: antes de cerrar comunicación.
 
 ## Alcance de la documentación actual
