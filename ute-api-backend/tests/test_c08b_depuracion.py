@@ -10,6 +10,9 @@ from uuid import uuid4
 from app.application.errors import ApplicationError
 from app.application.use_cases.dual import archivado, expediente, paquetes, purgas
 from app.infrastructure.documents import dual_reports
+from app.infrastructure.storage import registro
+from app.infrastructure.storage.base import AlmacenamientoNoDisponible
+from app.infrastructure.storage.memoria import MemoriaAlmacenamiento
 
 FINALIZADA = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
 AHORA = datetime(2026, 10, 3, 12, 0, tzinfo=timezone.utc)
@@ -327,18 +330,24 @@ class ResumenTests(unittest.IsolatedAsyncioTestCase):
 
 class AlmacenamientoTests(unittest.IsolatedAsyncioTestCase):
     async def test_purgar_documento_deletes_is_idempotent_and_rejects_foreign_keys(self):
-        with tempfile.TemporaryDirectory() as raiz:
-            clave = "a" * 32 + ".pdf"
-            with patch.object(dual_reports, "_raiz", return_value=Path(raiz)):
-                destino = dual_reports.ruta_documento(clave)
-                destino.parent.mkdir(parents=True)
-                destino.write_bytes(b"%PDF")
-                self.assertTrue(await dual_reports.purgar_documento(clave))
-                self.assertFalse(destino.exists())
-                self.assertFalse(await dual_reports.purgar_documento(clave), "Un archivo ausente cuenta como eliminado")
-                with self.assertRaises(ApplicationError):
-                    await dual_reports.purgar_documento("../../etc/passwd")
+        clave = "a" * 32 + ".pdf"
+        memoria = MemoriaAlmacenamiento()
+        with registro.usar(memoria):
+            memoria.guardar("documentos", clave, b"%PDF")
+            self.assertTrue(await dual_reports.purgar_documento(clave))
+            self.assertFalse(memoria.existe("documentos", clave))
+            self.assertFalse(await dual_reports.purgar_documento(clave), "Un archivo ausente cuenta como eliminado")
+            with self.assertRaises(ApplicationError):
+                await dual_reports.purgar_documento("../../etc/passwd")
 
+    async def test_an_unavailable_storage_propagates_so_the_purge_stays_pending(self):
+        class Caido(MemoriaAlmacenamiento):
+            def eliminar(self, espacio, clave):
+                raise AlmacenamientoNoDisponible("sin red", "red")
+
+        with registro.usar(Caido()):
+            with self.assertRaises(OSError):
+                await dual_reports.purgar_documento("b" * 32 + ".pdf")
 
 class SqlContractTests(unittest.TestCase):
     def test_migration_009_protects_documents_and_the_purge_registry(self):

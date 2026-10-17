@@ -217,7 +217,7 @@ def runtime_con(cursor, falla=None, modo="celda"):
         estampar_firma=lambda pdf, firma, nombre: (b"%PDF-firmado", modo),
         inspeccionar_pdf=lambda contenido: 2,
         guardar_documento=AsyncMock(return_value={
-            "clave": "b" * 32 + ".pdf", "ruta": "/almacen/b.pdf", "tamano": 12, "sha256": "e" * 64}),
+            "clave": "b" * 32 + ".pdf", "tamano": 12, "sha256": "e" * 64}),
         eliminar_documento=AsyncMock(),
     )
     return SimpleNamespace(database=Database(cursor, falla), services=servicios)
@@ -270,12 +270,12 @@ class RevisionTests(unittest.IsolatedAsyncioTestCase):
         runtime = runtime_con(cursor)
         resultado = await revisar(runtime, "Aprobada", "Buen trabajo")
         self.assertEqual((resultado["estado"], resultado["firma"]), ("Aprobada", "celda"))
-        runtime.services.leer_documento.assert_awaited_once_with("a" * 32 + ".pdf")
+        runtime.services.leer_documento.assert_awaited_once_with("a" * 32 + ".pdf", None)
         runtime.services.guardar_documento.assert_awaited_once_with(b"%PDF-firmado")
         claves = cursor.claves
         self.assertLess(claves.index("dual.revisiones.insert_firmado"), claves.index("dual.revisiones.insert_revision"))
         legado = next(c[1] for c in cursor.calls if c[0] == "dual.revisiones.actualizar_reporte")
-        self.assertEqual(legado[7:9], ("/almacen/b.pdf", "/almacen/b.pdf"))  # lectura heredada: el firmado
+        self.assertEqual(legado[7:9], (None, None))  # el puntero heredado ya no apunta a ninguna ruta (C10A)
         runtime.services.eliminar_documento.assert_not_awaited()
 
     async def test_approval_without_a_registered_signature_is_409_and_stores_nothing(self):  # AC7

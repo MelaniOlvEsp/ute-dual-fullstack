@@ -155,7 +155,7 @@ async def descargar_aprobado(reporte_id, numero, documento, user, *, runtime):
     clave = datos["firmado" if documento == "firmado" else "original"]
     if not clave:
         raise ApplicationError(status_code=404, detail="Esta versión no tiene documento firmado")
-    contenido = await runtime.services.leer_documento(clave)
+    contenido = await runtime.services.leer_documento(clave, datos.get("firmado_sha" if documento == "firmado" else "original_sha"))
     sufijo = "-firmado" if documento == "firmado" else ""
     return FileResult(
         iter([contenido]), media_type="application/pdf",

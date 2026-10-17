@@ -81,6 +81,7 @@ QUERIES = {
         "dynamic": None,
         "sql": """
             SELECT d.clave AS original, ds.clave AS firmado, r.matricula,
+                   d.sha256 AS original_sha, ds.sha256 AS firmado_sha,
                    d.archivado_en AS original_archivado, ds.archivado_en AS firmado_archivado
             FROM reportes_dual r
             JOIN reporte_versiones v ON v.reporte_id = r.id AND v.numero = %s

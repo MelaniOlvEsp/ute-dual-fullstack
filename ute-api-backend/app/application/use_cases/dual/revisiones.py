@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from app.application.errors import ApplicationError
-from app.application.use_cases.dual.archivado import exigir_vigente
+from app.application.use_cases.dual.archivado import PUNTERO_HEREDADO, exigir_vigente
 from app.application.responses import FileResult
 from app.domain import reviews
 from app.domain.reviews import RevisionInvalida
@@ -73,7 +73,7 @@ async def revisar(reporte_id, numero, decision, observacion, calificacion, fecha
     servicios = runtime.services
     firmado = None
     if imagen is not None and version["numero"] == reporte["ultima"]:
-        original = await servicios.leer_documento(version["clave_original"])
+        original = await servicios.leer_documento(version["clave_original"], version.get("sha_original"))
         pdf, modo = await asyncio.to_thread(servicios.estampar_firma, original, imagen, nombre)
         try:
             paginas = servicios.inspeccionar_pdf(pdf)
@@ -140,7 +140,7 @@ async def _registrar(cur, reporte, numero, decision, observacion, nota, inicio, 
         await cur.execute("dual.revisiones.insert_correccion", (revision["id"], campo, previo, nuevo))
     await cur.execute("dual.revisiones.decidir_version", (
         decision, observacion, user["id"], revision["revisado_en"], version["id"]))
-    ruta = firmado["ruta"] if firmado else None
+    ruta = PUNTERO_HEREDADO
     await cur.execute("dual.revisiones.actualizar_reporte", (
         decision, observacion, user["id"], revision["revisado_en"], nota, inicio, fin,
         ruta, ruta, reporte_id))
@@ -161,7 +161,7 @@ async def descargar(reporte_id, numero, documento, user, *, runtime):
     clave = datos["firmado" if documento == "firmado" else "original"]
     if not clave:
         raise ApplicationError(status_code=404, detail="Esta versión no tiene documento firmado")
-    contenido = await runtime.services.leer_documento(clave)
+    contenido = await runtime.services.leer_documento(clave, datos.get("firmado_sha" if documento == "firmado" else "original_sha"))
     sufijo = "-firmado" if documento == "firmado" else ""
     return FileResult(
         iter([contenido]),

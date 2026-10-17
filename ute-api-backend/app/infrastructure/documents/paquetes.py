@@ -14,7 +14,8 @@ import zipfile
 from pathlib import Path
 
 from app.application.errors import ApplicationError
-from app.infrastructure.documents.dual_reports import ruta_documento
+from app.infrastructure.storage.base import AlmacenamientoNoDisponible, ArchivoNoEncontrado
+from app.infrastructure.storage.registro import get_storage
 
 _BLOQUE = 64 * 1024
 _ANTIGUEDAD_TEMPORALES = 3600
@@ -62,26 +63,22 @@ def construir_zip(entradas: list[dict], manifiesto: bytes, resumen_csv: bytes, d
         paquete.writestr("resumen.csv", resumen_csv)
         for entrada in entradas:
             try:
-                origen = ruta_documento(entrada["clave"])
-            except ApplicationError as exc:
+                contenido = get_storage().leer("documentos", entrada["clave"])
+            except ArchivoNoEncontrado as exc:
                 raise ApplicationError(status_code=409, detail=_falta(entrada)) from exc
-            if not origen.is_file():
-                raise ApplicationError(status_code=409, detail=_falta(entrada))
-            digest, leidos = hashlib.sha256(), 0
-            with open(origen, "rb") as fuente, paquete.open(entrada["ruta"], "w", force_zip64=True) as destino_zip:
-                while True:
-                    bloque = fuente.read(_BLOQUE)
-                    if not bloque:
-                        break
-                    digest.update(bloque)
-                    leidos += len(bloque)
-                    destino_zip.write(bloque)
-            if digest.hexdigest() != entrada["sha256"] or leidos != entrada["tamano"]:
+            except AlmacenamientoNoDisponible as exc:
+                raise ApplicationError(
+                    status_code=503,
+                    detail="El almacenamiento de archivos no está disponible; el paquete no se generó.") from exc
+            if hashlib.sha256(contenido).hexdigest() != entrada["sha256"] or len(contenido) != entrada["tamano"]:
                 raise ApplicationError(
                     status_code=409,
                     detail=f"El documento {entrada['etiqueta']} no coincide con su hash registrado; "
                            "el paquete no se generó.")
-            total += leidos
+            with paquete.open(entrada["ruta"], "w", force_zip64=True) as destino_zip:
+                for inicio in range(0, len(contenido), _BLOQUE):
+                    destino_zip.write(contenido[inicio:inicio + _BLOQUE])
+            total += len(contenido)
     return {"archivos": len(entradas), "bytes": total, "tamano_zip": destino.stat().st_size}
 
 

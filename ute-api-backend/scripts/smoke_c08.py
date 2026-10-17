@@ -33,10 +33,9 @@ from psycopg.types.json import Jsonb
 import smoke_periodos
 from app.domain import calendar
 from app.domain.periods import construir_periodo, fechas_del_periodo
-from app.infrastructure.documents.dual_reports import ruta_documento
 from app.infrastructure.security.jwt_passwords import hash_password
 from local_admin import connect_local, create_coordinator
-from smoke_c05 import BASE, BLOQUES, expect, pdf
+from smoke_c05 import BASE, BLOQUES, almacen, expect, pdf
 from smoke_c06 import firma_png
 
 
@@ -381,16 +380,15 @@ def main():
         with connect_local() as conn:
             clave = conn.execute("SELECT clave FROM documentos WHERE sha256=%s", (firmado_sha,)).fetchone()[0]
             n_reg = conn.execute("SELECT count(*) FROM paquetes_archivo").fetchone()[0]
-        ruta = ruta_documento(clave)
-        ruta_tmp = ruta.with_name(ruta.name + ".c08bak")
-        ruta.rename(ruta_tmp)
+        guardado_original = almacen().leer("documentos", clave)
+        almacen().eliminar("documentos", clave)
         try:
             for url, params in ((f"/dual/carrera/paquetes/alumno/{matriculas['A']}", {"periodo_id": str(p1["id"])}),
                                 ("/dual/carrera/paquetes/carrera/TII", {"periodo_id": str(p1["id"])})):
                 respuesta = client.get(url, headers=tutor, params=params)
                 assert respuesta.status_code == 409 and "ZIP" not in respuesta.headers.get("content-type", ""), respuesta.text[:200]
         finally:
-            ruta_tmp.rename(ruta)
+            almacen().guardar("documentos", clave, guardado_original)
         with connect_local() as conn:
             assert conn.execute("SELECT count(*) FROM paquetes_archivo").fetchone()[0] == n_reg, "Sin registro si falló"
         expect(client.get(f"/dual/carrera/paquetes/alumno/{matriculas['A']}", headers=tutor,

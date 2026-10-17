@@ -1,5 +1,4 @@
 import io
-import tempfile
 import unittest
 import zipfile
 from datetime import datetime, timezone
@@ -15,6 +14,8 @@ from app.application.errors import ApplicationError
 from app.application.use_cases.dual import plantillas
 from app.application.use_cases.foro import buzon, publicaciones
 from app.infrastructure.documents import plantillas as almacen
+from app.infrastructure.storage import registro
+from app.infrastructure.storage.memoria import MemoriaAlmacenamiento
 from test_c08b_depuracion import Database, ScriptCursor, runtime
 
 AHORA = datetime(2026, 10, 17, 12, 0, tzinfo=timezone.utc)
@@ -104,7 +105,7 @@ class CargaYAlmacenamientoTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await almacen.leer_limitado(Subida("A.DOCX", b"x" * 10), "docx"), b"x" * 10)
 
     async def test_storage_uses_server_keys_never_overwrites_and_rejects_foreign_keys(self):
-        with tempfile.TemporaryDirectory() as raiz, patch.object(almacen, "_raiz", return_value=Path(raiz)):
+        with registro.usar(MemoriaAlmacenamiento()):
             a = await almacen.guardar_plantilla(b"uno", "docx")
             b = await almacen.guardar_plantilla(b"uno", "docx")
             self.assertNotEqual(a["clave"], b["clave"])
@@ -116,7 +117,7 @@ class CargaYAlmacenamientoTests(unittest.IsolatedAsyncioTestCase):
             await almacen.eliminar_plantilla(a["clave"])  # idempotente
             for malo in ("../../etc/passwd", "x.docx", "a" * 32 + ".exe"):
                 with self.assertRaises(ApplicationError):
-                    almacen.ruta_plantilla(malo)
+                    almacen.validar_clave(malo)
             with self.assertRaises(ApplicationError):
                 await almacen.guardar_plantilla(b"x", "exe")
 
@@ -209,7 +210,7 @@ class ConsultaTests(unittest.IsolatedAsyncioTestCase):
             leer = AsyncMock(return_value=b"contenido")
             resultado = await plantillas.descargar(2, tipo, {}, runtime=runtime(cursor, leer_plantilla=leer))
             self.assertIn(f'filename="Plantilla_Reporte_Dual_v2.{extension}"', resultado.headers["Content-Disposition"])
-            leer.assert_awaited_once_with("a" * 32 + ".docx" if tipo == "word" else "b" * 32 + ".pdf")
+            leer.assert_awaited_once_with(*(("a" * 32 + ".docx", "1" * 64) if tipo == "word" else ("b" * 32 + ".pdf", "2" * 64)))
         for numero, tipo in ((9, "word"), (2, "exe")):
             with self.assertRaises(ApplicationError) as caught:
                 await plantillas.descargar(numero, tipo, {}, runtime=runtime(ScriptCursor(), leer_plantilla=AsyncMock()))

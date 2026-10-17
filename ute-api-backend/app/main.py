@@ -12,6 +12,7 @@ from app.application.errors import ApplicationError
 from app.application.use_cases.dual import purgas as purgas_cases
 from app.bootstrap import get_runtime
 from app.infrastructure import tareas_purga
+from app.infrastructure.storage.registro import estado_cacheado
 from app.infrastructure.config.settings import settings
 from app.infrastructure.database.postgres import init_pool, close_pool, get_cursor
 from app.presentation.middleware.security import (
@@ -100,4 +101,5 @@ async def health():
             await cur.execute('SELECT 1')
     except (DatabaseError, PoolTimeout):
         return JSONResponse(status_code=503, content={'status': 'database_unavailable'})
-    return {'status': 'ok', 'app': settings.app_name}
+    # C10A: el estado del almacenamiento se informa sin secretos y no tumba la API (consulta cacheada).
+    return {'status': 'ok', 'app': settings.app_name, 'almacenamiento': estado_cacheado()}

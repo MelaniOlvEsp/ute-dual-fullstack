@@ -3,13 +3,13 @@
 Estado: DRAFT
 Fecha: 2026-10-17
 Responsable de aprobación: responsable del proyecto
-Dependencias: C09 DONE (2026-10-17). Bloqueada para pasar a READY por las decisiones D1 y D2 de abajo (DP-11 operativa y almacenamiento del piloto); el resto del alcance está confirmado en el plan maestro y en la definición de producto utilizable.
+Dependencias: C09 DONE (2026-10-17) y C10A (con D1 y D2 resueltas) (almacenamiento en Drive; el responsable decidió el 2026-10-17 que los archivos y los respaldos viven en Drive y que no se guarda nada local). D2 (almacenamiento del piloto) quedó resuelta con esa decisión; D1 (política de respaldos, DP-11) resuelta el 2026-10-17; sigue bloqueada para pasar a READY solo por C10A (debe estar DONE) y por la orden de pasar a READY.
 
 ## Problema y resultado esperado
 
 C01 a C09 se verificaron incremento por incremento: cada uno tiene su smoke con HTTP, PostgreSQL y almacenamiento reales, pero ninguna prueba recorre el producto completo con las tres cuentas a la vez, los controles negativos se repartieron entre specs y la recuperación nunca se ha probado: no existe un procedimiento de respaldo ni de restauración, no hay guía de uso y operación y `docs/construction/VALIDACION_Y_OPERACION_LOCAL.md` sigue siendo una guía de preparación con comandos de C01. Además, DP-11 dejó pendiente para este incremento la retención, el borrado y el responsable de los respaldos. Un build o un conjunto de pruebas unitarias no demuestra por sí solo que el producto sea utilizable (definición de producto utilizable).
 
-Resultado esperado: un recorrido integral reproducible con cuentas sintéticas y archivos reales, los controles negativos del recorrido, una copia de seguridad coherente de PostgreSQL y de los documentos que se restaura en un destino nuevo y aislado y se verifica, una guía de uso y operación con comandos probados y la validación de lo que quedó pendiente en los incrementos anteriores (teclado, tema oscuro y vista móvil en navegador). El resultado declara con claridad qué se probó con servicios reales locales y qué no (Drive, móvil físico, hospedaje).
+Resultado esperado: un recorrido integral reproducible con cuentas sintéticas y archivos reales, los controles negativos del recorrido, una copia de seguridad coherente de PostgreSQL y de los documentos (en Drive) que se restaura en un destino nuevo y aislado y se verifica, una guía de uso y operación con comandos probados y la validación de lo que quedó pendiente en los incrementos anteriores (teclado, tema oscuro y vista móvil en navegador). El resultado declara con claridad qué se probó con servicios reales locales y qué no (Drive, móvil físico, hospedaje).
 
 ## Fuentes y alcance
 
@@ -18,24 +18,32 @@ Resultado esperado: un recorrido integral reproducible con cuentas sintéticas y
 
 Incluye:
 
+0. Primer paso, heredado de C10A (cerrada el 2026-10-17 sin prueba contra Drive real): con la cuenta de pruebas autorizada, ejecutar `scripts/smoke_c10a.py` parte B y los smokes C01 a C09 con `ALMACENAMIENTO=drive`, y registrar el resultado; cualquier defecto se corrige antes de seguir (consistencia lectura-tras-escritura, papelera, cuota, token).
 1. Recorrido integral (`scripts/smoke_c10.py`) con HTTP, PostgreSQL y almacenamiento reales y cuentas sintéticas de coordinador, dos tutores y dos alumnos de grupos y períodos distintos: crear grupo y alumno; configurar empresa e inicio; registrar al alumno; ingresar al foro; descargar la plantilla; entregar dos semanas; rechazar una y reenviar; aprobar con firma; comprobar historia y expediente; cerrar la recepción con otra entrega pendiente; verificar el bloqueo y la aprobación posterior; finalizar y comprobar el promedio; abrir un segundo período y confirmar que el primero no cambia; descargar períodos anteriores; paquete y depuración con gracia.
 2. Controles negativos del mismo recorrido: acceso cruzado entre los alumnos A y B (expediente, versiones, paquetes y buzón), el tutor intentando el cierre, un fallo inyectado del almacenamiento, un PDF corrupto, el envío duplicado concurrente y la conversación completa del buzón con el hilo cerrado.
-3. Respaldo: un procedimiento y una orden que generan una copia coherente de PostgreSQL y de los documentos (volumen `dual-uploads`) con un manifiesto (fecha, versión de las migraciones, conteos, SHA-256 de cada archivo de la copia), guardada fuera de la carpeta de trabajo y sin incluir credenciales.
-4. Restauración (AC-24): una orden que restaura en un proyecto de Compose nuevo y aislado (volúmenes, base y puerto propios, sin tocar la base viva), verifica el manifiesto, los conteos, las referencias (cada documento no archivado existe y coincide con su SHA-256; ninguna fila apunta a un archivo ausente), descarga una muestra de originales y firmados por la API restaurada y vuelve a aplicar el registro de depuraciones de C08B (los archivos de documentos marcados como archivados que reaparezcan por haber sido restaurados se eliminan de nuevo).
+3. Respaldo: un procedimiento y una orden que generan una copia coherente de PostgreSQL y de los documentos con un manifiesto (fecha, versión de las migraciones, conteos, SHA-256 de cada archivo de la copia). Conforme a la decisión del 2026-10-17 la copia se guarda en una subcarpeta de respaldos de Drive (con el contrato de almacenamiento de C10A) y no en el equipo; el volcado de la base pasa por un archivo temporal que se elimina al terminar; sin credenciales dentro de la copia.
+4. Restauración (AC-24): una orden que restaura en un proyecto de Compose nuevo y aislado (base y puerto propios y una carpeta de Drive de prueba distinta, sin tocar la base ni la carpeta vivas), verifica el manifiesto, los conteos, las referencias (cada documento no archivado existe en la carpeta restaurada y coincide con su SHA-256; ninguna fila apunta a un archivo ausente), descarga una muestra de originales y firmados por la API restaurada y vuelve a aplicar el registro de depuraciones de C08B (los archivos de documentos marcados como archivados que reaparezcan por haber sido restaurados se eliminan de nuevo).
 5. Guía de uso y operación en español: instalación desde cero, cuentas iniciales, operación diaria por rol, respaldo y restauración, qué hacer si falla un servicio, límites conocidos y qué no se validó. Se actualiza `VALIDACION_Y_OPERACION_LOCAL.md` con comandos probados y resultados reales y se corrige el resto de la documentación que contradiga el código.
 6. Validación de lo pendiente de los incrementos anteriores en el navegador: teclado completo, tema oscuro y vista móvil emulada de las pantallas principales de cada rol; el móvil físico sigue NO_VERIFICADA.
 7. Conciliación final: tabla de trazabilidad AC-01 a AC-24 con la evidencia de cada incremento y lo que queda sin verificar; contratos, fixtures y documentación coherentes con el código.
 
-Excluye: nuevas funciones del producto; Drive o cualquier proveedor externo (D2); publicación u hospedaje y su selección (se investiga aparte con límites actuales y consentimiento de publicación); automatización del despliegue y de los respaldos programados (ADR-08, salvo lo que decida D1); notificaciones por correo; migración de datos de la demo (ADR-09: base nueva); móvil físico.
+Excluye: nuevas funciones del producto (el almacenamiento en Drive es de C10A); otros proveedores externos; publicación u hospedaje y su selección (se investiga aparte con límites actuales y consentimiento de publicación); automatización del despliegue y de los respaldos programados (ADR-08, salvo lo que decida D1); notificaciones por correo; migración de datos de la demo (ADR-09: base nueva); móvil físico.
 
 ## Decisiones
 
-Confirmadas: la base es nueva y sin limpieza histórica de la demo (RN-29, ADR-09); la validación usa datos sintéticos y no declara recuperada una producción que no se probó (guía de operación); no se declara Drive validado si no se utilizó; un respaldo no se declara recuperable sin restauración probada; las credenciales se guardan aparte de los respaldos compartibles; la depuración de C08B no alcanza copias de seguridad y esta spec define cómo se tratan al restaurar.
+Confirmadas (incluida la decisión del responsable del 2026-10-17: archivos y respaldos en Drive, nada local, base de datos en Docker en el equipo y correo de la universidad solo para usuarios de prueba): la base es nueva y sin limpieza histórica de la demo (RN-29, ADR-09); la validación usa datos sintéticos y no declara recuperada una producción que no se probó (guía de operación); Drive se declara validado solo con la cuenta de prueba realmente utilizada en C10A y C10; un respaldo no se declara recuperable sin restauración probada; las credenciales se guardan aparte de los respaldos compartibles; la depuración de C08B no alcanza copias de seguridad y esta spec define cómo se tratan al restaurar.
 
-Bloqueantes para pasar a READY (se presentan en la respuesta de cierre de la spec anterior):
+Resuelta el 2026-10-17:
 
-- D1 (DP-11): responsable, frecuencia, retención y destino de los respaldos antes de uso real.
-- D2: almacenamiento del piloto: el almacenamiento local (volumen `dual-uploads`) como el aprobado frente a usar Drive, y el criterio de salida de C10 (validado en local, no «listo para publicar»).
+- D2: almacenamiento del piloto = Drive (C10A); destino de los respaldos = Drive. El criterio de salida de C10 es «validado con la base en Docker local y los archivos en Drive con datos sintéticos», no «listo para publicar».
+
+D1 (DP-11), resuelta por el responsable el 2026-10-17, tal como se recomendó:
+
+- Responsable de los respaldos: el propio responsable del proyecto.
+- Frecuencia: una copia semanal y otra antes de cada finalización de período o depuración de archivos.
+- Retención: 8 copias semanales y 4 mensuales.
+- Prueba de restauración: una por trimestre, en un destino aislado.
+- Destino: Drive (C10A). La guía de operación debe registrar estas reglas, quién ejecuta cada paso y dónde se anota el resultado de cada prueba de restauración. La automatización de los respaldos programados sigue fuera de alcance (ADR-08): se ejecutan con la orden del procedimiento.
 
 Propuestas técnicas (sujetas a esas decisiones):
 
@@ -69,7 +77,7 @@ Permisos y estados: el respaldo y la restauración los ejecuta el responsable de
 |---|---|---|---|
 | C10-AC1 | Recorrido integral completo con tres roles y dos alumnos en períodos distintos: cada paso produce el estado esperado y el primer período no cambia al abrir el segundo | HTTP + PostgreSQL + almacenamiento reales con cuentas sintéticas | NO_VERIFICADA |
 | C10-AC2 | Controles negativos: acceso cruzado A/B, tutor intenta el cierre, fallo de almacenamiento inyectado, PDF corrupto, envío duplicado concurrente, buzón con hilo cerrado | Negativos HTTP reales | NO_VERIFICADA |
-| C10-AC3 / AC-24 | Respaldo coherente y restauración en un destino nuevo y aislado: manifiesto, conteos, referencias, hashes y descargas reales de originales y firmados; la base viva no se modifica | PostgreSQL y almacenamiento reales en un proyecto de Compose aparte | NO_VERIFICADA |
+| C10-AC3 / AC-24 | Respaldo coherente y restauración en un destino nuevo y aislado: manifiesto, conteos, referencias, hashes y descargas reales de originales y firmados; la base y la carpeta de Drive vivas no se modifican y no queda nada persistente en disco | PostgreSQL local y Drive reales en un proyecto de Compose y una carpeta de prueba aparte | NO_VERIFICADA |
 | C10-AC4 | Tras restaurar un respaldo anterior a una depuración, los archivos de documentos archivados vuelven a eliminarse y las notas, promedios e historial coinciden con la base viva | PostgreSQL y almacenamiento reales | NO_VERIFICADA |
 | C10-AC5 | Un respaldo incompleto o alterado (archivo faltante, hash distinto, volcado dañado) se detecta y la restauración se rechaza con un motivo | Fallos inyectados reales | NO_VERIFICADA |
 | C10-AC6 | La guía se sigue desde cero en un entorno nuevo (instalar, crear el coordinador, operar un ciclo, respaldar y restaurar) sin pasos implícitos | Ejecución real de la guía | NO_VERIFICADA |
@@ -86,8 +94,8 @@ Veredicto: pendiente.
 Revisor y modalidad: pendiente.
 Hallazgos materiales: no aplica antes de implementación.
 Correcciones y verificación focal: no aplica.
-Limitaciones previstas: validación solo con datos sintéticos y en la máquina local; el apagado del equipo interrumpe el servicio (sin garantía de disponibilidad); móvil físico, Drive y cualquier proveedor externo y el hospedaje quedan NO_VERIFICADOS; una restauración de datos sintéticos no demuestra la recuperación de una producción; las copias antiguas ya entregadas a terceros no se pueden recuperar.
+Limitaciones previstas: validación solo con datos sintéticos, con la base en la máquina local y los archivos en Drive con una cuenta de prueba; el apagado del equipo interrumpe el servicio (sin garantía de disponibilidad) y la disponibilidad de archivos depende de Drive y del token de la cuenta; móvil físico, otros proveedores y el hospedaje quedan NO_VERIFICADOS; una restauración de datos sintéticos no demuestra la recuperación de una producción; las copias antiguas ya entregadas a terceros no se pueden recuperar.
 
 ## Aprobaciones y cierre
 
-Pendiente: decisiones D1 y D2 y orden de pasar a READY.
+D1 y D2 resueltas el 2026-10-17 (D1 tal como se recomendó). Pendiente: C10A DONE y la orden de pasar a READY.

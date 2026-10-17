@@ -10,3 +10,7 @@ work/
 **/credentials.json
 **/token.json
 **/uploads/
+
+# C10A: credenciales de Drive del piloto
+.secretos/
+**/.secretos/

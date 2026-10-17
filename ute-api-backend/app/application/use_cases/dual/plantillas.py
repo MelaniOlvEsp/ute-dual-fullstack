@@ -48,7 +48,9 @@ async def descargar(numero, tipo, user, *, runtime):
         fila = await cur.fetchone()
     if not fila:
         raise ApplicationError(status_code=404, detail="Versión de plantilla no encontrada")
-    contenido = await runtime.services.leer_plantilla(dict(fila)["word_clave" if tipo == "word" else "pdf_clave"])
+    datos = dict(fila)
+    contenido = await runtime.services.leer_plantilla(
+        datos["word_clave" if tipo == "word" else "pdf_clave"], datos["word_sha256" if tipo == "word" else "pdf_sha256"])
     return FileResult(
         iter([contenido]), media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="Plantilla_Reporte_Dual_v{int(numero)}.{extension}"'})

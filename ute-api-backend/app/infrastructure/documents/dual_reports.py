@@ -1,40 +1,41 @@
-"""PDF de reportes semanales: validación real y almacenamiento privado (C05).
+"""PDF de reportes semanales: validación real y almacenamiento privado (C05, C10A).
 
-El original se conserva byte a byte (sin recompresión). Las claves de almacenamiento las genera
-el servidor; el cliente nunca aporta rutas ni nombres de archivo. Drive solo se usa para leer
-documentos heredados y queda NO_VERIFICADO (DP-08).
+El original se conserva byte a byte (sin recompresión). Las claves de almacenamiento las genera el servidor; el
+cliente nunca aporta rutas ni nombres de archivo. Los documentos viven en el almacenamiento privado del
+contrato de C10A (Drive en el piloto): estas funciones solo traducen sus errores y verifican el SHA-256.
 """
 import asyncio
 import hashlib
-import os
 import re
 import time
 import uuid
-from pathlib import Path
 
 import fitz  # pymupdf
 from loguru import logger
 
 from app.application.errors import ApplicationError
 from app.domain.reports import MAX_PDF_BYTES
-from app.infrastructure.config.settings import settings
-from app.infrastructure.integrations.drive import get_file_bytes_async
+from app.infrastructure.storage.base import (
+    AlmacenamientoNoDisponible, ArchivoNoEncontrado, ArchivoYaExiste)
+from app.infrastructure.storage.registro import get_storage
 
 PDF_MAGIC = b"%PDF-"
 _CLAVE = re.compile(r"^[0-9a-f]{32}\.pdf$")
 _BLOQUE = 64 * 1024
+ESPACIO = "documentos"
 
 
-def _raiz() -> Path:
-    return Path(settings.dual_upload_dir) / "documentos"
-
-
-def ruta_documento(clave: str) -> Path:
-    # Solo claves con el formato generado por el servidor: evita cualquier recorrido de rutas.
+def validar_clave(clave: str) -> str:
+    # Solo claves con el formato generado por el servidor: evita cualquier clave ajena.
     if not _CLAVE.fullmatch(clave or ""):
         raise ApplicationError(status_code=404, detail="Documento no disponible")
-    return _raiz() / clave[:2] / clave
+    return clave
 
+
+def no_disponible(error: AlmacenamientoNoDisponible) -> ApplicationError:
+    return ApplicationError(
+        status_code=503,
+        detail="El almacenamiento de archivos no está disponible en este momento; vuelve a intentarlo más tarde.")
 
 # Lee el archivo recibido en bloques y corta al superar el límite, sin cargarlo completo antes.
 async def leer_pdf_limitado(archivo) -> bytes:
@@ -84,116 +85,66 @@ def inspeccionar_pdf(contenido: bytes) -> int:
         documento.close()
 
 
-def _escribir(contenido: bytes, ruta: Path) -> None:
-    ruta.parent.mkdir(parents=True, exist_ok=True)
-    temporal = ruta.with_name(ruta.name + ".part")
-    with open(temporal, "xb") as destino:
-        destino.write(contenido)
-        destino.flush()
-        os.fsync(destino.fileno())
-    os.replace(temporal, ruta)
-
-
 # Guarda el original con una clave nueva y única; nunca sobrescribe un documento existente.
 async def guardar_documento(contenido: bytes) -> dict:
     clave = uuid.uuid4().hex + ".pdf"
-    ruta = ruta_documento(clave)
-    await asyncio.to_thread(_escribir, contenido, ruta)
-    return {
-        "clave": clave, "ruta": str(ruta), "tamano": len(contenido),
-        "sha256": hashlib.sha256(contenido).hexdigest(),
-    }
+    try:
+        guardado = await asyncio.to_thread(get_storage().guardar, ESPACIO, clave, contenido)
+    except AlmacenamientoNoDisponible as error:
+        logger.error("No se pudo guardar un documento: {} ({})", error.motivo, error.codigo)
+        raise no_disponible(error) from error
+    except ArchivoYaExiste as error:
+        raise ApplicationError(status_code=500, detail="No se pudo guardar el documento.") from error
+    return {"clave": clave, "tamano": guardado["tamano"], "sha256": guardado["sha256"]}
 
 
-async def leer_documento(clave: str) -> bytes:
-    ruta = ruta_documento(clave)
-    if not ruta.is_file():
-        raise ApplicationError(status_code=404, detail="Archivo PDF no encontrado en el servidor")
-    return await asyncio.to_thread(ruta.read_bytes)
+async def leer_documento(clave: str, sha256: str | None = None) -> bytes:
+    """Lee un documento; si se indica el SHA-256 registrado, un contenido distinto nunca se entrega."""
+    validar_clave(clave)
+    try:
+        contenido = await asyncio.to_thread(get_storage().leer, ESPACIO, clave)
+    except ArchivoNoEncontrado as error:
+        raise ApplicationError(status_code=404, detail="Archivo PDF no encontrado en el servidor") from error
+    except AlmacenamientoNoDisponible as error:
+        logger.error("No se pudo leer un documento: {} ({})", error.motivo, error.codigo)
+        raise no_disponible(error) from error
+    if sha256 and hashlib.sha256(contenido).hexdigest() != sha256:
+        logger.error("El documento {} no coincide con su huella registrada", clave)
+        raise ApplicationError(
+            status_code=502,
+            detail="El archivo almacenado no coincide con su huella registrada; no se entrega.")
+    return contenido
 
 
 # Elimina solo un documento recién guardado cuyo registro no llegó a confirmarse.
 async def eliminar_documento(clave: str) -> None:
     try:
-        ruta_documento(clave).unlink(missing_ok=True)
-    except (OSError, ApplicationError) as exc:
+        await asyncio.to_thread(get_storage().eliminar, ESPACIO, validar_clave(clave))
+    except (AlmacenamientoNoDisponible, ApplicationError, OSError) as exc:
         logger.warning(f"No se pudo eliminar el documento no confirmado {clave}: {exc}")
 
 
 # C08B: eliminación definitiva de un documento depurado. A diferencia de `eliminar_documento`, un fallo
-# real (permisos, disco) se propaga para que la purga quede pendiente y se reintente; un archivo que
-# ya no existe cuenta como eliminado (idempotente).
+# real (Drive, red, cuota) se propaga para que la purga quede pendiente y se reintente; un archivo que ya
+# no existe cuenta como eliminado (idempotente).
 async def purgar_documento(clave: str) -> bool:
-    ruta = ruta_documento(clave)
-    existia = ruta.is_file()
-    await asyncio.to_thread(ruta.unlink, True)
-    return existia
-
-
-# Limpia por referencia los archivos que ninguna fila de `documentos` apunta (fallos a mitad de
-# una entrega). Solo toca archivos con la forma de clave del servidor y con antigüedad suficiente.
-def limpiar_huerfanos(claves_referenciadas: set, antiguedad_segundos: int = 3600) -> list:
-    eliminados = []
-    raiz = _raiz()
-    if not raiz.is_dir():
-        return eliminados
-    limite = time.time() - antiguedad_segundos
-    for ruta in raiz.rglob("*"):
-        if not ruta.is_file() or ruta.stat().st_mtime > limite:
-            continue
-        nombre = ruta.name[:-5] if ruta.name.endswith(".part") else ruta.name
-        if not _CLAVE.fullmatch(nombre):
-            continue
-        if ruta.name.endswith(".part") or nombre not in claves_referenciadas:
-            ruta.unlink(missing_ok=True)
-            eliminados.append(ruta.name)
-    return eliminados
-
-
-# --- Lectura de documentos heredados (ruta local o Drive) ---------------------------------
-
-async def eliminar_pdf_local(ruta_local: str | None) -> None:
-    # Elimina archivo PDF local. No-op si ruta es None o archivo no existe.
-    if not ruta_local:
-        return
     try:
-        if os.path.exists(ruta_local):
-            os.remove(ruta_local)
-            logger.info(f"PDF local eliminado: {ruta_local}")
-    except OSError as e:
-        logger.warning(f"Error eliminando PDF local {ruta_local}: {e}")
+        return await asyncio.to_thread(get_storage().eliminar, ESPACIO, validar_clave(clave))
+    except AlmacenamientoNoDisponible as error:
+        raise OSError(f"Almacenamiento no disponible ({error.codigo})") from error
 
 
-async def leer_pdf_local(ruta_local: str) -> bytes:
-    # Lee archivo PDF local y retorna sus bytes. Lanza 404 si no existe.
-    if not ruta_local or not os.path.exists(ruta_local):
-        raise ApplicationError(
-            status_code=404,
-            detail="Archivo PDF no encontrado en el servidor",
-        )
-    with open(ruta_local, "rb") as f:
-        return f.read()
-
-
-# Retorna PDF desde almacenamiento local o Drive, segun el estado del reporte
-async def obtener_pdf_bytes(reporte: dict) -> bytes:
-    local_path = reporte.get("archivo_pdf_local")
-    drive_id = reporte.get("archivo_pdf_url")
-
-    if local_path:
-        return await leer_pdf_local(local_path)
-
-    if drive_id:
-        try:
-            return await get_file_bytes_async(drive_id)
-        except Exception as e:
-            logger.error(f"Error descargando PDF de Drive ({drive_id}): {e}")
-            raise ApplicationError(
-                status_code=500,
-                detail="Error al obtener el archivo desde Drive",
-            )
-
-    raise ApplicationError(
-        status_code=404,
-        detail="Archivo PDF no disponible para este reporte",
-    )
+# Limpia por referencia los archivos que ninguna fila de `documentos` apunta (fallos a mitad de una
+# entrega). Solo toca claves con la forma del servidor y con antigüedad suficiente.
+def limpiar_huerfanos(claves_referenciadas: set, antiguedad_segundos: int = 3600) -> list:
+    almacenamiento = get_storage()
+    limite = time.time() - antiguedad_segundos
+    eliminados = []
+    for archivo in almacenamiento.listar(ESPACIO):
+        nombre = archivo["clave"][:-5] if archivo["clave"].endswith(".part") else archivo["clave"]
+        if archivo["creado"] > limite or not _CLAVE.fullmatch(nombre):
+            continue
+        if archivo["clave"].endswith(".part") or nombre not in claves_referenciadas:
+            almacenamiento.eliminar(ESPACIO, archivo["clave"])
+            eliminados.append(archivo["clave"])
+    return eliminados

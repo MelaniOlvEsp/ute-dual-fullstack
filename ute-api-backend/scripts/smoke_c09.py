@@ -26,7 +26,7 @@ from app.domain.periods import construir_periodo, fechas_del_periodo
 from app.infrastructure.config.settings import settings
 from app.infrastructure.security.jwt_passwords import hash_password
 from local_admin import connect_local, create_coordinator
-from smoke_c05 import BASE, BLOQUES, expect, pdf
+from smoke_c05 import BASE, BLOQUES, almacen, expect, pdf
 
 TIPO_PRINCIPAL = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
 
@@ -43,8 +43,7 @@ def docx(marca: str, extras=None, tipos=None) -> bytes:
 
 
 def archivos_de_plantilla() -> int:
-    raiz = Path(settings.dual_upload_dir) / "plantillas"
-    return sum(1 for r in raiz.rglob("*") if r.is_file()) if raiz.is_dir() else 0
+    return len(almacen().listar("plantillas"))
 
 
 def main():

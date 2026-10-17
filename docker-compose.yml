@@ -31,12 +31,17 @@ services:
       DB_PASSWORD: ${APP_DB_PASSWORD:?Ejecuta scripts/setup-local.ps1}
       SECRET_KEY: ${SECRET_KEY:?Ejecuta scripts/setup-local.ps1}
       C01_LOCAL_COMPOSE: "true"
+      # C10A: los archivos viven en Drive (decisión del 2026-10-17). `local` solo para desarrollo y regresión.
+      ALMACENAMIENTO: ${ALMACENAMIENTO:-drive}
+      DRIVE_CARPETA_ID: ${DRIVE_CARPETA_ID:-}
+      DRIVE_TOKEN_FILE: /secretos/drive_token.json
       FRONTEND_URL: http://127.0.0.1:${WEB_PORT:-5174}
       CORS_ORIGINS: http://127.0.0.1:${WEB_PORT:-5174},http://localhost:${WEB_PORT:-5174}
     ports:
       - "127.0.0.1:${API_PORT:-8001}:8000"
     volumes:
-      # C05: originales de reportes en almacenamiento privado local (DP-08); sobrevive a reconstrucciones.
+      # Credenciales de Drive (solo lectura, fuera de git). El volumen de uploads solo se usa con ALMACENAMIENTO=local.
+      - ./.secretos:/secretos:ro
       - dual-uploads:/workspace/ute-api-backend/uploads/dual
     depends_on:
       postgres:
@@ -75,12 +80,30 @@ services:
       <<: *api-environment
       API_URL: http://api:8000
     volumes:
-      # Mismo volumen que la API: el smoke comprueba hashes y limpia huérfanos reales.
+      # Mismo volumen que la API: el smoke comprueba hashes y limpia huérfanos reales (modo local).
+      - ./.secretos:/secretos:ro
       - dual-uploads:/workspace/ute-api-backend/uploads/dual
     command: ["python", "scripts/smoke_c01.py"]
     depends_on:
       api:
         condition: service_healthy
+
+  # C10A: autoriza Drive con la cuenta de pruebas (OAuth de usuario, alcance drive.file) y crea la carpeta raíz.
+  # Uso: docker compose --profile drive run --rm --service-ports drive-autorizar
+  drive-autorizar:
+    profiles: ["drive"]
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    environment:
+      ALMACENAMIENTO: drive
+      DRIVE_TOKEN_FILE: /secretos/drive_token.json
+      DRIVE_CLIENTE_FILE: /secretos/client_secret.json
+    volumes:
+      - ./.secretos:/secretos
+    ports:
+      - "127.0.0.1:8085:8085"
+    command: ["python", "scripts/autorizar_drive.py"]
 
 volumes:
   postgres-data:

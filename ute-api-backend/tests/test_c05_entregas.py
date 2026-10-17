@@ -16,6 +16,8 @@ from app.application.errors import ApplicationError
 from app.application.use_cases.dual import entregas, obligaciones
 from app.domain import reports
 from app.infrastructure.documents import dual_reports
+from app.infrastructure.storage import registro
+from app.infrastructure.storage.local import LocalAlmacenamiento
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -97,51 +99,63 @@ class PdfTests(unittest.IsolatedAsyncioTestCase):
 
 
 class StorageTests(unittest.IsolatedAsyncioTestCase):
+    """Contrato de almacenamiento sobre el adaptador de carpeta temporal (solo pruebas, C10A)."""
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.patch = patch.object(dual_reports, "_raiz", return_value=Path(self.tmp.name))
-        self.patch.start()
+        self.contexto = registro.usar(LocalAlmacenamiento(self.tmp.name))
+        self.contexto.__enter__()
 
     def tearDown(self):
-        self.patch.stop()
+        self.contexto.__exit__(None, None, None)
         self.tmp.cleanup()
+
+    def ruta(self, clave):
+        return Path(self.tmp.name) / "documentos" / clave[:2] / clave
 
     async def test_original_is_stored_byte_for_byte_with_server_key(self):  # AC4
         contenido = pdf_bytes(2)
         guardado = await dual_reports.guardar_documento(contenido)
         self.assertRegex(guardado["clave"], r"^[0-9a-f]{32}\.pdf$")
         self.assertEqual(await dual_reports.leer_documento(guardado["clave"]), contenido)
-        self.assertEqual(Path(guardado["ruta"]).read_bytes(), contenido)
+        self.assertEqual(await dual_reports.leer_documento(guardado["clave"], guardado["sha256"]), contenido)
+        self.assertEqual(self.ruta(guardado["clave"]).read_bytes(), contenido)
         self.assertEqual(guardado["tamano"], len(contenido))
+        self.assertNotIn("ruta", guardado)
+
+    async def test_a_content_that_does_not_match_its_hash_is_never_delivered(self):  # C10A-AC2
+        guardado = await dual_reports.guardar_documento(pdf_bytes(1))
+        with self.assertRaises(ApplicationError) as caught:
+            await dual_reports.leer_documento(guardado["clave"], "0" * 64)
+        self.assertEqual(caught.exception.status_code, 502)
 
     async def test_each_save_uses_a_new_key_and_never_overwrites(self):
         a = await dual_reports.guardar_documento(pdf_bytes(1))
         b = await dual_reports.guardar_documento(pdf_bytes(1))
         self.assertNotEqual(a["clave"], b["clave"])
-        self.assertTrue(Path(a["ruta"]).is_file() and Path(b["ruta"]).is_file())
+        self.assertTrue(self.ruta(a["clave"]).is_file() and self.ruta(b["clave"]).is_file())
 
     def test_client_supplied_keys_cannot_escape_the_store(self):
         for clave in ("../../etc/passwd", "..\\x.pdf", "a" * 32, "a" * 32 + ".exe", "", "../" + "a" * 32 + ".pdf"):
             with self.assertRaises(ApplicationError):
-                dual_reports.ruta_documento(clave)
+                dual_reports.validar_clave(clave)
 
     async def test_orphan_cleanup_is_by_reference_and_age(self):  # AC7
         referenciado = await dual_reports.guardar_documento(pdf_bytes(1))
         huerfano = await dual_reports.guardar_documento(pdf_bytes(1))
         reciente = await dual_reports.guardar_documento(pdf_bytes(1))
-        parcial = Path(huerfano["ruta"] + ".part")
+        parcial = Path(str(self.ruta(huerfano["clave"])) + ".part")
         parcial.write_bytes(b"x")
-        ajeno = Path(self.tmp.name) / "notas.txt"
+        ajeno = Path(self.tmp.name) / "documentos" / "notas.txt"
         ajeno.write_text("no tocar")
         viejo = time.time() - 7200
-        for ruta in (Path(referenciado["ruta"]), Path(huerfano["ruta"]), parcial, ajeno):
+        for ruta in (self.ruta(referenciado["clave"]), self.ruta(huerfano["clave"]), parcial, ajeno):
             os.utime(ruta, (viejo, viejo))
         eliminados = dual_reports.limpiar_huerfanos({referenciado["clave"]}, antiguedad_segundos=3600)
         self.assertCountEqual(eliminados, [huerfano["clave"], parcial.name])
-        self.assertTrue(Path(referenciado["ruta"]).is_file())  # referenciado: nunca se borra
-        self.assertTrue(Path(reciente["ruta"]).is_file())  # reciente: puede estar en una entrega en curso
+        self.assertTrue(self.ruta(referenciado["clave"]).is_file())  # referenciado: nunca se borra
+        self.assertTrue(self.ruta(reciente["clave"]).is_file())  # reciente: puede estar en una entrega en curso
         self.assertTrue(ajeno.is_file())  # archivos sin forma de clave: no se tocan
-
 
 class ScriptCursor:
     """Cursor de pruebas: responde por consulta y registra el orden de ejecución."""

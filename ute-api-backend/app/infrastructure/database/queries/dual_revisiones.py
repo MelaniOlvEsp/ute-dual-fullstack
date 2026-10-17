@@ -24,7 +24,7 @@ QUERIES = {
     "dual.revisiones.version": {
         "dynamic": None,
         "sql": """
-            SELECT v.id, v.numero, v.fecha_inicio, v.fecha_fin, v.nota, d.clave AS clave_original,
+            SELECT v.id, v.numero, v.fecha_inicio, v.fecha_fin, v.nota, d.clave AS clave_original, d.sha256 AS sha_original,
                    rv.id AS revision_id, rv.tutor_id, rv.decision, rv.observacion,
                    rv.fecha_inicio AS rev_inicio, rv.fecha_fin AS rev_fin, rv.nota AS rev_nota
             FROM reporte_versiones v
@@ -129,6 +129,7 @@ QUERIES = {
         "dynamic": None,
         "sql": """
             SELECT d.clave AS original, ds.clave AS firmado, r.matricula,
+                   d.sha256 AS original_sha, ds.sha256 AS firmado_sha,
                    d.archivado_en AS original_archivado, ds.archivado_en AS firmado_archivado
             FROM reportes_dual r
             JOIN reporte_versiones v ON v.reporte_id = r.id AND v.numero = %s

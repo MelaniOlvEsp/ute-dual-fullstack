@@ -29,7 +29,7 @@ from psycopg.rows import dict_row
 
 import smoke_periodos
 from local_admin import connect_local, create_coordinator
-from smoke_c05 import BASE, BLOQUES, archivos_en_almacen, etiqueta, expect, mes_de, pdf, sha
+from smoke_c05 import BASE, BLOQUES, archivos_en_almacen, etiqueta, existe_doc, expect, leer_doc, mes_de, pdf, sha
 from app.application.errors import ApplicationError
 from app.application.use_cases.dual import revisiones
 from app.bootstrap import ServiceAdapter
@@ -238,9 +238,9 @@ def main():
                 "JOIN revisiones rv ON rv.version_id=v.id JOIN documentos ds ON ds.id=rv.documento_firmado_id "
                 "WHERE r.id=%s", (rid1,)).fetchone()
         clave_original, hash_original, clave_firmado, hash_firmado, modo_firmado, rol_firmado = fila
-        assert dual_reports.ruta_documento(clave_original).read_bytes() == original1, "El original no se altera"
+        assert leer_doc(clave_original) == original1, "El original no se altera"
         assert sha(original1) == hash_original
-        firmado1 = dual_reports.ruta_documento(clave_firmado).read_bytes()
+        firmado1 = leer_doc(clave_firmado)
         assert sha(firmado1) == hash_firmado and firmado1 != original1 and (modo_firmado, rol_firmado) == ("celda", "firmado")
         with fitz.open(stream=original1, filetype="pdf") as antes_doc, fitz.open(stream=firmado1, filetype="pdf") as despues_doc:
             assert despues_doc.page_count == antes_doc.page_count == 1
@@ -451,7 +451,7 @@ def main():
         # 7 originales + 4 firmados (a1, a2 v2, a3, a4) y el de b1 si ganó la aprobación.
         assert len(filas) in (11, 12), len(filas)
         for clave, hash_guardado, tamano in filas:
-            contenido = dual_reports.ruta_documento(clave).read_bytes()
+            contenido = leer_doc(clave)
             assert sha(contenido) == hash_guardado and len(contenido) == tamano, clave
 
     print("PASS C06: corrección trazable sin mover período, rechazo con observación y reenvío, aprobación con "

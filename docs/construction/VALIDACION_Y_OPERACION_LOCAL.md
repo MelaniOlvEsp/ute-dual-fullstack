@@ -62,6 +62,18 @@ Respaldar PostgreSQL y objetos/documentos referenciados como conjunto consistent
 
 Antes de uso real definir responsable, frecuencia y retención. El piloto local no garantiza disponibilidad cuando se apaga el equipo. Selección de alojamiento gratuito se investiga aparte con límites actuales y consentimiento de publicación.
 
+## Almacenamiento en Drive (C10A)
+
+Los archivos del piloto (originales y firmados de los reportes, la plantilla común y, en C10, los respaldos) viven en una carpeta privada de Drive; la base de datos corre en Docker en el equipo. Las credenciales se guardan en `.secretos/` (ignorada por git) y nunca se pegan en el chat ni se registran.
+
+Autorización de la cuenta de pruebas (una sola vez, y de nuevo cuando caduque):
+
+1. En Google Cloud crea un proyecto, habilita la API de Drive, configura la pantalla de consentimiento (usuario externo, la cuenta de pruebas como usuario de prueba) y crea un cliente OAuth de tipo «Aplicación de escritorio». Descarga su JSON y guárdalo como `.secretos/client_secret.json`.
+2. Ejecuta `docker compose --profile drive run --rm --service-ports drive-autorizar`, abre en el navegador la dirección que imprime y acepta con la cuenta de pruebas. El script guarda `.secretos/drive_token.json` y crea la carpeta raíz «Formación Dual (piloto)» anotando su identificador en `.secretos/drive_config.json`.
+3. Reinicia la API (`docker compose up -d api`) y comprueba `http://127.0.0.1:8001/health`: `almacenamiento.estado` debe ser `ok`.
+4. Con la aplicación en modo de prueba el token caduca a los 7 días (`token_caducado` en `/health`): repite el paso 2. Si la universidad ofrece una cuenta de Workspace, el cambio de autenticación es de configuración y no cambia los casos de uso.
+
+Regresión sin Drive (solo desarrollo): `ALMACENAMIENTO=local` usa una carpeta local de pruebas (volumen `dual-uploads`); no es el modo del piloto. Con el valor predeterminado (`drive`) y sin autorización las operaciones con archivos responden 503 y `/health` informa `sin_configurar`. Para correr los smokes C01 a C09 con Drive real, autoriza y ejecuta cada uno con `docker compose --profile verification run --rm smoke python scripts/smoke_cNN.py`; `scripts/smoke_c10a.py` comprueba la salud, la falla cerrada y, con Drive autorizado, el ciclo completo de guardar, leer, eliminar y la ausencia de papelera y de temporales.
 ## Registro en la spec
 
 No registrar contraseñas, tokens, archivos personales ni rutas de credenciales. Incluir fecha, revisión del código, entorno, comando/recorrido, resultado y limitación. Marcar proveedor no utilizado como NO_VERIFICADA. Una prueba de restauración de fixtures no demuestra recuperación de producción.

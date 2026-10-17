@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_key: str = ""
     drive_folder_dual: str = ""
+    # C10A: almacenamiento de archivos. `drive` es el del piloto; `local` y `memoria` son solo para
+    # desarrollo, regresión y pruebas (el piloto no guarda archivos de forma local).
+    almacenamiento: str = "drive"
+    drive_carpeta_id: str = ""
+    drive_token_file: str = "/secretos/drive_token.json"
     frontend_url: str = "http://localhost:5173"
 
     cors_origins: str = (

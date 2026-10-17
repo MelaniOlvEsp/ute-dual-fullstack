@@ -17,6 +17,8 @@ from app.application.errors import ApplicationError
 from app.application.use_cases.dual import expediente, paquetes
 from app.domain import archive
 from app.infrastructure.documents import dual_reports
+from app.infrastructure.storage import registro
+from app.infrastructure.storage.local import LocalAlmacenamiento
 from app.infrastructure.documents import paquetes as constructor
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -102,12 +104,15 @@ class ManifiestoTests(unittest.TestCase):
 class ConstructorTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.patch = patch.object(dual_reports, "_raiz", return_value=Path(self.tmp.name))
-        self.patch.start()
+        self.contexto = registro.usar(LocalAlmacenamiento(self.tmp.name))
+        self.contexto.__enter__()
         self.destino = Path(self.tmp.name) / "salida.zip"
 
+    def ruta(self, clave):
+        return Path(self.tmp.name) / "documentos" / clave[:2] / clave
+
     def tearDown(self):
-        self.patch.stop()
+        self.contexto.__exit__(None, None, None)
         self.tmp.cleanup()
 
     async def _documento(self, texto):
@@ -127,7 +132,7 @@ class ConstructorTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_missing_document_fails_the_whole_package_without_error_files(self):  # AC6, DP-14
         _, entrada = await self._documento("uno")
-        os.unlink(dual_reports.ruta_documento(entrada["clave"]))
+        os.unlink(self.ruta(entrada["clave"]))
         with self.assertRaises(ApplicationError) as caught:
             constructor.construir_zip([entrada], b"{}", b"", self.destino)
         self.assertEqual(caught.exception.status_code, 409)
@@ -135,7 +140,7 @@ class ConstructorTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_a_document_that_does_not_match_its_hash_fails(self):  # integridad
         _, entrada = await self._documento("uno")
-        dual_reports.ruta_documento(entrada["clave"]).write_bytes(b"%PDF-alterado")
+        self.ruta(entrada["clave"]).write_bytes(b"%PDF-alterado")
         with self.assertRaises(ApplicationError) as caught:
             constructor.construir_zip([entrada], b"{}", b"", self.destino)
         self.assertEqual(caught.exception.status_code, 409)
@@ -286,7 +291,7 @@ class ExpedienteTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ApplicationError):
             await expediente.descargar_aprobado(uuid4(), 1, "firmado", {}, runtime=runtime)
         resultado = await expediente.descargar_aprobado(uuid4(), 1, "original", {}, runtime=runtime)
-        runtime.services.leer_documento.assert_awaited_once_with("a" * 32 + ".pdf")
+        runtime.services.leer_documento.assert_awaited_once_with("a" * 32 + ".pdf", None)
         self.assertIn("123456789-v1.pdf", resultado.headers["Content-Disposition"])
 
 

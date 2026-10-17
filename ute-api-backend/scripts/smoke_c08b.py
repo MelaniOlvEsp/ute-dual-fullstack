@@ -32,10 +32,9 @@ from psycopg.types.json import Jsonb
 import smoke_periodos
 from app.domain import calendar
 from app.domain.periods import construir_periodo, fechas_del_periodo
-from app.infrastructure.documents.dual_reports import ruta_documento
 from app.infrastructure.security.jwt_passwords import hash_password
 from local_admin import connect_local, create_coordinator
-from smoke_c05 import BASE, BLOQUES, expect, pdf
+from smoke_c05 import BASE, BLOQUES, almacen, existe_doc, expect, pdf
 from smoke_c06 import firma_png
 
 
@@ -153,7 +152,7 @@ def main():
                     "WHERE r.matricula = %s", (matriculas[n], matriculas[n])).fetchall()
 
         def existe(clave):
-            return ruta_documento(clave).is_file()
+            return existe_doc(clave)
 
         def estado_notas():
             with connect_local() as conn:
@@ -268,22 +267,26 @@ def main():
         assert r.json()["repetido"] is True
         purga_mer = r.json()["purga"]["id"]
         doc_mer = next(f for f in filas_documentos("M") if f[5])
-        ruta_mer = ruta_documento(doc_mer[1])
-        respaldo = ruta_mer.with_name(ruta_mer.name + ".c08bak")
-        ruta_mer.rename(respaldo)
-        ruta_mer.mkdir()
-        try:
+        if almacen().nombre == "local":
+            ruta_mer = almacen()._ruta("documentos", doc_mer[1])
+            respaldo = ruta_mer.with_name(ruta_mer.name + ".c08bak")
+            ruta_mer.rename(respaldo)
+            ruta_mer.mkdir()
+            try:
+                vencer(purga_mer)
+                r = client.post(f"{ruta_purgas}/{purga_mer}/ejecucion", headers=tutor)
+                assert r.status_code == 500 and "reintentará" in r.text, (r.status_code, r.text[:200])
+                with connect_local() as conn:
+                    estado, intentos, error = conn.execute(
+                        "SELECT estado, intentos, ultimo_error FROM purgas_archivo WHERE id=%s", (purga_mer,)).fetchone()
+                assert estado == "programada" and intentos >= 1 and error, "El fallo queda registrado y la purga pendiente"
+                assert all(f[3] is None for f in filas_documentos("M")), "Sin filas archivadas tras el fallo (transacción revertida)"
+            finally:
+                ruta_mer.rmdir()
+                respaldo.rename(ruta_mer)
+        else:
+            print("Fallo de eliminación inyectado: solo con el adaptador local; con Drive lo cubren las pruebas con respuestas simuladas.")
             vencer(purga_mer)
-            r = client.post(f"{ruta_purgas}/{purga_mer}/ejecucion", headers=tutor)
-            assert r.status_code == 500 and "reintentará" in r.text, (r.status_code, r.text[:200])
-            with connect_local() as conn:
-                estado, intentos, error = conn.execute(
-                    "SELECT estado, intentos, ultimo_error FROM purgas_archivo WHERE id=%s", (purga_mer,)).fetchone()
-            assert estado == "programada" and intentos >= 1 and error, "El fallo queda registrado y la purga pendiente"
-            assert all(f[3] is None for f in filas_documentos("M")), "Sin filas archivadas tras el fallo (transacción revertida)"
-        finally:
-            ruta_mer.rmdir()
-            respaldo.rename(ruta_mer)
 
         vencer(purga_tii)
         claves_tii = {n: [f for f in filas_documentos(n)] for n in ("A", "C")}

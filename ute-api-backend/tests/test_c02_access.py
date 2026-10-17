@@ -97,7 +97,7 @@ class AccessTests(unittest.IsolatedAsyncioTestCase):
         runtime.services.leer_documento = AsyncMock(return_value=b'%PDF-test')
         result = await entregas.descargar_version('report-a', 1, {'matricula': 'A'}, runtime=runtime)
         self.assertEqual(result.media_type, 'application/pdf')
-        runtime.services.leer_documento.assert_awaited_once_with('a' * 32 + '.pdf')
+        runtime.services.leer_documento.assert_awaited_once_with('a' * 32 + '.pdf', None)
 
     async def test_foreign_mailbox_reply_does_not_write(self):
         runtime = self.runtime([{'alumno_id': 'B', 'area': 'dual', 'estado': 'Enviado'}])

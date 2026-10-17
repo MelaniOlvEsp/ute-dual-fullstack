@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.application.errors import ApplicationError
-from app.application.use_cases.dual.archivado import exigir_vigente
+from app.application.use_cases.dual.archivado import PUNTERO_HEREDADO, exigir_vigente
 from app.application.responses import FileResult
 from app.domain import reports
 from app.domain.reports import EntregaInvalida
@@ -96,7 +96,7 @@ async def _registrar(cur, obligacion_id, matricula, usuario_id, nota,
     if reporte is None:
         await cur.execute("dual.entregas.insert_reporte", (
             matricula, obligacion["periodo"], obligacion["ordinal"], nota,
-            fecha_inicio, fecha_fin, documento["ruta"], obligacion_id))
+            fecha_inicio, fecha_fin, PUNTERO_HEREDADO, obligacion_id))
         reporte_id = dict(await cur.fetchone())["id"]
         numero = 1
     else:
@@ -107,7 +107,7 @@ async def _registrar(cur, obligacion_id, matricula, usuario_id, nota,
             "Rechazada", reporte["nota_agente"], reporte["revisado_por"],
             reporte["revisado_en"], reporte_id, reporte["ultima"]))
         await cur.execute("dual.entregas.reenviar", (
-            nota, fecha_inicio, fecha_fin, documento["ruta"], reporte_id))
+            nota, fecha_inicio, fecha_fin, PUNTERO_HEREDADO, reporte_id))
 
     await cur.execute("dual.entregas.insert_version", (
         reporte_id, numero, fecha_inicio, fecha_fin, nota, documento_id, usuario_id))
@@ -137,7 +137,7 @@ async def descargar_version(reporte_id, numero, user, *, runtime, documento="ori
     clave = datos_fila["firmado" if documento == "firmado" else "original"]
     if not clave:
         raise ApplicationError(status_code=404, detail="Esta versión no tiene documento firmado")
-    contenido = await runtime.services.leer_documento(clave)
+    contenido = await runtime.services.leer_documento(clave, datos_fila.get("firmado_sha" if documento == "firmado" else "original_sha"))
     sufijo = "-firmado" if documento == "firmado" else ""
     return FileResult(
         iter([contenido]),

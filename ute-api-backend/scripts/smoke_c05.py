@@ -78,9 +78,22 @@ def sha(contenido: bytes) -> str:
     return hashlib.sha256(contenido).hexdigest()
 
 
+# C10A: los smokes usan el mismo contrato de almacenamiento que la API (Drive, o la carpeta local de regresión).
+def almacen():
+    from app.infrastructure.storage.registro import get_storage
+    return get_storage()
+
+
+def leer_doc(clave: str) -> bytes:
+    return almacen().leer("documentos", clave)
+
+
+def existe_doc(clave: str) -> bool:
+    return almacen().existe("documentos", clave)
+
+
 def archivos_en_almacen() -> int:
-    raiz = Path(settings.dual_upload_dir) / "documentos"
-    return sum(1 for ruta in raiz.rglob("*") if ruta.is_file()) if raiz.is_dir() else 0
+    return len(almacen().listar("documentos"))
 
 
 def conteos(conn):
@@ -222,7 +235,7 @@ def main():
                 "SELECT d.clave, d.sha256, d.tamano, d.paginas FROM reportes_dual r "
                 "JOIN reporte_versiones v ON v.reporte_id=r.id JOIN documentos d ON d.id=v.documento_id "
                 "WHERE r.id=%s", (r_vieja["reporte_id"],)).fetchone()
-        guardado = dual_reports.ruta_documento(fila[0]).read_bytes()
+        guardado = leer_doc(fila[0])
         assert guardado == original_vieja and sha(guardado) == fila[1] and fila[2] == len(original_vieja)
         descarga = client.get(f"/dual/alumno/reportes/{r_vieja['reporte_id']}/versiones/1/pdf", headers=alumno_a)
         assert descarga.status_code == 200 and descarga.content == original_vieja
@@ -401,7 +414,7 @@ def main():
         with connect_local() as conn:
             referenciadas = {f[0] for f in conn.execute("SELECT clave FROM documentos").fetchall()}
         eliminados = dual_reports.limpiar_huerfanos(referenciadas, antiguedad_segundos=0)
-        assert huerfano["clave"] in eliminados and not Path(huerfano["ruta"]).exists()
+        assert huerfano["clave"] in eliminados and not existe_doc(huerfano["clave"])
         with connect_local() as conn:
             # Solo los documentos de esta corrida: una corrida anterior fallida pudo dejar filas sueltas.
             propios = conn.execute(
@@ -409,7 +422,7 @@ def main():
                 "JOIN reportes_dual r ON r.id=v.reporte_id WHERE r.matricula IN (%s,%s)", (m_a, m_b)).fetchall()
             assert len(propios) >= 4
             for clave, in propios:
-                assert dual_reports.ruta_documento(clave).is_file(), "Se borró un original referenciado"
+                assert existe_doc(clave), "Se borró un original referenciado"
 
         # ---------- DP-13: período cerrado ----------
         smoke_periodos.cerrar(client, coordinator, id_periodo_abierto)

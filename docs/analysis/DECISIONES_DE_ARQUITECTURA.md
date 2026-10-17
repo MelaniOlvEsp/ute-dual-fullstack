@@ -10,7 +10,7 @@ PROPUESTO: una función/servicio de dominio define semanas, período, atraso y e
 
 ## ADR-03 — Archivos privados y almacenamiento intercambiable
 
-PROPUESTO: contrato mínimo guardar/leer objeto privado, metadatos y eliminación controlada. Adaptador local para piloto y adaptador Drive existente si se conserva. Autorizar descargas en API; visor usa respuesta binaria autenticada. No publicar documentos para resolver fallos de iframe.
+IMPLEMENTADO en C10A (2026-10-17): contrato mínimo guardar/leer/eliminar/existe/listar sobre claves del servidor con adaptador de Drive para el piloto (el responsable decidió que los archivos y los respaldos viven en Drive y no se guarda nada local); los adaptadores `local` y `memoria` quedan solo para desarrollo, regresión y pruebas. Autorizar descargas en API; visor usa respuesta binaria autenticada. No publicar documentos para resolver fallos de iframe.
 
 Drive necesita credenciales renovadas y prueba real. Ninguna opción de alojamiento se considera gratuita garantizada ni elegida. Comparar costos/límites vigentes cuando se decida publicar; esta entrega no recomienda proveedor.
 
