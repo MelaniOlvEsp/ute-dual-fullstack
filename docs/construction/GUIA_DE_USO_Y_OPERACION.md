@@ -112,4 +112,4 @@ de usar datos reales hay que cifrar el volcado con una clave que se guarde apart
 - Hospedaje, otros proveedores y **móvil físico**: NO_VERIFICADOS. Vista móvil solo emulada en un navegador.
 - El permiso de Drive en modo de prueba caduca cada 7 días; la cuota gratuita y los límites reales de Drive no se ejercieron a escala.
 - Las copias antiguas ya entregadas a terceros no se pueden recuperar; los respaldos no están cifrados (D3).
-- Hallazgos de interfaz H1 a H3 de la evidencia de C10 (no bloquean el uso en escritorio): la pantalla «Cuentas de tutores» desborda en móvil, algunos textos secundarios tienen contraste por debajo de AA y las tablas de versiones y de aprobados se desplazan en pantallas angostas.
+- Interfaz: C11 corrigió los hallazgos H1 a H3 de C10 (desborde móvil, contraste y tablas). Quedan el hallazgo H4 (listas desplegables sin nombre accesible) y reglas de buenas prácticas de axe sin corregir; ver la evidencia de C11. Sin lector de pantalla real ni móvil físico.

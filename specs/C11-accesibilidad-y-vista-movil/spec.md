@@ -1,9 +1,9 @@
 # C11 — Accesibilidad y vista móvil
 
-Estado: DRAFT
+Estado: DONE
 Fecha: 2026-10-17
 Responsable de aprobación: responsable del proyecto
-Dependencias: C10 DONE (2026-10-17). D1 y D2 (más abajo) pendientes: bloquean pasar a READY. Es una spec de corrección: no agrega funciones, rutas ni datos.
+Dependencias: C10 DONE (2026-10-17). D1 y D2 resueltas el 2026-10-17 (tal como se recomendó); sin decisiones bloqueantes: solo falta la orden `IMPLEMENT C11` para pasar a READY. Es una spec de corrección: no agrega funciones, rutas ni datos.
 
 ## Problema y resultado esperado
 
@@ -33,7 +33,7 @@ Excluye: funciones nuevas, rediseño de la marca, cambios de API, de base de dat
 
 Confirmadas: se corrige con tokens y estilos existentes sin reescribir componentes; el contraste se mide en los dos temas; ninguna corrección cambia datos ni permisos.
 
-Pendientes bloqueantes (con recomendación):
+Resueltas por el responsable el 2026-10-17, tal como se recomendó (D1: opción a; D2: opción a). Se conserva el texto de las opciones:
 
 - **D1 — Cómo cumplir el contraste con el naranja de la marca.** `--orange: #F97316` con texto blanco da 2.8:1. Opciones: (a) mantener `#F97316` como color decorativo y usar un naranja más oscuro (por ejemplo `#C2410C`, 5.2:1 con blanco) para fondos con texto y para texto naranja sobre fondo claro, ajustando `--text-disabled` a un gris de 4.5:1; (b) conservar el naranja y poner texto oscuro sobre él (≈6:1), lo que cambia el aspecto de botones y pestañas. Recomendación: (a), porque conserva la identidad en acentos e iconos y solo oscurece lo que lleva texto. Necesito tu decisión porque toca la marca.
 - **D2 — Qué hacer con las tablas en pantallas angostas.** Opciones: (a) mantener la tabla en un contenedor con desplazamiento horizontal propio (enfocable y con nombre) y dejar visible la acción «Ver» de cada fila (primera columna o columna fija); (b) en móvil mostrar cada fila como una tarjeta apilada. Recomendación: (a), el cambio mínimo y el patrón que la guía de reflujo admite para tablas de datos; (b) cambia más la interfaz.
@@ -60,28 +60,28 @@ Comportamiento ante fallos/reintentos: no aplica (solo presentación).
 
 | AC | Prueba o recorrido | Nivel y datos | Resultado |
 |---|---|---|---|
-| C11-AC1 | Sin desborde horizontal de la página a 320 y 375 px en todas las pantallas de los tres roles, en claro y oscuro; «Cuentas de tutores» sin recortes | Auditoría automática en el navegador con cuentas sintéticas | NO_VERIFICADA |
-| C11-AC2 | Contraste ≥ 4.5:1 (texto normal) y ≥ 3:1 (texto grande y componentes) en ambos temas, confirmado con una herramienta de accesibilidad además de la aproximación propia | Auditoría y herramienta de accesibilidad | NO_VERIFICADA |
-| C11-AC3 | Cada tabla de datos se desplaza solo dentro de su contenedor, se alcanza con Tab, tiene nombre accesible y su acción principal es visible sin desplazarse | Navegador, teclado y auditoría | NO_VERIFICADA |
-| C11-AC4 | Revisión visual a 1280 px de las pantallas principales de cada rol en claro y oscuro (pendiente de C10) | Navegador a tamaño real | NO_VERIFICADA |
-| C11-AC5 | No hay regresión: pruebas de frontend, contrato y `smoke_c10.py` | Pruebas existentes y recorrido integral | NO_VERIFICADA |
+| C11-AC1 | Sin desborde horizontal de la página a 320 y 375 px en todas las pantallas de los tres roles, en claro y oscuro; «Cuentas de tutores» sin recortes | Auditoría automática en el navegador con cuentas sintéticas | REAL: 0 px de desborde a 320 px en tres roles, claro y oscuro |
+| C11-AC2 | Contraste ≥ 4.5:1 (texto normal) y ≥ 3:1 (texto grande y componentes) en ambos temas, confirmado con una herramienta de accesibilidad además de la aproximación propia | Auditoría y herramienta de accesibilidad | REAL con axe-core (0 violaciones de contraste) y SIMULADA (tokens) |
+| C11-AC3 | Cada tabla de datos se desplaza solo dentro de su contenedor, se alcanza con Tab, tiene nombre accesible y su acción principal es visible sin desplazarse | Navegador, teclado y auditoría | REAL |
+| C11-AC4 | Revisión visual a 1280 px de las pantallas principales de cada rol en claro y oscuro (pendiente de C10) | Navegador a tamaño real | REAL parcial (coordinador y tutor a 1280 px; alumno no) |
+| C11-AC5 | No hay regresión: pruebas de frontend, contrato y `smoke_c10.py` | Pruebas existentes y recorrido integral | REAL |
 
 ## Evidencia de implementación
 
-Sin ejecución: spec en DRAFT. Añadir solo después de implementar, con fecha, entorno, revisión del código y clase REAL/SIMULADA/NO_VERIFICADA.
+Implementada el 2026-10-17 y verificada en el navegador integrado con cuentas sintéticas; ver [evidencia C11](evidencia.md) (cambios, auditoría con axe-core antes y después, hallazgo nuevo H4, lo no probado). Revisión: dos revisiones técnicas y visuales del mismo agente (CHANGES_REQUESTED con M1 y APPROVED). Sin push.
 
 ## Revisión
 
-Veredicto: pendiente.
-Revisor y modalidad (mismo agente / independiente): pendiente.
-Hallazgos materiales: no aplica antes de implementación.
-Correcciones y verificación focal: no aplica.
+Veredicto: APPROVED (segunda revisión, 2026-10-17).
+Revisor y modalidad (mismo agente / independiente): el mismo agente que implementó; técnica y visual (no independiente).
+Hallazgos materiales: M1 (una etiqueta de la pantalla de revisión del tutor medía 4.49:1 sobre un fondo teñido de naranja y la auditoría no cubría vistas sin dirección propia).
+Correcciones y verificación focal: `--text-disabled` a `#5B6B82`, pares con `--orange-light` en la prueba de contraste y rutas con `preparar` en la herramienta de auditoría; axe-core sin violaciones de contraste en revisión, buzón, perfil, login, registro y 404; ver la evidencia.
 Limitaciones previstas: lector de pantalla real, móvil físico y otros navegadores NO_VERIFICADOS; el contraste se confirma con una herramienta pero no sustituye una auditoría de accesibilidad completa.
 
 ## Aprobaciones y cierre
 
-Aprobación de implementación: pendiente (D1 y D2, y la orden de pasar a READY).
-Aprobación de cierre: pendiente.
-Resumen final: pendiente.
-Siguiente spec: no hay otro incremento en el plan maestro; el responsable decide si hace falta una spec de operación (observaciones menores del respaldo) o el paso al uso real.
-Commit/push: no autorizados salvo indicación explícita.
+Aprobación de implementación: D1 y D2 resueltas el 2026-10-17; el responsable autorizó la implementación con `IMPLEMENT C11` el 2026-10-17: sin decisiones bloqueantes, la spec pasó de DRAFT a READY y a IN_PROGRESS el mismo día. Sin commit ni push.
+Aprobación de cierre: el responsable la otorgó con `CLOSE C11 + NEXT SPEC` el 2026-10-17, tras la segunda revisión APPROVED y sabiendo lo que no se verificó (lector de pantalla real, móvil físico, otros navegadores, zoom real al 400 %, diálogo de depuración, buzón con un hilo abierto, alumno y períodos a 1280 px) y que H4 y las reglas de buenas prácticas de axe siguen sin corregir. C11 queda DONE; el commit local de implementación se hizo con el cierre.
+Resumen final: H1 (desborde móvil), H2 (contraste, D1 a) y H3 (tablas, D2 a) corregidos; 0 desbordes a 320 px y 0 violaciones de contraste con axe-core en las pantallas auditadas; 45 pruebas de frontend, contrato y `smoke_c10` en verde. Sin push.
+Siguiente spec: [C12 — Accesibilidad estructural](../C12-accesibilidad-estructural/spec.md) (DRAFT), para H4 y las reglas de buenas prácticas de axe; el plan maestro no tenía más incrementos.
+Commit/push: commit local con el cierre; push no autorizado.

@@ -176,7 +176,7 @@
             <table class="tabla">
               <thead>
                 <tr>
-                  <th>Semana</th><th>Fechas del reporte</th><th class="num">Nota</th><th>Versión</th><th>Documentos</th>
+                  <th>Semana</th><th>Fechas del reporte</th><th class="num">Nota</th><th>Versión</th><th class="col-accion">Documentos</th>
                 </tr>
               </thead>
               <tbody>
@@ -189,7 +189,7 @@
                       {#if a.corregida}<span class="corregida">Corregida por el tutor (declaró {a.declarada_nota})</span>{/if}
                     </td>
                     <td>v{a.version}</td>
-                    <td class="acciones">
+                    <td class="col-accion"><div class="acciones">
                       {#if a.archivado_en}
                         <span class="archivado">Archivado el {formatFechaCivil(a.archivado_en)}</span>
                       {:else}
@@ -204,7 +204,7 @@
                         aria-label="Descargar el original de la semana {a.semana}"
                         on:click={() => descargarReporte(a, 'original')}>Original</button>
                       {/if}
-                    </td>
+                    </div></td>
                   </tr>
                 {/each}
               </tbody>
@@ -267,5 +267,5 @@
   .btn-link:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
   .visor { min-height: 60vh; display: flex; }
   .nota-visor { margin: 0; font-size: 13px; color: var(--text-disabled); font-style: italic; }
-  .error-msg { color: var(--error); margin: 0; }
+  .error-msg { color: var(--error-text); margin: 0; }
 </style>

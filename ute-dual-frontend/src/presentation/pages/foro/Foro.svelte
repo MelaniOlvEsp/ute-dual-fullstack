@@ -545,7 +545,7 @@
     transition: background 0.15s, color 0.15s;
   }
   .tab-btn:hover { color: var(--text-primary); }
-  .tab-btn.active { background: var(--orange); color: #fff; }
+  .tab-btn.active { background: var(--orange-action); color: #fff; }
 
   /* Composer */
   .composer-card {
@@ -636,7 +636,7 @@
     border-radius: 8px;
     transition: background 0.15s, color 0.15s;
   }
-  .post-delete:hover { background: #FEF2F2; color: var(--error); }
+  .post-delete:hover { background: #FEF2F2; color: var(--error-text); }
   .post-content {
     font-size: 14.5px;
     line-height: 1.6;
@@ -737,7 +737,7 @@
   .success-msg {
     background: #F0FDF4;
     border: 1px solid #BBF7D0;
-    color: var(--success);
+    color: var(--success-text);
     border-radius: 8px;
     padding: 10px 14px;
     font-size: 13px;
@@ -792,7 +792,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    background: var(--orange);
+    background: var(--orange-action);
     color: #fff;
     padding: 3px 8px;
     border-radius: 20px;

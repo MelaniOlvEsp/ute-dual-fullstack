@@ -30,7 +30,7 @@
   <button class="btn-primary" on:click={recuperar} disabled={working || matricula.length !== 9}>
     {working ? 'Generando...' : 'Generar contraseña provisional'}
   </button>
-  {#if error}<p style="color:var(--error)">{error}</p>{/if}
+  {#if error}<p style="color: var(--error-text)">{error}</p>{/if}
   {#if provisional}
     <section style="padding:18px;margin-top:18px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px">
       <strong>Contraseña provisional — visible una sola vez</strong>

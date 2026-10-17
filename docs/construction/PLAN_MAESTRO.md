@@ -18,7 +18,7 @@ Estado inicial: documentación creada; ningún incremento implementado o aceptad
 | C09 — Foro, buzón y plantillas | Entrada al foro, conversación funcional y pareja Word/PDF administrable. | US-05/13/14; AC-21/22/23 | C08; DP-09 |
 | C10A — Almacenamiento en Drive (DONE 2026-10-17, probado con Drive real) | Contrato de almacenamiento privado con adaptador de Drive (cuenta de prueba, OAuth), sin archivos locales; los smokes C01–C09 pasan con Drive. | RN-12/16/25; AC-10/11/24; DP-08 | C09 DONE; decisión del responsable 2026-10-17; D1 (autenticación) y D2 (temporales) |
 | C10 — Validación integral local (DONE 2026-10-17) | Recorrido completo, controles negativos, respaldo y restauración en Drive, guía de uso y operación. | Todas; AC-24 | C10A DONE; DP-11 resuelta (D1); C10 DONE (2026-10-17) |
-| C11 — Accesibilidad y vista móvil (DRAFT) | Corrección de los hallazgos de interfaz H1 a H3 de C10: desborde móvil, contraste y tablas; revisión visual a 1280 px. | Mejora AC-20 y pantallas de US-05/10/11/13 | C10 DONE; D1 (color de acción) y D2 (tablas en móvil) |
+| C11 — Accesibilidad y vista móvil (DONE 2026-10-17) | Corrección de los hallazgos de interfaz H1 a H3 de C10: desborde móvil, contraste y tablas; revisión visual a 1280 px. | Mejora AC-20 y pantallas de US-05/10/11/13 | C10 DONE; D1 (color de acción) y D2 (tablas en móvil) resueltas el 2026-10-17 |
 
 Dependencia lineal por simplicidad; permite correcciones pequeñas de infraestructura necesarias para el incremento activo. No adelantar módulos completos.
 

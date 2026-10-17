@@ -43,7 +43,7 @@
   .modal-card { margin: auto; background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-card); box-shadow: 0 8px 40px #00000026; padding: 28px; width: calc(100% - 32px); max-width: 420px; max-height: calc(100dvh - 32px); overflow-y: auto; }
   .modal-card::backdrop { background: #00000059; backdrop-filter: blur(2px); }
   .modal-header { display: flex; align-items: center; gap: 16px; padding-right: 24px; margin-bottom: 20px; }
-  .avatar { width: 52px; height: 52px; background: var(--orange); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .avatar { width: 52px; height: 52px; background: var(--orange-action); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   h2 { font-size: 17px; font-weight: 700; }
   .subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
   .modal-fields { display: flex; flex-direction: column; gap: 10px; }

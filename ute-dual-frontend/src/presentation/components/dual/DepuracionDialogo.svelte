@@ -73,9 +73,9 @@
   code { font-family: monospace; font-weight: 700; color: var(--text-primary); overflow-wrap: anywhere; }
   .acciones { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; margin-top: 4px; }
   .btn-primary, .btn-danger { border: none; border-radius: var(--radius-btn); padding: 12px 20px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font); }
-  .btn-primary { background: var(--orange); color: white; }
+  .btn-primary { background: var(--orange-action); color: white; }
   .btn-danger { background: var(--error); color: white; }
   .btn-primary:disabled, .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
-  .error-msg { color: var(--error); margin: 0; font-size: 13px; }
+  .error-msg { color: var(--error-text); margin: 0; font-size: 13px; }
   button:focus-visible, input:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 </style>

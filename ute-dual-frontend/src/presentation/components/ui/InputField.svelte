@@ -66,5 +66,5 @@
   .field-sm { max-width: 120px; }
   .req { color: var(--orange); }
   .input-error { border-color: var(--error) !important; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important; }
-  .field-error { font-size: 11px; color: var(--error); font-weight: 500; }
+  .field-error { font-size: 11px; color: var(--error-text); font-weight: 500; }
 </style>

@@ -421,7 +421,7 @@
       {:else if reportesFiltrados.length === 0}
         <EmptyState message="No hay reportes con los filtros seleccionados." />
       {:else}
-        <div class="table-wrap">
+        <div class="table-wrap" role="region" tabindex="0" aria-label="Bandeja de reportes">
           <table class="reporte-table">
             <thead>
               {#if modoNoEntregado}
@@ -440,7 +440,7 @@
                   <th class="td-center">Calificación</th>
                   <th>Estado</th>
                   <th>Entregado</th>
-                  <th></th>
+                  <th class="col-accion"><span class="sr-only">Acciones</span></th>
                 </tr>
               {/if}
             </thead>
@@ -481,7 +481,7 @@
                       </span>
                     </td>
                     <td class="td-fecha">{formatFecha(r.created_at)}</td>
-                    <td style="text-align: right;">
+                    <td class="col-accion" style="text-align: right;">
                       <button class="btn-revisar" on:click={() => abrirRevision(r)}>
                         {r.estado === 'Pendiente' ? 'Revisar' : 'Ver'}
                       </button>
@@ -855,7 +855,7 @@
               {#if historialIncorporaciones.length > 0}
                 <div style="margin-top:16px">
                   <h3 class="seccion-title">Historial de incorporación</h3>
-                  <ul class="empresa-list">
+                  <ul class="empresa-list" tabindex="0" aria-label="Historial de incorporación">
                     {#each historialIncorporaciones as item}
                       <li class="empresa-item"><strong>{item.empresa || 'Sin empresa'}</strong><br />{item.fecha_inicio} — {item.fecha_baja || 'Activa'}</li>
                     {/each}
@@ -865,7 +865,7 @@
               {#if obligacionesAlumno.length > 0}
                 <div style="margin-top:16px">
                   <h3 class="seccion-title">Semanas del alumno</h3>
-                  <ul class="empresa-list">
+                  <ul class="empresa-list" tabindex="0" aria-label="Semanas del alumno">
                     {#each obligacionesAlumno as o (o.id)}
                       <li class="empresa-item">
                         <strong>Semana {o.ordinal}</strong>{#if o.parcial}&nbsp;(parcial){/if} — {ETIQUETA_ESTADO[o.estado]}<br />
@@ -883,7 +883,7 @@
             {#if empresas.length === 0}
               <p class="empty-msg">No hay entidades registradas en el catálogo actual.</p>
             {:else}
-              <ul class="empresa-list">
+              <ul class="empresa-list" tabindex="0" aria-label="Empresas en convenio">
                 {#each empresas as emp}
                   <li class="empresa-item">
                     <span class="empresa-nombre">{emp.nombre}</span>
@@ -969,19 +969,19 @@
   .acciones-grupo { padding: 20px; margin-top: auto; }
   .btn-decision-row { display: flex; gap: 10px; }
   .btn-decision { flex: 1; padding: 12px 8px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s ease; border: 1.5px solid transparent; text-align: center; }
-  .btn-aprobar { background: rgba(34, 197, 94, 0.08); color: var(--success); border-color: rgba(34, 197, 94, 0.2); }
+  .btn-aprobar { background: rgba(34, 197, 94, 0.08); color: var(--success-text); border-color: rgba(34, 197, 94, 0.2); }
   .btn-aprobar:hover, .btn-aprobar.activo { background: var(--success); color: white; border-color: var(--success); }
-  .btn-rechazar { background: rgba(239, 68, 68, 0.08); color: var(--error); border-color: rgba(239, 68, 68, 0.2); }
+  .btn-rechazar { background: rgba(239, 68, 68, 0.08); color: var(--error-text); border-color: rgba(239, 68, 68, 0.2); }
   .btn-rechazar:hover, .btn-rechazar.activo { background: var(--error); color: white; border-color: var(--error); }
   .textarea-nota { width: 100%; min-height: 84px; resize: none; margin-top: 4px; }
-  .exito-msg { color: var(--success); background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-top: 12px; font-weight: 500; text-align: center; }
+  .exito-msg { color: var(--success-text); background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-top: 12px; font-weight: 500; text-align: center; }
   
   .ya-revisado { padding: 24px 20px; font-size: 14px; color: var(--text-secondary); text-align: center; }
   .status-final { font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
-  .text-verde { color: var(--success); }
-  .text-rojo { color: var(--error); }
+  .text-verde { color: var(--success-text); }
+  .text-rojo { color: var(--error-text); }
   
-  .btn-danger { color: var(--error) !important; border-color: rgba(239, 68, 68, 0.3) !important; }
+  .btn-danger { color: var(--error-text) !important; border-color: rgba(239, 68, 68, 0.3) !important; }
   .btn-danger:hover { background: var(--error) !important; color: white !important; border-color: var(--error) !important; }
 
   .empresas-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 8px; }
@@ -1002,7 +1002,7 @@
   .badge-overdue {
     display: inline-block;
     background: rgba(239, 68, 68, 0.08);
-    color: var(--error);
+    color: var(--error-text);
     font-weight: 700;
     font-size: 12px;
     border-radius: 6px;
@@ -1025,7 +1025,7 @@
   .sem-txt { font-weight: 600; color: var(--text-primary); }
   .chip-reportes { display: inline-block; background: rgba(249, 115, 22, 0.08); color: var(--orange); font-weight: 700; font-size: 12px; border-radius: 6px; padding: 2px 10px; border: 1px solid rgba(249, 115, 22, 0.2); }
 
-  .exito-msg { color: var(--success); background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 8px; padding: 10px 14px; font-size: 13px; font-weight: 500; }
+  .exito-msg { color: var(--success-text); background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 8px; padding: 10px 14px; font-size: 13px; font-weight: 500; }
 
   @media (max-width: 768px) {
     .page-wrap { padding: 24px 16px; }

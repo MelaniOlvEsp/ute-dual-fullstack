@@ -59,7 +59,7 @@
     font-size: 14px;
     font-weight: 600;
     padding: 12px 24px;
-    background: var(--orange);
+    background: var(--orange-action);
     color: #fff;
     border: none;
     border-radius: var(--radius-input);
@@ -67,6 +67,6 @@
     transition: background 0.15s;
   }
   .btn-primary:hover {
-    background: var(--orange-hover);
+    background: var(--orange-action-hover);
   }
 </style>

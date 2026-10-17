@@ -228,7 +228,7 @@
           </dl>
 
           {#if alumnos.length}
-            <div class="tabla-wrap" role="region" aria-label="Promedios por alumno">
+            <div class="tabla-wrap" role="region" tabindex="0" aria-label="Promedios por alumno">
               <table class="tabla">
                 <thead>
                   <tr><th>Matrícula</th><th>Alumno</th><th>Grupo</th><th class="num">Aprobados</th><th class="num">Promedio</th></tr>
@@ -320,6 +320,6 @@
   .btn-danger { background: var(--error); color: white; border: none; border-radius: var(--radius-btn); padding: 12px 20px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font); }
   .btn-danger:disabled, .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .success-msg { color: var(--text-primary); border-left: 3px solid var(--success); padding-left: 10px; }
-  .error-msg { color: var(--error); }
+  .error-msg { color: var(--error-text); }
   @media (max-width: 860px) { .fila-abrir { grid-template-columns: 1fr; } }
 </style>

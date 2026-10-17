@@ -529,7 +529,7 @@
       {:else if alumnosFiltrados.length === 0}
         <EmptyState message="No hay alumnos duales con los filtros seleccionados." />
       {:else}
-        <div class="table-wrap">
+        <div class="table-wrap" role="region" tabindex="0" aria-label="Directorio de alumnos">
           <table class="tabla">
             <thead>
               <tr>
@@ -539,7 +539,7 @@
                 <th>Empresa</th>
                 <th class="td-center">Aprobados</th>
                 <th class="td-center">Promedio</th>
-                <th></th>
+                <th class="col-accion"><span class="sr-only">Acciones</span></th>
               </tr>
             </thead>
             <tbody>
@@ -554,7 +554,7 @@
                   <td>{a.empresa || 'Sin asignar'}</td>
                   <td class="td-center">{a.reportes_aprobados}</td>
                   <td class="td-center">{a.promedio ?? 'Sin calificación'}</td>
-                  <td style="text-align: right;">
+                  <td class="col-accion" style="text-align: right;">
                     <button class="btn-ver" on:click={() => abrirExpediente(a)}>
                       Ver Expediente
                     </button>
@@ -924,7 +924,7 @@
   .btn-ver:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-light); }
 
   .btn-pdf { display: inline-block; background: transparent; border: 1.5px solid var(--border-input); border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 600; color: var(--orange); text-decoration: none; transition: all 0.2s ease; }
-  .btn-pdf:hover { background: var(--orange-hover); color: white; border-color: var(--orange-hover); }
+  .btn-pdf:hover { background: var(--orange-action-hover); color: white; border-color: var(--orange-hover); }
 
   .count-label { font-size: 12px; color: var(--text-disabled); text-align: right; margin-top: 4px; font-weight: 500; }
 
@@ -1024,7 +1024,7 @@
 
   .acciones-individuales { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
   
-  .btn-eliminar { padding: 9px 18px; border: 1.5px solid var(--error); border-radius: var(--radius-input); background: transparent; color: var(--error); font-family: var(--font); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .btn-eliminar { padding: 9px 18px; border: 1.5px solid var(--error); border-radius: var(--radius-input); background: transparent; color: var(--error-text); font-family: var(--font); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
   .btn-eliminar:hover { background: var(--error); color: white; }
   .btn-eliminar:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -1040,12 +1040,12 @@
   .modal-acciones { display: flex; gap: 10px; }
 
   .resultado-csv { margin-top: 14px; padding: 12px; border-radius: 8px; background: var(--bg-page); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
-  .resultado-ok { color: var(--success); font-weight: 600; font-size: 13px; margin: 0; }
+  .resultado-ok { color: var(--success-text); font-weight: 600; font-size: 13px; margin: 0; }
   .resultado-actualizados { color: #d97706; font-weight: 600; font-size: 13px; margin: 0; }
   .resultado-vacio { color: var(--text-disabled); font-size: 13px; font-style: italic; margin: 0; }
   .resultado-alumnos { margin-top: 2px; }
   .resultado-lista-alumnos { margin: 0; padding-left: 16px; font-size: 12px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 2px; }
-  .resultado-err-titulo { color: var(--error); font-weight: 600; font-size: 12px; margin: 0; }
+  .resultado-err-titulo { color: var(--error-text); font-weight: 600; font-size: 12px; margin: 0; }
   .resultado-err-lista { margin: 0; padding-left: 16px; font-size: 12px; color: var(--text-secondary); }
 
   .expediente-der { flex: 1; min-width: 0; }

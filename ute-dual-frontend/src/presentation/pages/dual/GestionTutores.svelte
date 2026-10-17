@@ -88,14 +88,14 @@
         {#if loading}<p>Cargando...</p>
         {:else if tutores.length === 0}<p>No hay tutores registrados.</p>
         {:else}
-          <div class="table-scroll-area">
+          <div class="table-scroll-area" role="region" tabindex="0" aria-label="Directorio de tutores">
             <table class="data-table">
-              <thead><tr><th>Nombre</th><th>Correo</th><th>Acción</th></tr></thead>
+              <thead><tr><th>Nombre</th><th>Correo</th><th class="col-accion">Acción</th></tr></thead>
               <tbody>
                 {#each tutores as tutor}
                   <tr>
                     <td>{tutor.nombre}</td><td>{tutor.email}</td>
-                    <td><button class="btn-outline" on:click={() => eliminar(tutor.id)}>Dar de baja</button></td>
+                    <td class="col-accion"><button class="btn-outline" on:click={() => eliminar(tutor.id)}>Dar de baja</button></td>
                   </tr>
                 {/each}
               </tbody>
@@ -110,12 +110,13 @@
   .main-container { padding-top: 56px; min-height: 100vh; background: var(--bg-page); }
   .content-wrapper { max-width: 1100px; margin: 0 auto; padding: 32px 24px; display: flex; flex-direction: column; gap: 20px; }
   .split-layout { display: grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start; }
-  .panel-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .panel-card { min-width: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 24px; display: flex; flex-direction: column; gap: 14px; }
   .table-scroll-area { overflow-x: auto; }
   .data-table { border-collapse: collapse; width: 100%; }
   .data-table td,.data-table th { padding: 12px; border-bottom: 1px solid var(--border); text-align: left; }
   .success-box { background: var(--bg-page); border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 8px; overflow-wrap: anywhere; }
-  .success-msg { padding: 12px; color: var(--success); }
-  .error-msg { color: var(--error); }
-  @media(max-width: 860px) { .split-layout { grid-template-columns: 1fr; } }
+  .success-msg { padding: 12px; color: var(--success-text); }
+  .error-msg { color: var(--error-text); }
+  @media(max-width: 860px) { .split-layout { grid-template-columns: minmax(0, 1fr); } }
+  @media(max-width: 480px) { .content-wrapper { padding: 24px 16px; } .panel-card { padding: 18px; } }
 </style>

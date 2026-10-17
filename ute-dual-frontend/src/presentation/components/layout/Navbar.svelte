@@ -112,6 +112,6 @@
   .nav-item.active { font-weight: 600; }
   .sidebar-footer { padding: 16px 8px 24px; border-top: 1px solid var(--border); }
   .logout-btn { color: var(--text-secondary); }
-  .logout-btn:hover { background: var(--orange-light); color: var(--error); }
+  .logout-btn:hover { background: var(--orange-light); color: var(--error-text); }
   button:focus-visible, a:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 </style>

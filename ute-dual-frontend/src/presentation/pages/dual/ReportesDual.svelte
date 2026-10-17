@@ -266,7 +266,7 @@
                 {/if}
 
                 {#if o.reporte_id && versionesAbiertas[o.reporte_id] && versiones[o.reporte_id]}
-                  <div class="versiones" role="region" aria-label="Versiones de la semana {o.ordinal}">
+                  <div class="versiones" role="region" tabindex="0" aria-label="Versiones de la semana {o.ordinal}">
                     <table class="tabla-versiones">
                       <thead>
                         <tr><th>Versión</th><th>Recibida</th><th>Fechas</th><th>Nota</th><th>Decisión</th><th><span class="sr-only">Descargar</span></th></tr>
@@ -339,7 +339,7 @@
   .entrega-rechazada { border-color: var(--error); background: color-mix(in srgb, var(--error) 14%, transparent); }
   .entrega-aprobada { border-color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
   .semanas-nota { font-size: 13px; color: var(--text-secondary); }
-  .semanas-error { color: var(--error); font-size: 14px; }
+  .semanas-error { color: var(--error-text); font-size: 14px; }
   .aviso-ok { color: var(--text-primary); border-left: 3px solid var(--success); padding-left: 10px; font-size: 14px; }
   .semana-acciones { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .semana-bloqueo { font-size: 13px; color: var(--text-secondary); }
@@ -356,7 +356,7 @@
   .req { color: var(--orange); }
   .form-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
   .doc-name { font-size: 12px; color: var(--text-secondary); overflow-wrap: anywhere; }
-  .error-msg { color: var(--error); font-size: 14px; }
+  .error-msg { color: var(--error-text); font-size: 14px; }
 
   /* position: relative contiene el texto solo para lectores de pantalla (sr-only) dentro del scroll. */
   .versiones { position: relative; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-input); }

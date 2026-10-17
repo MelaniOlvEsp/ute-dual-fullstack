@@ -63,7 +63,7 @@
         </svg>
         <div>
           <div class="plantilla-label">{t.etiqueta}</div>
-          <div class="plantilla-ext" style="color:{t.color}">{t.ext} · versión {vigente.numero}</div>
+          <div class="plantilla-ext ext-{t.tipo}">{t.ext} · versión {vigente.numero}</div>
         </div>
       </button>
     {/each}
@@ -80,7 +80,12 @@
   .plantilla-btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
   .plantilla-label { font-size: 13px; font-weight: 700; color: var(--text-primary); }
   .plantilla-ext { font-size: 11px; font-weight: 700; text-transform: uppercase; margin-top: 1px; }
+  /* C11: el texto del tipo de archivo debe cumplir 4.5:1 en los dos temas (el icono conserva el color del tipo). */
+  .ext-word { color: #2B579A; }
+  .ext-pdf { color: #B91C1C; }
+  :global([data-theme='dark']) .ext-word { color: #8FB4F0; }
+  :global([data-theme='dark']) .ext-pdf { color: #F87171; }
   .nota { margin: 8px 0 0; font-size: 13px; color: var(--text-secondary); }
-  .error-msg { color: var(--error); margin: 8px 0 0; font-size: 13px; }
+  .error-msg { color: var(--error-text); margin: 8px 0 0; font-size: 13px; }
   @media (max-width: 767px) { .plantillas-grid { grid-template-columns: 1fr; } }
 </style>

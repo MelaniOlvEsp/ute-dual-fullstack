@@ -137,8 +137,8 @@
   .tabla td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
   .tabla tbody tr:last-child td { border-bottom: none; }
   .vigente { font-size: 11px; font-weight: 700; color: var(--orange); text-transform: uppercase; }
-  .error-msg { color: var(--error); margin: 0; font-size: 13px; }
-  .exito-msg { color: var(--success); margin: 0; font-size: 13px; }
-  .btn-primary { align-self: flex-start; background: var(--orange); color: white; border: none; border-radius: var(--radius-btn); padding: 12px 20px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font); }
+  .error-msg { color: var(--error-text); margin: 0; font-size: 13px; }
+  .exito-msg { color: var(--success-text); margin: 0; font-size: 13px; }
+  .btn-primary { align-self: flex-start; background: var(--orange-action); color: white; border: none; border-radius: var(--radius-btn); padding: 12px 20px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font); }
   .btn-primary:disabled { opacity: 0.6; cursor: wait; }
 </style>

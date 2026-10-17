@@ -38,6 +38,6 @@
   <p style="font-size:12px">La imagen se estampará en la celda de firma de la fila «Tutor académico» del reporte; si el formato no se reconoce, se agrega una hoja de firma con tu nombre y la fecha de revisión. No equivale a una firma electrónica certificada.</p>
   <input aria-label="Imagen de firma" type="file" accept="image/png,image/jpeg" on:change={e => imagen = e.currentTarget.files?.[0] || null} />
   <button class="btn-primary" on:click={guardar} disabled={!imagen || saving}>{saving ? 'Guardando...' : 'Guardar firma'}</button>
-  {#if error}<p style="color:var(--error)">{error}</p>{/if}
-  {#if mensaje}<p style="color:var(--success)">{mensaje}</p>{/if}
+  {#if error}<p style="color: var(--error-text)">{error}</p>{/if}
+  {#if mensaje}<p style="color: var(--success-text)">{mensaje}</p>{/if}
 </section>

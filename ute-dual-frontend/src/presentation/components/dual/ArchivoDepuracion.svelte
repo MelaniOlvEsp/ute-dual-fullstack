@@ -91,7 +91,7 @@
       <div class="tabla-wrap" role="region" aria-label="Archivos por carrera" tabindex="0">
         <table class="tabla">
           <thead>
-            <tr><th>Carrera</th><th class="num">Alumnos</th><th class="num">Archivos</th><th class="num">Tamaño</th><th>Paquete</th><th>Estado</th><th>Acción</th></tr>
+            <tr><th>Carrera</th><th class="num">Alumnos</th><th class="num">Archivos</th><th class="num">Tamaño</th><th>Paquete</th><th>Estado</th><th class="col-accion">Acción</th></tr>
           </thead>
           <tbody>
             {#each datos.carreras as c (c.codigo)}
@@ -106,7 +106,7 @@
                   <span class="estado estado-{c.estado}">{ETIQUETA_ESTADO[c.estado] || c.estado}</span>
                   {#if programada}<div class="sub">Se eliminan el {formatFecha(programada.ejecutar_en)}</div>{/if}
                 </td>
-                <td class="acciones">
+                <td class="col-accion"><div class="acciones">
                   {#if programada}
                     <button class="btn-link" disabled={ocupado === programada.id} on:click={() => cancelar(programada)}>Cancelar depuración</button>
                     {#if purgaVencida(programada)}
@@ -117,7 +117,7 @@
                   {:else if c.estado === 'sin_depurar' && c.archivos_vigentes > 0}
                     <span class="sub">Genera primero el paquete de la carrera.</span>
                   {/if}
-                </td>
+                </div></td>
               </tr>
             {/each}
           </tbody>
@@ -179,5 +179,5 @@
   .btn-link:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
   .historial { font-size: 13px; color: var(--text-secondary); }
   .historial ul { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
-  .error-msg { color: var(--error); margin: 0; font-size: 13px; }
+  .error-msg { color: var(--error-text); margin: 0; font-size: 13px; }
 </style>

@@ -62,6 +62,6 @@
   .pagina { padding-top: 56px; min-height: 100vh; background: var(--bg-page); }
   .contenido { max-width: 1000px; margin: 0 auto; padding: 32px 24px 64px; display: flex; flex-direction: column; gap: 20px; }
   .aviso { margin: 0; padding: 12px 16px; font-size: 14px; color: var(--text-primary); border: 1px solid var(--border); border-left: 3px solid var(--orange); border-radius: 8px; background: var(--bg-card); }
-  .error-caja { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; color: var(--error); }
+  .error-caja { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; color: var(--error-text); }
   .error-caja p { margin: 0; }
 </style>
