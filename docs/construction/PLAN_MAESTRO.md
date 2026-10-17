@@ -38,7 +38,7 @@ DP-01/03/04: antes del calendario. Resueltas el 2026-10-15 para C04: DP-01 compl
 DP-05: resuelta el 2026-10-15; conservar catálogo, abreviaciones y nomenclatura de la base institucional y aplicar la promoción aprobada.
 DP-06/08: antes de carga de reportes. DP-08, DP-12 (fechas declaradas: solo inicio ≤ fin) y DP-13 (entrega solo con período abierto) resueltas el 2026-10-15 para C05; DP-06 solo afecta el tratamiento especial de períodos vacacionales, que C05 no incluye.
 DP-02/07: antes de revisión/firma. La spec C06 pasó a READY el 2026-10-16 y a IN_PROGRESS el mismo día (C05 DONE); DP-02, DP-07 y DP-08 ya están resueltas (DP-02/07 el 2026-10-16).
-DP-11: antes de cierre/uso real. La spec C07 se cerró el 2026-10-16 (DP-04, DP-03 y DP-11 resueltas el mismo día). La spec C08 se cerró el 2026-10-16 (exportación ZIP y visor implementados; DP-14 define el archivo y la depuración, que se implementa en C08B). La spec C08B se cerró el 2026-10-17 (D1 a D3 resueltas el 2026-10-16; depuración de archivos implementada).
+DP-11: antes de cierre/uso real. La spec C07 se cerró el 2026-10-16 (DP-04, DP-03 y DP-11 resueltas el mismo día). La spec C08 se cerró el 2026-10-16 (exportación ZIP y visor implementados; DP-14 define el archivo y la depuración, que se implementa en C08B). La spec C08B se cerró el 2026-10-17 (D1 a D3 resueltas el 2026-10-16; depuración de archivos implementada). La spec C09 está en DRAFT desde el 2026-10-17 con tres decisiones bloqueantes (política del hilo cerrado y moderación de anuncios, DP-09, y el alcance de la plantilla administrable).
 DP-09: antes de cerrar comunicación.
 
 ## Alcance de la documentación actual
