@@ -26,6 +26,20 @@ async def generar(cur, incorporacion, hasta):
     return len(semanas)
 
 
+# Un alta con inicio muy antiguo (fecha mal escrita, alta retroactiva) no genera su historial al instante: la baja suele
+# registrarse después y esas filas quedarían más allá de ella (nunca se borran). `sincronizar` las crea acotadas a
+# min(hoy, baja) en la primera lectura, el cierre o la finalización de un período.
+UMBRAL_ALTA_SEMANAS = 26
+
+
+async def generar_al_alta(cur, incorporacion, hoy):
+    """Genera al instante las obligaciones de un alta reciente; las de un alta retroactiva quedan para `sincronizar`."""
+    inicio = incorporacion["fecha_inicio"]
+    if (hoy - inicio).days > UMBRAL_ALTA_SEMANAS * 7:
+        return 0
+    return await generar(cur, incorporacion, hoy)
+
+
 async def sincronizar(cur, hasta, matricula=None):
     """Completa las semanas faltantes hasta la semana vigente (todas las activas o un alumno)."""
     await cur.execute("dual.obligaciones.candidates", (matricula, matricula))

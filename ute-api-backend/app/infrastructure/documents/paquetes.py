@@ -1,4 +1,4 @@
-"""Construcción del ZIP del paquete de archivo (C08, DP-14).
+﻿"""Construcción del ZIP del paquete de archivo (C08, DP-14).
 
 Escribe el ZIP en un archivo temporal leyendo cada documento privado por su clave (nunca por un nombre
 del cliente), verificando su tamaño y su SHA-256 contra lo registrado y fallando completo si falta o no
@@ -9,16 +9,37 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+import threading
 import time
 import zipfile
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+
+from loguru import logger
 
 from app.application.errors import ApplicationError
 from app.infrastructure.storage.base import AlmacenamientoNoDisponible, ArchivoNoEncontrado
 from app.infrastructure.storage.registro import get_storage
 
 _BLOQUE = 64 * 1024
+_LECTORES = 16   # lecturas simultáneas al almacenamiento
+_VENTANA = 16    # documentos como máximo en memoria a la vez (leídos o en lectura)
 _ANTIGUEDAD_TEMPORALES = 3600
+
+
+_grupo: ThreadPoolExecutor | None = None
+_cerrojo_grupo = threading.Lock()
+
+
+def _lectores() -> ThreadPoolExecutor:
+    """Grupo de hilos compartido y persistente: cada hilo conserva su cliente de Drive (conexión y descubrimiento
+    ya hechos) y el total de lecturas simultáneas queda acotado aunque haya varios paquetes a la vez."""
+    global _grupo
+    with _cerrojo_grupo:
+        if _grupo is None:
+            _grupo = ThreadPoolExecutor(max_workers=_LECTORES, thread_name_prefix="paquete")
+        return _grupo
 
 
 def _directorio() -> Path:
@@ -57,28 +78,53 @@ def construir_zip(entradas: list[dict], manifiesto: bytes, resumen_csv: bytes, d
     rutas = [e["ruta"] for e in entradas]
     if len(set(rutas)) != len(rutas):
         raise ApplicationError(status_code=500, detail="Nombres duplicados en el paquete")
-    total = 0
+    total, espera, escritura, inicio_total = 0, 0.0, 0.0, time.perf_counter()
+    almacen = get_storage()
+    # Las lecturas (red, en Drive) van en paralelo con una ventana acotada; el ZIP se escribe en orden y un solo hilo.
+    lectores = _lectores()
     with zipfile.ZipFile(destino, "w", zipfile.ZIP_DEFLATED) as paquete:
         paquete.writestr("manifiesto.json", manifiesto)
         paquete.writestr("resumen.csv", resumen_csv)
-        for entrada in entradas:
-            try:
-                contenido = get_storage().leer("documentos", entrada["clave"])
-            except ArchivoNoEncontrado as exc:
-                raise ApplicationError(status_code=409, detail=_falta(entrada)) from exc
-            except AlmacenamientoNoDisponible as exc:
-                raise ApplicationError(
-                    status_code=503,
-                    detail="El almacenamiento de archivos no está disponible; el paquete no se generó.") from exc
-            if hashlib.sha256(contenido).hexdigest() != entrada["sha256"] or len(contenido) != entrada["tamano"]:
-                raise ApplicationError(
-                    status_code=409,
-                    detail=f"El documento {entrada['etiqueta']} no coincide con su hash registrado; "
-                           "el paquete no se generó.")
-            with paquete.open(entrada["ruta"], "w", force_zip64=True) as destino_zip:
-                for inicio in range(0, len(contenido), _BLOQUE):
-                    destino_zip.write(contenido[inicio:inicio + _BLOQUE])
-            total += len(contenido)
+        pendientes: deque = deque()
+        siguiente = 0
+
+        def lanzar():
+            nonlocal siguiente
+            while siguiente < len(entradas) and len(pendientes) < _VENTANA:
+                pendientes.append(lectores.submit(almacen.leer, "documentos", entradas[siguiente]["clave"]))
+                siguiente += 1
+
+        try:
+            lanzar()
+            for entrada in entradas:
+                futuro = pendientes.popleft()
+                lanzar()
+                t0 = time.perf_counter()
+                try:
+                    contenido = futuro.result()
+                except ArchivoNoEncontrado as exc:
+                    raise ApplicationError(status_code=409, detail=_falta(entrada)) from exc
+                except AlmacenamientoNoDisponible as exc:
+                    raise ApplicationError(
+                        status_code=503,
+                        detail="El almacenamiento de archivos no está disponible; el paquete no se generó.") from exc
+                espera += time.perf_counter() - t0
+                t1 = time.perf_counter()
+                if hashlib.sha256(contenido).hexdigest() != entrada["sha256"] or len(contenido) != entrada["tamano"]:
+                    raise ApplicationError(
+                        status_code=409,
+                        detail=f"El documento {entrada['etiqueta']} no coincide con su hash registrado; "
+                               "el paquete no se generó.")
+                with paquete.open(entrada["ruta"], "w", force_zip64=True) as destino_zip:
+                    for inicio in range(0, len(contenido), _BLOQUE):
+                        destino_zip.write(contenido[inicio:inicio + _BLOQUE])
+                total += len(contenido)
+                escritura += time.perf_counter() - t1
+        finally:
+            for futuro in pendientes:
+                futuro.cancel()
+    logger.info("Paquete: {} archivos, {:.1f} MB en {:.1f} s (espera de lectura {:.1f} s, verificación y escritura {:.1f} s).",
+                len(entradas), total / 1e6, time.perf_counter() - inicio_total, espera, escritura)
     return {"archivos": len(entradas), "bytes": total, "tamano_zip": destino.stat().st_size}
 
 

@@ -96,12 +96,21 @@ def main():
 
     m_a, m_b, m_c, m_d, m_e, m_f = (matricula() for _ in range(6))
 
-    # Años lejanos únicos por ejecución: no chocan con períodos reales ni de otras corridas.
+    # Años lejanos y libres: no chocan con períodos reales ni con los que dejaron otras corridas (los datos sintéticos
+    # se conservan, así que un año sorteado puede estar ya ocupado y el smoke fallaba al azar; C14-AC6).
+    with connect_local() as conn:
+        ocupados = {int(f[0]) for f in conn.execute(
+            "SELECT DISTINCT EXTRACT(YEAR FROM fecha_inicio) FROM ciclos_dual").fetchall()}
     while True:
         anio_e = secrets.randbelow(3000) + 3000
-        if date(anio_e, 4, 30).weekday() != 6:  # el 30 de abril no cae en domingo: hay semana cruzada
+        # Semana cruzada y parcial: el 30 de abril no puede ser domingo (la semana no cruza a mayo) ni lunes (la
+        # incorporación empezaría el lunes y la semana no sería parcial).
+        if anio_e not in ocupados and date(anio_e, 4, 30).weekday() not in (0, 6):
             break
-    anio_f = secrets.randbelow(3000) + 6100
+    while True:
+        anio_f = secrets.randbelow(3000) + 6100
+        if anio_f not in ocupados:
+            break
 
     os.environ["LOCAL_ADMIN_PASSWORD"] = password
     create_coordinator(coordinator_email, "Coordinador sintético C04")
@@ -186,23 +195,24 @@ def main():
         # AC-06: A tiene semana parcial de miércoles a domingo; A y B tienen obligaciones propias.
         a = semanas(m_a)
         esperadas_a = calendar.semanas_incorporacion(inicio_a, None, hoy)
-        assert len(a) == len(esperadas_a) == 3, (len(a), len(esperadas_a))
+        assert len(a) == len(esperadas_a) == 3, f"A debe tener 3 semanas: API {len(a)}, calendario {len(esperadas_a)} (hoy {hoy})"
         primera = min(a, key=lambda o: o["ordinal"])
-        assert primera["parcial"] and primera["inicio_efectivo"] == inicio_a.isoformat()
-        assert primera["semana_inicio"] == (lunes - timedelta(days=14)).isoformat()
-        assert [o["ordinal"] for o in sorted(a, key=lambda o: o["ordinal"])] == [1, 2, 3]
+        assert primera["parcial"] and primera["inicio_efectivo"] == inicio_a.isoformat(), f"La primera semana de A debe ser parcial desde {inicio_a}: {primera}"
+        assert primera["semana_inicio"] == (lunes - timedelta(days=14)).isoformat(), f"La semana 1 de A empieza en {primera['semana_inicio']}"
+        assert [o["ordinal"] for o in sorted(a, key=lambda o: o["ordinal"])] == [1, 2, 3], f"Ordinales de A: {[o['ordinal'] for o in a]}"
         b = semanas(m_b)
-        assert len(b) == 2 and not any(o["parcial"] for o in b)
-        assert {o["incorporacion_id"] for o in a}.isdisjoint({o["incorporacion_id"] for o in b})
+        assert len(b) == 2 and not any(o["parcial"] for o in b), f"B debe tener 2 semanas completas: {[(o['ordinal'], o['parcial']) for o in b]}"
+        assert {o["incorporacion_id"] for o in a}.isdisjoint({o["incorporacion_id"] for o in b}), "A y B comparten incorporación"
 
         # RN-09: semanas anteriores atrasadas, la vigente pendiente (no se habilita ninguna futura).
         por_ordinal = {o["ordinal"]: o for o in a}
-        assert por_ordinal[1]["estado"] == "ATRASADA" and por_ordinal[2]["estado"] == "ATRASADA"
-        assert por_ordinal[3]["estado"] == "PENDIENTE"
+        assert por_ordinal[1]["estado"] == "ATRASADA" and por_ordinal[2]["estado"] == "ATRASADA", \
+            f"Semanas 1 y 2 de A deben estar atrasadas: {[por_ordinal[i]['estado'] for i in (1, 2)]}"
+        assert por_ordinal[3]["estado"] == "PENDIENTE", f"La semana vigente de A debe ser PENDIENTE: {por_ordinal[3]['estado']}"
         assert max(o["semana_inicio"] for o in a) == lunes.isoformat(), "No debe haber semanas futuras"
         # AC-07 (fechas reales): el período de cada semana es el de su domingo.
         for o in a:
-            assert o["periodo"] == etiqueta(date.fromisoformat(o["semana_fin"])), o
+            assert o["periodo"] == etiqueta(date.fromisoformat(o["semana_fin"])), f"Período de la semana {o['ordinal']}: {o['periodo']}"
 
         # RN-10: una semana recibida no bloquea a las demás. Desde C05 "recibida" es un reporte ligado
         # a la obligación (la entrega real por HTTP se prueba en smoke_c05.py).
@@ -213,44 +223,47 @@ def main():
                 (m_a, etiqueta(date.fromisoformat(primera["semana_fin"])),
                  primera["semana_inicio"], primera["semana_fin"], primera["id"]))
         a2 = {o["ordinal"]: o for o in semanas(m_a)}
-        assert a2[1]["estado"] == "RECIBIDA" and a2[2]["estado"] == "ATRASADA" and a2[3]["estado"] == "PENDIENTE"
+        assert a2[1]["estado"] == "RECIBIDA" and a2[2]["estado"] == "ATRASADA" and a2[3]["estado"] == "PENDIENTE", \
+            f"Estados de A tras recibir la semana 1: {[a2[i]['estado'] for i in (1, 2, 3)]}"
 
         # Bandeja del tutor: atrasadas y pendiente de A y B, sin la semana ya recibida.
         bandeja = expect(client.get("/dual/tutor/alumnos-atrasados", headers=tutor), 200)
         de_a = [r for r in bandeja if r["matricula"] == m_a]
         de_b = [r for r in bandeja if r["matricula"] == m_b]
-        assert sorted(r["semana_esperada"] for r in de_a) == [2, 3]
-        assert sorted(r["status"] for r in de_a) == ["Overdue", "Pending"]
-        assert sorted(r["semana_esperada"] for r in de_b) == [1, 2]
+        assert sorted(r["semana_esperada"] for r in de_a) == [2, 3], f"Bandeja de A: {sorted(r['semana_esperada'] for r in de_a)}"
+        assert sorted(r["status"] for r in de_a) == ["Overdue", "Pending"], f"Estados en la bandeja de A: {sorted(r['status'] for r in de_a)}"
+        assert sorted(r["semana_esperada"] for r in de_b) == [1, 2], f"Bandeja de B: {sorted(r['semana_esperada'] for r in de_b)}"
         assert not [r for r in bandeja if r["matricula"] in (m_c, m_d)], "Una baja no genera pendientes"
-        assert all(r["nomenclatura"] == group["nomenclatura"] for r in de_a + de_b)
+        assert all(r["nomenclatura"] == group["nomenclatura"] for r in de_a + de_b), "La bandeja debe llevar la nomenclatura del grupo"
         sin_reporte = expect(client.get("/dual/tutor/alumnos-sin-reporte", headers=tutor, params={
             "cuatrimestre": etiqueta(date.fromisoformat(por_ordinal[2]["semana_fin"])), "semana": 2}), 200)
-        assert m_a in {r["matricula"] for r in sin_reporte}
+        assert m_a in {r["matricula"] for r in sin_reporte}, "A (semana 2 sin reporte) falta en alumnos-sin-reporte"
 
         # RN-06 / DP-03: baja inclusiva con última semana parcial; nada posterior (ni retroactivo).
         c = sorted(semanas(m_c), key=lambda o: o["ordinal"])
-        assert len(c) == 2 and not c[0]["parcial"] and c[1]["parcial"]
-        assert c[1]["fin_efectivo"] == baja_c.isoformat()
+        assert len(c) == 2 and not c[0]["parcial"] and c[1]["parcial"], f"C debe tener 2 semanas, la última parcial: {[(o['ordinal'], o['parcial']) for o in c]}"
+        assert c[1]["fin_efectivo"] == baja_c.isoformat(), f"La baja de C debe cerrar el {baja_c}: {c[1]['fin_efectivo']}"
         d = sorted(semanas(m_d), key=lambda o: o["ordinal"])
-        assert len(d) == 2 and d[1]["fin_efectivo"] == baja_d.isoformat()
+        assert len(d) == 2 and d[1]["fin_efectivo"] == baja_d.isoformat(), f"D debe tener 2 semanas y cerrar el {baja_d}: {[(o['ordinal'], o['fin_efectivo']) for o in d]}"
         with connect_local() as conn:
             total_d = conn.execute(
                 "SELECT count(*) FROM obligaciones_semanales o JOIN alumnos_dual ad ON ad.id=o.incorporacion_id "
                 "WHERE ad.matricula=%s", (m_d,)).fetchone()[0]
-        assert total_d > len(d), "Las semanas posteriores a la baja se excluyen, no se borran"
+        assert total_d > len(d), f"Las semanas posteriores a la baja se excluyen, no se borran (filas {total_d}, visibles {len(d)})"
 
         # Idempotencia y concurrencia: solicitudes simultáneas no duplican obligaciones.
         with ThreadPoolExecutor(max_workers=6) as pool:
             list(pool.map(lambda _: semanas(m_a), range(6)))
             list(pool.map(lambda _: expect(client.get("/dual/tutor/alumnos-atrasados", headers=tutor), 200), range(4)))
         with connect_local() as conn:
-            assert conn.execute(
+            filas_a = conn.execute(
                 "SELECT count(*) FROM obligaciones_semanales o JOIN alumnos_dual ad ON ad.id=o.incorporacion_id "
-                "WHERE ad.matricula=%s", (m_a,)).fetchone()[0] == 3
-            assert conn.execute(
+                "WHERE ad.matricula=%s", (m_a,)).fetchone()[0]
+            assert filas_a == 3, f"Tras lecturas simultáneas A debe tener 3 obligaciones, tiene {filas_a}"
+            duplicadas = conn.execute(
                 "SELECT count(*) FROM (SELECT incorporacion_id, semana_inicio FROM obligaciones_semanales "
-                "GROUP BY 1,2 HAVING count(*) > 1) d").fetchone()[0] == 0
+                "GROUP BY 1,2 HAVING count(*) > 1) d").fetchone()[0]
+            assert duplicadas == 0, f"Hay {duplicadas} semanas duplicadas por incorporación"
 
         # Permisos: el alumno solo ve lo propio; ajenos e inexistentes no se exponen.
         alumno_pw = "C04s" + secrets.token_urlsafe(18)
@@ -259,8 +272,10 @@ def main():
             expect(client.post("/auth/register", json={"email": f"{m}@ute.edu.mx", "password": alumno_pw}), 201)
             sesiones[m] = login(f"{m}@ute.edu.mx", alumno_pw)
         propias = semanas(None, headers=sesiones[m_a], ruta="/dual/alumno/obligaciones")
-        assert len(propias) == 3 and {o["incorporacion_id"] for o in propias} == {o["incorporacion_id"] for o in a}
-        assert len(semanas(None, headers=sesiones[m_b], ruta="/dual/alumno/obligaciones")) == 2
+        assert len(propias) == 3 and {o["incorporacion_id"] for o in propias} == {o["incorporacion_id"] for o in a}, \
+            f"El alumno A debe ver solo sus 3 semanas: {len(propias)}"
+        propias_b = semanas(None, headers=sesiones[m_b], ruta="/dual/alumno/obligaciones")
+        assert len(propias_b) == 2, f"El alumno B debe ver solo sus 2 semanas: {len(propias_b)}"
         expect(client.get(f"/dual/tutor/alumnos/{m_b}/obligaciones", headers=sesiones[m_a]), 403)
         expect(client.get("/dual/tutor/alumnos-atrasados", headers=sesiones[m_a]), 403)
         expect(client.get("/dual/alumno/obligaciones", headers=tutor), 403)
@@ -281,35 +296,40 @@ def main():
         expect(client.get("/dual/tutor/cuatrimestre-actual", headers=coordinator), 200)
         # No se abre un período con fechas solapadas; no queda fila creada.
         solapado = expect(client.post("/dual/tutor/abrir-cuatrimestre", headers=coordinator, json=apertura_e), 409)
-        assert "solapan" in str(solapado)
+        assert "solapan" in str(solapado), f"El 409 de solapamiento debe explicar el motivo: {solapado}"
         with connect_local() as conn:
-            assert conn.execute("SELECT count(*) FROM ciclos_dual WHERE cuatrimestre=%s",
-                                (f"Septiembre-Diciembre {anio_e}",)).fetchone()[0] == 0
+            creados = conn.execute("SELECT count(*) FROM ciclos_dual WHERE cuatrimestre=%s",
+                                   (f"Septiembre-Diciembre {anio_e}",)).fetchone()[0]
+            assert creados == 0, f"El período solapado no debe dejar fila creada (hay {creados}, año {anio_e})"
 
         # Casos de uso reales con reloj inyectado.
         # AC-07 / AC-08: incorporación el 30 de abril; la semana termina en mayo.
         inicio_e = date(anio_e, 4, 30)
         incorporar(m_e, inicio_e)
         domingo_e = calendar.domingo_de(inicio_e)
-        assert domingo_e.month == 5 and calendar.lunes_de(inicio_e).month == 4
+        assert domingo_e.month == 5 and calendar.lunes_de(inicio_e).month == 4, f"El año {anio_e} no tiene semana cruzada el 30 de abril"
 
         async def parte_e(rt):
             viernes = await obligaciones.mis_obligaciones(m_e, None, runtime=rt, hoy=inicio_e)
-            assert len(viernes) == 1 and viernes[0]["parcial"] and viernes[0]["estado"] == "PENDIENTE"
+            assert len(viernes) == 1 and viernes[0]["parcial"] and viernes[0]["estado"] == "PENDIENTE", \
+                f"El día de inicio ({inicio_e}) debe haber 1 semana parcial pendiente: {[(o['ordinal'], o['estado']) for o in viernes]}"
             assert viernes[0]["periodo"] == f"Mayo-Agosto {anio_e}", viernes[0]["periodo"]
             domingo = await obligaciones.mis_obligaciones(m_e, None, runtime=rt, hoy=domingo_e)
-            assert [o["estado"] for o in domingo if o["ordinal"] == 1] == ["PENDIENTE"]  # AC-08: aún se puede entregar
+            assert [o["estado"] for o in domingo if o["ordinal"] == 1] == ["PENDIENTE"], \
+                f"AC-08: el domingo {domingo_e} aún se puede entregar: {[o['estado'] for o in domingo]}"
             lunes_sig = await obligaciones.mis_obligaciones(
                 m_e, None, runtime=rt, hoy=domingo_e + timedelta(days=1))
             primera_e = next(o for o in lunes_sig if o["ordinal"] == 1)
-            assert primera_e["estado"] == "ATRASADA" and len(lunes_sig) == 2          # AC-08: el lunes es atraso
+            assert primera_e["estado"] == "ATRASADA" and len(lunes_sig) == 2, \
+                f"AC-08: el lunes siguiente es atraso con 2 semanas: {primera_e['estado']}, {len(lunes_sig)} semanas"
             junio = await obligaciones.mis_obligaciones(m_e, None, runtime=rt, hoy=date(anio_e, 6, 10))
-            assert next(o for o in junio if o["ordinal"] == 1)["periodo"] == f"Mayo-Agosto {anio_e}"  # AC-07
-            assert [o["ordinal"] for o in sorted(junio, key=lambda o: o["ordinal"])] == list(range(1, len(junio) + 1))
+            assert next(o for o in junio if o["ordinal"] == 1)["periodo"] == f"Mayo-Agosto {anio_e}", "AC-07: la semana 1 pertenece a Mayo-Agosto"
+            assert [o["ordinal"] for o in sorted(junio, key=lambda o: o["ordinal"])] == list(range(1, len(junio) + 1)), \
+                f"Ordinales no continuos en junio: {[o['ordinal'] for o in junio]}"
             filtradas = await obligaciones.mis_obligaciones(
                 m_e, f"Mayo-Agosto {anio_e}", runtime=rt, hoy=date(anio_e, 6, 10))
-            assert all(o["periodo"] == f"Mayo-Agosto {anio_e}" for o in filtradas)
-            assert {o["ordinal"] for o in filtradas} <= {o["ordinal"] for o in junio}  # el ordinal no depende del filtro
+            assert all(o["periodo"] == f"Mayo-Agosto {anio_e}" for o in filtradas), "El filtro por período devolvió otro período"
+            assert {o["ordinal"] for o in filtradas} <= {o["ordinal"] for o in junio}, "El ordinal no debe depender del filtro"
 
         asyncio.run(con_runtime(parte_e))
 
@@ -323,7 +343,8 @@ def main():
 
         async def despues_f(rt):
             filas = await obligaciones.mis_obligaciones(m_f, None, runtime=rt, hoy=date(anio_f, 1, 20))
-            assert all(o["periodo"] == f"Enero-Abril {anio_f}" for o in filas), filas
+            assert all(o["periodo"] == f"Enero-Abril {anio_f}" for o in filas), \
+                f"Las obligaciones deben recibir el período creado después: {[o['periodo'] for o in filas]}"
 
         asyncio.run(con_runtime(antes_f))
         inicio_p, fin_p = fechas_del_periodo("Enero", anio_f)
@@ -346,7 +367,8 @@ def main():
             # solo un cierre de una corrida anterior, porque un período cerrado no se reabre por la API.
             id_c = smoke_periodos.abrir_de_prueba(client, coordinator, etiqueta_c, inicio_c, fin_c)
             actual = expect(client.get("/dual/tutor/cuatrimestre-actual", headers=coordinator), 200)
-            assert actual["abierto"] and actual["periodo_label"] == etiqueta_c
+            assert actual["abierto"] and actual["periodo_label"] == etiqueta_c, \
+                f"El período en curso debe quedar abierto como {etiqueta_c}: {actual.get('periodo_label')}, abierto={actual.get('abierto')}"
             smoke_periodos.cerrar(client, coordinator, id_c)
         anterior = [(m, i, f) for m, i, f in BLOQUES if f < hoy.month]
         if anterior:
@@ -355,7 +377,7 @@ def main():
             terminado = expect(client.post("/dual/tutor/abrir-cuatrimestre", headers=coordinator, json={
                 "periodo_label": construir_periodo(mes_a, hoy.year),
                 "fecha_inicio": inicio_a2.isoformat(), "fecha_fin": fin_a2.isoformat()}), 422)
-            assert "en curso o futuros" in str(terminado)
+            assert "en curso o futuros" in str(terminado), f"Un período terminado debe rechazarse con su motivo: {terminado}"
 
     print("PASS C04: obligaciones por incorporación (semana parcial, baja inclusiva, sin semanas futuras), "
           "período por domingo, corte del lunes con reloj inyectado, permisos, concurrencia, "

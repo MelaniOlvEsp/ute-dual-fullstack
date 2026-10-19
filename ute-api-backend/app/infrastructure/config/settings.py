@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     )
     log_format: str = "text"
     sentry_dsn: str = ""
+    # C14: limitador de solicitudes por minuto; por usuario (token válido) y, como respaldo, por IP.
+    rate_limit_usuario: int = 240          # solicitudes con sesión, por usuario
+    rate_limit_ip_anonima: int = 120       # solicitudes sin sesión válida, por IP
+    rate_limit_ip_total: int = 1200        # tope de respaldo por IP (todas las solicitudes)
+    rate_limit_proxies: str = ""           # IP/redes de proxies de confianza (separadas por comas); vacío = no se lee X-Forwarded-For
 
     model_config = SettingsConfigDict(env_file=_PROJECT_ROOT / ".env", extra="ignore")
 

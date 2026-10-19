@@ -17,3 +17,6 @@ work/
 
 # C10: volcados temporales del respaldo (se vacían al terminar)
 .respaldo-tmp/
+
+# C14: estado y resultados de los guiones de auditoría y de carga
+.auditoria-tmp/

@@ -139,7 +139,7 @@ async def asignar_alumno_empresa(data, user, *, runtime: RuntimePort):
                 status_code=500,
                 detail="Error al asignar empresa",
             )
-        await obligaciones.generar(cur, dict(row), calendar.hoy())
+        await obligaciones.generar_al_alta(cur, dict(row), calendar.hoy())
 
     logger.info(
         f"Alumno {data.matricula} asignado a empresa {data.empresa_id} "
@@ -213,7 +213,7 @@ async def actualizar_alumno_dual(
                 (matricula, empresa_id, body.fecha_inicio, user["id"]),
             )
             creada = await cur.fetchone()
-            await obligaciones.generar(cur, dict(creada), calendar.hoy())
+            await obligaciones.generar_al_alta(cur, dict(creada), calendar.hoy())
         else:
             await cur.execute(
                 'dual.coordinador_dual.close_incorporation',

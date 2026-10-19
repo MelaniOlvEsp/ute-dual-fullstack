@@ -4,6 +4,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from app.application.errors import ApplicationError
+from app.application.use_cases.dual import obligaciones
 from app.domain import calendar, grading
 
 
@@ -113,8 +114,10 @@ async def _resumen(cur, periodo):
 
 
 async def resumen(periodo_id, user, *, runtime):
-    async with runtime.database.read() as cur:
-        return await _resumen(cur, await _periodo(cur, periodo_id))
+    async with runtime.database.transaction() as cur:
+        periodo = await _periodo(cur, periodo_id)
+        await obligaciones.sincronizar(cur, calendar.hoy())   # altas retroactivas (C14-D3)
+        return await _resumen(cur, periodo)
 
 
 async def cerrar_recepcion(periodo_id, user, *, runtime):
@@ -123,6 +126,11 @@ async def cerrar_recepcion(periodo_id, user, *, runtime):
     Toma el bloqueo exclusivo de la fila del período: una entrega que compite con el cierre o gana
     y queda antes, o espera, ve el período cerrado y recibe 409.
     """
+    # Altas retroactivas (C14-D3), en su propia transacción y ANTES del bloqueo exclusivo del período: una entrega toma
+    # la fila de su obligación y después el período en modo compartido; si el cierre tomara el período y luego tocara
+    # esa fila (el upsert reescribe las semanas existentes), las dos transacciones se esperarían entre sí (interbloqueo).
+    async with runtime.database.transaction() as cur:
+        await obligaciones.sincronizar(cur, calendar.hoy())
     async with runtime.database.transaction() as cur:
         periodo = await _periodo(cur, periodo_id, "dual.cierres.bloquear_exclusivo")
         if periodo["cerrado"]:

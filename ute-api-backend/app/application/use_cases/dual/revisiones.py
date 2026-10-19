@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import time
+
+from loguru import logger
 
 from app.application.errors import ApplicationError
 from app.application.use_cases.dual.archivado import PUNTERO_HEREDADO, exigir_vigente
@@ -73,18 +76,25 @@ async def revisar(reporte_id, numero, decision, observacion, calificacion, fecha
     servicios = runtime.services
     firmado = None
     if imagen is not None and version["numero"] == reporte["ultima"]:
+        t0 = time.perf_counter()
         original = await servicios.leer_documento(version["clave_original"], version.get("sha_original"))
+        t_lectura = time.perf_counter()
         pdf, modo = await asyncio.to_thread(servicios.estampar_firma, original, imagen, nombre)
+        t_estampado = time.perf_counter()
         try:
             paginas = servicios.inspeccionar_pdf(pdf)
         except ApplicationError as exc:
             raise ApplicationError(status_code=500, detail=_NO_GENERADO) from exc
         firmado = dict(await servicios.guardar_documento(pdf), paginas=paginas, modo=modo)
+        t_subida = time.perf_counter()
 
     try:
         async with runtime.database.transaction() as cur:
             resultado = await _registrar(
                 cur, reporte, version["numero"], decision, texto, nota, inicio, fin, firmado, user)
+        if firmado:   # tiempos por etapa (C14-AC4): leer el original, estampar, subir el firmado, registrar
+            logger.info("Aprobación: leer {:.2f} s, estampar {:.2f} s, subir {:.2f} s, registrar {:.2f} s.",
+                        t_lectura - t0, t_estampado - t_lectura, t_subida - t_estampado, time.perf_counter() - t_subida)
     except BaseException:
         # Solo se descarta el firmado recién guardado; nunca el original ni uno anterior.
         if firmado:

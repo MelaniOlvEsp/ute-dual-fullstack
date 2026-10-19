@@ -4,10 +4,10 @@ fastapi==0.136.1
 pydantic==2.13.4
 pydantic-settings==2.4.0
 email-validator==2.3.0
-python-multipart==0.0.27
+python-multipart==0.0.31
 uvicorn==0.46.0
 psycopg[binary,pool]==3.3.3
-PyJWT==2.12.1
+PyJWT==2.15.0
 passlib==1.7.4
 bcrypt==4.0.1
 loguru==0.7.3
@@ -15,5 +15,7 @@ tenacity==9.1.4
 google-api-python-client==2.196.0
 google-auth-oauthlib==1.3.1
 pymupdf==1.28.2
-pillow==12.2.0
+pillow==12.3.0
 httpx==0.28.1
+pyrage==1.2.5
+tzdata==2026.2   # zoneinfo (America/Mexico_City) en la imagen slim, que no trae datos de zonas horarias

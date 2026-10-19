@@ -162,7 +162,12 @@ class CerrarRecepcionTests(unittest.IsolatedAsyncioTestCase):
     async def test_closing_takes_the_exclusive_row_lock_first(self):  # AC-15
         cursor = self.cursor(periodo(abierto=True), periodo(cerrado=True, cerrado_at=CERRADO_EN))
         await cierres.cerrar_recepcion(PERIODO_ID, COORDINADOR, runtime=runtime_con(cursor))
-        self.assertEqual(cursor.claves[0], "dual.cierres.bloquear_exclusivo")
+        # C14: la sincronización de obligaciones va antes, en otra transacción; ya con el período bloqueado no se toca
+        # ninguna obligación (evita el interbloqueo con una entrega).
+        claves = list(cursor.claves)
+        bloqueo = claves.index("dual.cierres.bloquear_exclusivo")
+        self.assertTrue(all(c.startswith("dual.obligaciones.") for c in claves[:bloqueo]), claves[:bloqueo])
+        self.assertFalse([c for c in claves[bloqueo:] if c.startswith("dual.obligaciones.")])
 
     async def test_repeating_the_closure_is_idempotent(self):  # AC-15
         cursor = self.cursor(periodo(cerrado=True, cerrado_at=CERRADO_EN))

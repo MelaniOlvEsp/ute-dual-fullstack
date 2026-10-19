@@ -128,6 +128,15 @@ Estas son operaciones, no rutas definitivas. Antes de implementar cada spec debe
 - Foro como pantalla inicial: tras el acceso obligatorio los tres roles aterrizan en `/foro` (frontend, `homeFor`).
 - El fixture contractual contiene 73 rutas. [Spec C09](../../specs/C09-foro-buzon-y-plantillas/spec.md) y [evidencia C09](../../specs/C09-foro-buzon-y-plantillas/evidencia.md).
 
+### Cambios implementados en C14 (DONE)
+
+- Límite de solicitudes (todas las rutas salvo `GET /health` y las preflight `OPTIONS`): 240 por minuto por usuario con sesión válida, 120 por minuto por IP para solicitudes sin sesión válida y 1200 por minuto por IP en total (respaldo). Configurables con `RATE_LIMIT_USUARIO`, `RATE_LIMIT_IP_ANONIMA`, `RATE_LIMIT_IP_TOTAL`. `X-Forwarded-For` solo se considera si la conexión viene de un proxy listado en `RATE_LIMIT_PROXIES`.
+- Al pasar un límite la respuesta es **429** con `{"detail": "Demasiadas solicitudes. Intenta de nuevo en unos segundos."}` y la cabecera `Retry-After` (segundos hasta que se libere la ventana); lleva las cabeceras de seguridad y de CORS. Antes se lanzaba una excepción dentro del middleware y el cliente veía un 500. Los clientes deben esperar `Retry-After` antes de reintentar.
+- El límite de inicio de sesión (8 intentos por 5 minutos por IP) y el bloqueo por cuenta de C02 no cambian.
+- Un alta con inicio anterior a 26 semanas ya no crea sus obligaciones al instante: `GET /dual/alumno/obligaciones`, `GET /dual/tutor/alumnos/{matricula}/obligaciones`, las bandejas del tutor y el cierre de recepción de un período las crean acotadas a la menor entre hoy y la baja. Las filas ya existentes no se borran. Los datos devueltos no cambian.
+- El ZIP de un paquete (`/dual/alumno/paquete`, `/dual/carrera/paquetes/...`) sigue siendo la misma respuesta (orden, manifiesto y SHA-256 idénticos); solo cambia que sus lecturas se hacen en paralelo.
+- Sin rutas nuevas ni cambios de esquemas: el fixture contractual sigue en 73 rutas.
+
 ### Reglas objetivo generales
 
 

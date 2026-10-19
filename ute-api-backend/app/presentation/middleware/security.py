@@ -1,7 +1,8 @@
+import ipaddress
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 
-from fastapi import Request, HTTPException, status
+from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from loguru import logger
@@ -27,37 +28,114 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# Limitador de tasa global por IP (ventana deslizante)
+# Limitador de solicitudes (C14, D1): por usuario con un límite generoso y por IP solo para lo que no trae una sesión
+# válida, más un tope alto por IP como respaldo. Al pasar el límite responde un 429 real con `Retry-After` (antes lanzaba
+# una excepción dentro del middleware, que el cliente veía como 500). Va dentro de CORS y de las cabeceras de seguridad.
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    # (ver app/core/utils/rate_limit.py)
+    EXENTAS = {"/health"}
 
-    # Inicializa los parametros del limitador de tasa
-    def __init__(self, app, max_requests: int = 120, window_sec: int = 60):
+    def __init__(self, app, limite_usuario: int | None = None, limite_ip_anonima: int | None = None,
+                 limite_ip_total: int | None = None, proxies: str | None = None, ventana_seg: int = 60, reloj=time.monotonic):
         super().__init__(app)
-        self.max_requests = max_requests
-        self.window_sec = window_sec
-        self._buckets: dict[str, list[float]] = defaultdict(list)
+        from app.infrastructure.config.settings import settings
+        self.limite_usuario = settings.rate_limit_usuario if limite_usuario is None else limite_usuario
+        self.limite_ip_anonima = settings.rate_limit_ip_anonima if limite_ip_anonima is None else limite_ip_anonima
+        self.limite_ip_total = settings.rate_limit_ip_total if limite_ip_total is None else limite_ip_total
+        self.redes = redes_de_confianza(settings.rate_limit_proxies if proxies is None else proxies)
+        self.ventana = ventana_seg
+        self.reloj = reloj
+        self._cubos: dict[str, deque[float]] = defaultdict(deque)
+        self._avisos: dict[str, float] = {}
+        self._contador = 0
 
-    # Aplica el limite de tasa antes de continuar con la request
+    def _consumir(self, clave: str, limite: int, ahora: float) -> int | None:
+        """Cuenta una solicitud en la clave; devuelve los segundos de espera si se pasó el límite, o None."""
+        cubo = self._cubos[clave]
+        while cubo and ahora - cubo[0] >= self.ventana:
+            cubo.popleft()
+        if len(cubo) >= limite:
+            return max(1, int(self.ventana - (ahora - cubo[0])) + 1)
+        cubo.append(ahora)
+        return None
+
+    def _limpiar(self, ahora: float) -> None:
+        self._contador += 1
+        if self._contador % 500:
+            return
+        for clave in [k for k, v in self._cubos.items() if not v or ahora - v[-1] >= self.ventana]:
+            del self._cubos[clave]
+        for clave in [k for k, t in self._avisos.items() if ahora - t >= self.ventana]:
+            del self._avisos[clave]
+
     async def dispatch(self, request: Request, call_next):
-        ip = request.client.host if request.client else "unknown"
-        now = time.monotonic()
-        bucket = self._buckets[ip]
-        bucket[:] = [t for t in bucket if now - t < self.window_sec]
-        if len(bucket) >= self.max_requests:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Too many requests. Slow down.",
-            )
-        bucket.append(now)
+        if request.method == "OPTIONS" or request.url.path in self.EXENTAS:
+            return await call_next(request)
+        ahora = self.reloj()
+        ip = ip_del_cliente(request, self.redes)
+        usuario = usuario_del_token(request.headers.get("authorization", ""))
+        clave = f"ip-total:{ip}"
+        espera = self._consumir(clave, self.limite_ip_total, ahora)
+        if espera is None:
+            if usuario:
+                clave = f"usuario:{usuario}"
+                espera = self._consumir(clave, self.limite_usuario, ahora)
+            else:
+                clave = f"ip:{ip}"
+                espera = self._consumir(clave, self.limite_ip_anonima, ahora)
+        self._limpiar(ahora)
+        if espera is None:
+            return await call_next(request)
+        if clave not in self._avisos:       # un aviso por clave y ventana, sin traza
+            self._avisos[clave] = ahora
+            logger.warning("Límite de solicitudes superado ({}).", clave.split(":", 1)[0])
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={"detail": "Demasiadas solicitudes. Intenta de nuevo en unos segundos."},
+            headers={"Retry-After": str(espera)},
+        )
 
-        if len(self._buckets) > 1000:
-            stale = [k for k, v in self._buckets.items()
-                     if not [t for t in v if now - t < self.window_sec]]
-            for k in stale:
-                del self._buckets[k]
 
-        return await call_next(request)
+def redes_de_confianza(texto: str):
+    redes = []
+    for parte in (texto or "").split(","):
+        parte = parte.strip()
+        if parte:
+            redes.append(ipaddress.ip_network(parte, strict=False))
+    return redes
+
+
+# IP del cliente: la del socket, salvo que venga de un proxy configurado como de confianza; entonces se toma la dirección
+# más a la derecha de `X-Forwarded-For` que no sea de un proxy de confianza (las anteriores las puede escribir cualquiera).
+def ip_del_cliente(request: Request, redes) -> str:
+    ip = request.client.host if request.client else "desconocida"
+    if not redes or ip == "desconocida":
+        return ip
+
+    def confiable(valor: str) -> bool:
+        try:
+            return any(ipaddress.ip_address(valor) in red for red in redes)
+        except ValueError:
+            return False
+
+    if not confiable(ip):
+        return ip
+    reenviadas = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+    for candidata in reversed(reenviadas):
+        if not confiable(candidata):
+            return candidata
+    return ip
+
+
+# Identificador del usuario del token (solo si es válido y no ha expirado); None si no hay sesión válida.
+def usuario_del_token(cabecera: str) -> str | None:
+    if not cabecera.lower().startswith("bearer "):
+        return None
+    try:
+        from app.infrastructure.security.jwt_passwords import verificar_token
+        datos = verificar_token(cabecera[7:].strip())
+    except ValueError:
+        return None
+    return str(datos.get("id") or datos.get("sub") or "") or None
 
 
 # Captura excepciones no manejadas y responde un mensaje seguro

@@ -60,6 +60,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[item.strip() for item in settings.cors_origins.split(',')],
@@ -67,8 +69,7 @@ app.add_middleware(
     allow_methods=['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allow_headers=['Authorization', 'Content-Type'],
 )
-app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(RateLimitMiddleware)
+
 
 
 # Traduce los errores previstos de aplicación al contrato HTTP existente.
