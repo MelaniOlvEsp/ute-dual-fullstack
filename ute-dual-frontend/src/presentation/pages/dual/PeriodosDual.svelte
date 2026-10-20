@@ -3,6 +3,7 @@
   // (DP-04 / MP-11 / MP-18). La recepción y la evaluación son independientes de las fechas calendario.
   import { onMount } from 'svelte'
   import { api } from '../../../composition/api.js'
+  import { crearCierrePeriodo } from '../../../application/use-cases/periodClosure.js'
   import Navbar from '../../components/layout/Navbar.svelte'
   import PageHeader from '../../components/ui/PageHeader.svelte'
   import { PERIODOS_CUATRIMESTRE, ANIOS_DISPONIBLES, etiquetaPeriodo, construirPeriodo, fechasPeriodo, formatearFechaCorta } from '../../../domain/dual/periods.js'
@@ -21,13 +22,16 @@
   // Panel por período (C07)
   let periodos = []
   let periodoId = ''
-  let resumen = null
-  let cargandoResumen = false
-  let errorResumen = ''
-  let confirmando = ''
-  let ejecutando = false
-  let errorAccion = ''
-  let exitoAccion = ''
+  const cierre = crearCierrePeriodo(api.dual)
+  let errorPeriodos = ''
+  let actualizando = false
+  $: resumen = $cierre.resumen
+  $: cargandoResumen = $cierre.cargando
+  $: errorResumen = errorPeriodos || $cierre.errorResumen
+  $: confirmando = $cierre.confirmacion?.accion
+  $: ejecutando = $cierre.ejecutando || actualizando
+  $: errorAccion = $cierre.errorAccion
+  $: exitoAccion = $cierre.exitoAccion
 
   $: fechasApertura = claveApertura && anioApertura
     ? fechasPeriodo(claveApertura, anioApertura)
@@ -56,33 +60,29 @@
   }
 
   async function cargarPeriodos() {
+    errorPeriodos = ''
     try {
       periodos = (await api.dual.periodosEstado()).filter(p => p.recepcion !== 'sin_abrir')
       if (periodos.length && !periodos.some(p => p.id === periodoId)) {
         periodoId = (periodos.find(p => p.recepcion === 'abierta') || periodos[0]).id
       }
-      if (periodoId) await cargarResumen()
+      if (!periodos.length) periodoId = ''
+      await cierre.cargar(periodoId, { conservarMensajes: true })
     } catch (e) {
       periodos = []
-      errorResumen = e.message || 'No se pudieron cargar los períodos.'
+      periodoId = ''
+      await cierre.cargar('')
+      errorPeriodos = e.message || 'No se pudieron cargar los períodos.'
     }
   }
 
   async function cargarResumen() {
-    cargandoResumen = true
-    errorResumen = ''
-    confirmando = ''
-    try {
-      resumen = await api.dual.resumenPeriodo(periodoId)
-    } catch (e) {
-      resumen = null
-      errorResumen = e.message || 'No se pudo cargar el resumen del período.'
-    } finally {
-      cargandoResumen = false
-    }
+    errorPeriodos = ''
+    await cierre.cargar(periodoId)
   }
 
   async function abrir() {
+    if (actualizando || $cierre.ejecutando || abriendo) return
     exitoApertura = ''
     errorApertura = ''
     if (!claveApertura || !anioApertura) {
@@ -95,7 +95,6 @@
     try {
       await api.dual.abrirCuatrimestre({ periodo_label: etiqueta, fecha_inicio: inicio, fecha_fin: fin })
       exitoApertura = `Período "${etiqueta}" abierto correctamente.`
-      exitoAccion = ''
       await cargarEstado()
       periodoId = ''
       await cargarPeriodos()
@@ -107,25 +106,14 @@
   }
 
   async function ejecutar() {
-    errorAccion = ''
-    exitoAccion = ''
-    ejecutando = true
+    if (actualizando || $cierre.ejecutando || abriendo) return
+    actualizando = true
     try {
-      const respuesta = confirmando === 'cierre'
-        ? await api.dual.cerrarRecepcion(periodoId)
-        : await api.dual.finalizarEvaluacion(periodoId)
-      exitoAccion = confirmando === 'cierre'
-        ? `Recepción de "${respuesta.periodo.periodo_label}" cerrada. El tutor puede seguir revisando lo recibido.`
-        : `Evaluación de "${respuesta.periodo.periodo_label}" finalizada. Los promedios quedaron finales.`
-      confirmando = ''
+      await cierre.ejecutar()
       await cargarEstado()
       await cargarPeriodos()
-    } catch (e) {
-      errorAccion = e.message || 'No se pudo completar la acción.'
-      confirmando = ''
-      await cargarResumen()
     } finally {
-      ejecutando = false
+      actualizando = false
     }
   }
 </script>
@@ -186,7 +174,7 @@
       {/if}
       {#if errorApertura}<p class="error-msg" role="alert">{errorApertura}</p>{/if}
       {#if exitoApertura}<p class="success-msg" role="status">{exitoApertura}</p>{/if}
-      <button class="btn-primary" disabled={abriendo} on:click={abrir}>
+      <button class="btn-primary" disabled={abriendo || ejecutando} on:click={abrir}>
         {abriendo ? 'Abriendo...' : 'Abrir período'}
       </button>
     </section>
@@ -197,7 +185,7 @@
         <p class="nota">Cuando abras un período podrás cerrar su recepción y finalizar la evaluación aquí.</p>
       {:else}
         <label for="periodo-panel">Período</label>
-        <select id="periodo-panel" class="input-plain" bind:value={periodoId} on:change={() => { exitoAccion = ''; errorAccion = ''; cargarResumen() }}>
+        <select id="periodo-panel" class="input-plain" bind:value={periodoId} disabled={ejecutando || abriendo} on:change={cargarResumen}>
           {#each periodos as p (p.id)}
             <option value={p.id}>{p.periodo_label} · {etiquetaRecepcion(p.recepcion)} · {etiquetaEvaluacion(p.evaluacion)}</option>
           {/each}
@@ -258,23 +246,23 @@
 
           {#if confirmando}
             <div class="confirmacion" role="alertdialog" aria-labelledby="confirmar-titulo" aria-describedby="confirmar-texto">
-              <h3 id="confirmar-titulo">{confirmando === 'cierre' ? 'Cerrar recepción' : 'Finalizar evaluación'} · {periodo.periodo_label}</h3>
+              <h3 id="confirmar-titulo">{confirmando === 'cierre' ? 'Cerrar recepción' : 'Finalizar evaluación'} · {$cierre.confirmacion.etiqueta}</h3>
               <p id="confirmar-texto">{confirmando === 'cierre' ? mensajeCierre(periodo, conteos) : mensajeFinalizacion(periodo, alumnos)}</p>
               <div class="acciones">
                 <button class="btn-danger" disabled={ejecutando} on:click={ejecutar}>
                   {ejecutando ? 'Procesando...' : 'Confirmar'}
                 </button>
-                <button class="btn-outline" disabled={ejecutando} on:click={() => confirmando = ''}>Cancelar</button>
+                <button class="btn-outline" disabled={ejecutando} on:click={() => cierre.cancelar()}>Cancelar</button>
               </div>
             </div>
           {:else}
             <div class="acciones">
               {#if resumen.puede_cerrar_recepcion}
-                <button class="btn-danger" on:click={() => { confirmando = 'cierre'; errorAccion = ''; exitoAccion = '' }}>Cerrar recepción</button>
+                <button class="btn-danger" disabled={ejecutando || abriendo} on:click={() => cierre.confirmar('cierre')}>Cerrar recepción</button>
               {/if}
               {#if periodo.recepcion === 'cerrada' && periodo.evaluacion !== 'finalizada'}
-                <button class="btn-primary" disabled={!resumen.puede_finalizar}
-                  on:click={() => { confirmando = 'finalizar'; errorAccion = ''; exitoAccion = '' }}>
+                <button class="btn-primary" disabled={!resumen.puede_finalizar || ejecutando || abriendo}
+                  on:click={() => cierre.confirmar('finalizar')}>
                   Finalizar evaluación
                 </button>
               {/if}

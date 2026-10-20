@@ -25,6 +25,8 @@ Estado inicial: documentación creada; ningún incremento implementado o aceptad
 
 Dependencia lineal por simplicidad; permite correcciones pequeñas de infraestructura necesarias para el incremento activo. No adelantar módulos completos.
 
+Incremento activo de corrección: [C15 — Integridad de depuración y selección de períodos](../../specs/C15-integridad-depuracion-y-periodos/spec.md), IN_PROGRESS desde el 2026-10-19 por autorización explícita. Corrige H01/H02 de la auditoría: cancelación solo durante la gracia, progreso persistente por archivo, reintentos y confirmación vinculada al ID del período. Sin nuevas reglas de conservación, permisos o calendario. Cierre humano pendiente.
+
 ## Qué significa terminar cada incremento
 
 Spec READY antes de código; implementación y evidencia proporcional; revisión contra diff final; correcciones verificadas; aprobación humana de cierre. DONE solo si AC del alcance se cumplen con evidencia adecuada. Integración externa no comprobada sigue NO_VERIFICADA.

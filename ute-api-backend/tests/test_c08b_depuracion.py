@@ -214,9 +214,17 @@ class ProgramarTests(unittest.IsolatedAsyncioTestCase):
 
 
 class CancelarTests(unittest.IsolatedAsyncioTestCase):
+    async def test_expired_or_started_purge_never_releases_documents(self):
+        # La autorización se decide atómicamente por SQL, con reloj del servidor.
+        cursor = ScriptCursor(uno={"dual.purgas.obtener": [{"id": uuid4(), "estado": "programada"}]})
+        with self.assertRaises(ApplicationError) as caught:
+            await purgas.cancelar(uuid4(), uuid4(), {"id": uuid4()}, runtime=runtime(cursor))
+        self.assertEqual(caught.exception.status_code, 409)
+        self.assertNotIn("dual.purgas.liberar_documentos", cursor.claves)
+
     async def test_cancel_frees_the_documents_and_is_idempotent(self):
         purga = {"id": uuid4(), "estado": "programada", "ejecutar_en": AHORA}
-        cursor = ScriptCursor(uno={"dual.purgas.obtener": [purga]})
+        cursor = ScriptCursor(uno={"dual.purgas.obtener": [purga], "dual.purgas.cancelar": [{"id": purga["id"]}]})
         resultado = await purgas.cancelar(uuid4(), purga["id"], {"id": uuid4()}, runtime=runtime(cursor))
         self.assertEqual(resultado["purga"]["estado"], "cancelada")
         self.assertIn("dual.purgas.liberar_documentos", cursor.claves)
@@ -236,8 +244,9 @@ class CancelarTests(unittest.IsolatedAsyncioTestCase):
 
 class EjecutarTests(unittest.IsolatedAsyncioTestCase):
     def cursor(self, documentos):
-        return ScriptCursor(uno={"dual.purgas.bloquear_vencida": [{"id": uuid4()}]},
-                            todos={"dual.purgas.documentos_de_purga": documentos})
+        fila = {"id": uuid4(), "archivos": len(documentos), "bytes": sum(d["tamano"] for d in documentos)}
+        return ScriptCursor(uno={"dual.purgas.bloquear_vencida": [fila] * (len(documentos) + 2),
+                                 "dual.purgas.siguiente_documento": documentos})
 
     async def test_deletes_files_then_archives_rows_and_completes(self):
         docs = [{"id": uuid4(), "clave": "a" * 32 + ".pdf", "tamano": 10}, {"id": uuid4(), "clave": "b" * 32 + ".pdf", "tamano": 20}]
@@ -257,6 +266,32 @@ class EjecutarTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(rt.database.revertidas, 1)
         self.assertNotIn("dual.purgas.completar", cursor.claves)
         self.assertEqual(cursor.claves[-1], "dual.purgas.registrar_error")
+
+    async def test_second_file_failure_commits_start_and_first_file_separately(self):
+        docs = [{"id": uuid4(), "clave": f"{n:032x}.pdf", "tamano": 10} for n in (1, 2)]
+        cursor = self.cursor(docs)
+        rt = runtime(cursor)
+        async def borrar(clave):
+            if clave == docs[1]["clave"]:
+                self.assertEqual(rt.database.transacciones, 3)
+                self.assertIn("dual.purgas.archivar_documento", cursor.claves)
+                raise OSError("segundo archivo")
+            self.assertEqual(rt.database.transacciones, 2, "El inicio debe estar confirmado antes de borrar")
+        rt.services.purgar_documento = borrar
+        with self.assertRaises(OSError):
+            await purgas.ejecutar_purga(rt, uuid4())
+        self.assertEqual(cursor.claves.count("dual.purgas.archivar_documento"), 1)
+        self.assertEqual(rt.database.revertidas, 1)
+        self.assertNotIn("dual.purgas.completar", cursor.claves)
+
+    async def test_retry_returns_original_totals_even_if_only_one_file_remains(self):
+        fila = {"id": uuid4(), "archivos": 2, "bytes": 30}
+        cursor = ScriptCursor(uno={"dual.purgas.bloquear_vencida": [fila] * 3,
+            "dual.purgas.siguiente_documento": [{"id": uuid4(), "clave": "a" * 32 + ".pdf", "tamano": 20}]})
+        borrar = AsyncMock(return_value=False)  # Ya ausente: interrupción entre borrado y commit.
+        result = await purgas.ejecutar_purga(runtime(cursor, purgar_documento=borrar), fila["id"])
+        self.assertEqual((result["archivos"], result["bytes"]), (2, 30))
+        self.assertEqual(borrar.await_count, 1)
 
     async def test_not_due_or_locked_purges_do_nothing(self):
         cursor = ScriptCursor()

@@ -280,7 +280,11 @@ def main():
                     estado, intentos, error = conn.execute(
                         "SELECT estado, intentos, ultimo_error FROM purgas_archivo WHERE id=%s", (purga_mer,)).fetchone()
                 assert estado == "programada" and intentos >= 1 and error, "El fallo queda registrado y la purga pendiente"
-                assert all(f[3] is None for f in filas_documentos("M")), "Sin filas archivadas tras el fallo (transacción revertida)"
+                filas = filas_documentos("M")
+                assert next(f for f in filas if f[0] == doc_mer[0])[3] is None, "El archivo que falló sigue pendiente"
+                assert all(not existe(f[1]) for f in filas if f[3] is not None), "Los archivados conservan el borrado confirmado"
+                assert client.post(f"{ruta_purgas}/{purga_mer}/cancelacion", headers=tutor).status_code == 409, "No cancelar una eliminación iniciada"
+                assert all(str(f[4]) == purga_mer for f in filas_documentos("M") if f[5]), "Se conserva la intención para reintentar"
             finally:
                 ruta_mer.rmdir()
                 respaldo.rename(ruta_mer)

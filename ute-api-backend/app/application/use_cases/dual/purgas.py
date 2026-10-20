@@ -152,7 +152,7 @@ async def programar(periodo_id, carrera, matricula, confirmar, frase, user, *, r
 
 
 async def cancelar(periodo_id, purga_id, user, *, runtime):
-    """Cancela una depuración programada: los documentos vuelven a su estado normal."""
+    """Cancela solo durante la gracia y antes del primer intento (DP-14)."""
     async with runtime.database.transaction() as cur:
         await cur.execute("dual.purgas.obtener", (purga_id, periodo_id))
         fila = await cur.fetchone()
@@ -164,27 +164,43 @@ async def cancelar(periodo_id, purga_id, user, *, runtime):
         if fila["estado"] == "cancelada":
             return {"repetido": True, "purga": _presentar_purga(fila)}
         await cur.execute("dual.purgas.cancelar", (user["id"], purga_id))
+        if not await cur.fetchone():
+            raise ApplicationError(
+                status_code=409,
+                detail="La gracia de cancelación terminó o la eliminación ya comenzó; "
+                       "no se puede cancelar. Los archivos pendientes se reintentarán automáticamente.")
         await cur.execute("dual.purgas.liberar_documentos", (purga_id,))
     return {"repetido": False, "purga": {**_presentar_purga(fila), "estado": "cancelada"}}
 
 
 async def ejecutar_purga(runtime, purga_id):
-    """Elimina los archivos de una purga vencida. Idempotente y reintentable: un archivo ya ausente cuenta
-    como eliminado; si algo falla, la purga queda programada con el error y se reintenta. Devuelve None si
-    otra ejecución tiene la purga o aún no vence."""
+    """Persiste el inicio y luego el progreso de cada archivo, sin transacción de lote.
+
+    El bloqueo de la purga serializa cada borrado, incluso entre procesos. Si el proceso cae tras
+    borrar pero antes del commit, se reintenta el archivo ausente. Una ejecución que pierde el
+    bloqueo cede el trabajo. `programada` conserva la intención hasta completar todo el alcance.
+    """
     try:
         async with runtime.database.transaction() as cur:
             await cur.execute("dual.purgas.bloquear_vencida", (purga_id,))
             if not await cur.fetchone():
                 return None
-            await cur.execute("dual.purgas.documentos_de_purga", (purga_id,))
-            documentos = [dict(d) for d in await cur.fetchall()]
-            for documento in documentos:
+            await cur.execute("dual.purgas.iniciar", (purga_id,))
+        while True:
+            async with runtime.database.transaction() as cur:
+                await cur.execute("dual.purgas.bloquear_vencida", (purga_id,))
+                fila = await cur.fetchone()
+                if not fila:
+                    return None
+                await cur.execute("dual.purgas.siguiente_documento", (purga_id,))
+                documento = await cur.fetchone()
+                if not documento:
+                    await cur.execute("dual.purgas.completar", (purga_id,))
+                    return {"id": purga_id, "archivos": fila["archivos"], "bytes": fila["bytes"]}
+                # Como máximo un archivo externo por transacción. El progreso anterior ya está
+                # confirmado y nunca se libera por cancelar una ejecución parcialmente fallida.
                 await runtime.services.purgar_documento(documento["clave"])
-            for documento in documentos:
                 await cur.execute("dual.purgas.archivar_documento", (documento["id"],))
-            await cur.execute("dual.purgas.completar", (purga_id,))
-            return {"id": purga_id, "archivos": len(documentos), "bytes": sum(d["tamano"] for d in documentos)}
     except Exception as exc:
         logger.error("La depuración {} falló y se reintentará: {}", purga_id, exc)
         try:

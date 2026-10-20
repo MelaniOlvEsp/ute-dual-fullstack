@@ -94,7 +94,9 @@ QUERIES = {
         "dynamic": None,
         "sql": """
             UPDATE purgas_archivo SET estado = 'cancelada', cancelada_por = %s, cancelada_en = now()
-            WHERE id = %s AND estado = 'programada'
+            WHERE id = %s AND estado = 'programada' AND intentos = 0
+              AND ejecutar_en > clock_timestamp()
+            RETURNING id
         """,
     },
     "dual.purgas.liberar_documentos": {
@@ -110,7 +112,7 @@ QUERIES = {
             LIMIT 20
         """,
     },
-    # Bloqueo no bloqueante: dos procesos nunca ejecutan la misma purga a la vez.
+    # Bloqueo por documento: dos procesos nunca borran simultáneamente el mismo archivo.
     "dual.purgas.bloquear_vencida": {
         "dynamic": None,
         "sql": """
@@ -119,12 +121,20 @@ QUERIES = {
             FOR UPDATE SKIP LOCKED
         """,
     },
-    "dual.purgas.documentos_de_purga": {
+    "dual.purgas.iniciar": {
+        "dynamic": None,
+        "sql": """
+            UPDATE purgas_archivo SET intentos = intentos + 1, ultimo_error = NULL
+            WHERE id = %s AND estado = 'programada'
+        """,
+    },
+    "dual.purgas.siguiente_documento": {
         "dynamic": None,
         "sql": """
             SELECT id, clave, tamano FROM documentos
             WHERE purga_id = %s AND archivado_en IS NULL
             ORDER BY clave
+            LIMIT 1
         """,
     },
     "dual.purgas.archivar_documento": {
@@ -141,7 +151,7 @@ QUERIES = {
     "dual.purgas.registrar_error": {
         "dynamic": None,
         "sql": """
-            UPDATE purgas_archivo SET intentos = intentos + 1, ultimo_error = %s
+            UPDATE purgas_archivo SET ultimo_error = %s
             WHERE id = %s AND estado = 'programada'
         """,
     },
