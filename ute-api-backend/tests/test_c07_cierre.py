@@ -312,7 +312,8 @@ class DirectorioPorPeriodoTests(unittest.IsolatedAsyncioTestCase):
                                             runtime=runtime_con(ScriptCursor()))
             self.assertEqual(caught.exception.status_code, 422, (situacion, limite, desplazamiento))
         _, params = await self._consulta_de(None, None, "50%_x")
-        self.assertEqual(params[8:11], ("50\\%\\_x",) * 3)
+        # C16: el directorio añade el filtro de carrera y un conteo propio; el texto escapado ocupa las posiciones 11 a 13.
+        self.assertEqual(params[11:14], ("50\\%\\_x",) * 3)
 
 
 class SqlContractTests(unittest.TestCase):

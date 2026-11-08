@@ -90,7 +90,7 @@
         </div>
         {#if error}<p class="error-msg" role="alert">{error}</p>{/if}
         {#if exito}<p class="exito-msg" role="status">{exito}</p>{/if}
-        <button class="btn-primary" disabled={publicando} on:click={publicar}>
+        <button class="btn-primary btn-auto publicar" disabled={publicando} on:click={publicar}>
           {publicando ? 'Publicando…' : 'Publicar pareja'}
         </button>
       </section>
@@ -139,6 +139,5 @@
   .vigente { font-size: 11px; font-weight: 700; color: var(--orange); text-transform: uppercase; }
   .error-msg { color: var(--error-text); margin: 0; font-size: 13px; }
   .exito-msg { color: var(--success-text); margin: 0; font-size: 13px; }
-  .btn-primary { align-self: flex-start; background: var(--orange-action); color: white; border: none; border-radius: var(--radius-btn); padding: 12px 20px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font); }
-  .btn-primary:disabled { opacity: 0.6; cursor: wait; }
+  .publicar { align-self: flex-start; }
 </style>

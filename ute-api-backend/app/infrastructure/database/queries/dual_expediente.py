@@ -5,6 +5,27 @@
 _ORDINAL = """(SELECT count(*) FROM obligaciones_semanales x
                   WHERE x.incorporacion_id = o.incorporacion_id AND x.semana_inicio <= o.semana_inicio)"""
 
+_DIRECTORIO_FROM = """
+    FROM alumnos a
+    JOIN LATERAL (SELECT x.* FROM alumnos_dual x WHERE x.matricula = a.matricula
+                  ORDER BY x.activo DESC, x.fecha_inicio DESC, x.created_at DESC, x.id DESC
+                  LIMIT 1) ad ON TRUE
+    LEFT JOIN ciclos_dual filtro_periodo ON filtro_periodo.cuatrimestre = %s
+    LEFT JOIN alumno_grupo_periodo agp ON agp.matricula = a.matricula AND agp.periodo_id = filtro_periodo.id
+    LEFT JOIN grupos g ON g.id = COALESCE(agp.grupo_id, a.grupo_id)
+    LEFT JOIN carreras c ON c.id = g.carrera_id
+    LEFT JOIN empresas e ON e.id = ad.empresa_id
+    WHERE (%s::text IS NULL OR a.matricula IN (
+              SELECT x.matricula FROM obligaciones_semanales o
+              JOIN alumnos_dual x ON x.id = o.incorporacion_id
+              JOIN ciclos_dual p ON p.id = o.periodo_id WHERE p.cuatrimestre = %s))
+      AND (%s::text IS NULL OR g.nomenclatura = %s)
+      AND (%s::text IS NULL OR c.codigo = %s)
+      AND (%s::text IS NULL OR a.matricula ILIKE '%%' || %s || '%%' OR a.nombre ILIKE '%%' || %s || '%%')
+      AND (%s::text = 'todos' OR (%s::text = 'activos' AND ad.activo)
+           OR (%s::text = 'baja' AND NOT ad.activo))
+"""
+
 QUERIES = {
     "dual.expediente.alumno": {
         "dynamic": None,
@@ -93,7 +114,7 @@ QUERIES = {
     },
     "dual.expediente.directorio": {
         "dynamic": None,
-        "sql": """
+        "sql": f"""
             SELECT a.matricula, a.nombre, g.carrera, g.nomenclatura, g.turno, g.modalidad,
                    g.cuatrimestre, e.nombre AS empresa, ad.activo, ad.fecha_baja,
                    (SELECT count(*) FROM reportes_dual rd
@@ -107,22 +128,18 @@ QUERIES = {
                     WHERE rd.matricula = a.matricula AND rd.estado = 'Aprobada'
                       AND (%s::text IS NULL OR p.cuatrimestre = %s)) AS promedio,
                    count(*) OVER () AS total
-            FROM alumnos a
-            JOIN LATERAL (SELECT x.* FROM alumnos_dual x WHERE x.matricula = a.matricula
-                          ORDER BY x.activo DESC, x.fecha_inicio DESC, x.created_at DESC, x.id DESC
-                          LIMIT 1) ad ON TRUE
-            LEFT JOIN grupos g ON g.id = a.grupo_id
-            LEFT JOIN empresas e ON e.id = ad.empresa_id
-            WHERE (%s::text IS NULL OR a.matricula IN (
-                      SELECT x.matricula FROM obligaciones_semanales o
-                      JOIN alumnos_dual x ON x.id = o.incorporacion_id
-                      JOIN ciclos_dual p ON p.id = o.periodo_id WHERE p.cuatrimestre = %s))
-              AND (%s::text IS NULL OR g.nomenclatura = %s)
-              AND (%s::text IS NULL OR a.matricula ILIKE '%%' || %s || '%%' OR a.nombre ILIKE '%%' || %s || '%%')
-              AND (%s::text = 'todos' OR (%s::text = 'activos' AND ad.activo)
-                   OR (%s::text = 'baja' AND NOT ad.activo))
+            {_DIRECTORIO_FROM}
             ORDER BY a.nombre, a.matricula
             LIMIT %s OFFSET %s
         """,
+    },
+    "dual.expediente.directorio_total": {
+        "dynamic": None,
+        "sql": "SELECT count(*) AS total " + _DIRECTORIO_FROM,
+    },
+    "dual.expediente.grupos_catalogo": {
+        "dynamic": None,
+        "sql": """SELECT DISTINCT g.nomenclatura FROM grupos g JOIN carreras c ON c.id = g.carrera_id
+                  WHERE (%s::text IS NULL OR c.codigo = %s) ORDER BY g.nomenclatura""",
     },
 }

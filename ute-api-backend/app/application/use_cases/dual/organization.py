@@ -7,6 +7,8 @@ from app.application.errors import ApplicationError
 
 
 MAX_CSV_ROWS = 500
+MAX_CSV_BYTES = 512 * 1024
+MAX_CSV_NAME = 150
 
 
 def _valid_matricula(value: str) -> bool:
@@ -15,19 +17,31 @@ def _valid_matricula(value: str) -> bool:
 
 
 def parse_student_csv(content: bytes) -> list[dict]:
+    if len(content) > MAX_CSV_BYTES:
+        raise ApplicationError(413, 'El CSV admite como máximo 512 KiB.')
     try:
         text = content.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
         raise ApplicationError(422, "El archivo no tiene codificación UTF-8 válida.") from exc
 
-    reader = csv.DictReader(io.StringIO(text))
+    try:
+        return _parse_csv_text(text)
+    except csv.Error as exc:
+        raise ApplicationError(422, 'CSV inválido: revisa las comillas y la longitud de los campos.') from exc
+
+
+def _parse_csv_text(text):
+    reader = csv.DictReader(io.StringIO(text, newline=''), strict=True)
     headers = [item.strip().lower() for item in (reader.fieldnames or [])]
     if headers != ["matricula", "nombre"]:
         raise ApplicationError(422, 'El CSV debe tener exactamente las columnas "matricula,nombre".')
+    reader.fieldnames = headers
 
     rows = []
     seen = set()
     for line, raw in enumerate(reader, start=2):
+        if None in raw or any(value is None for value in raw.values()):
+            raise ApplicationError(422, f'La fila {line} debe tener exactamente dos columnas.')
         matricula = (raw.get("matricula") or "").strip()
         nombre = (raw.get("nombre") or "").strip()
         if not matricula and not nombre:
@@ -39,11 +53,19 @@ def parse_student_csv(content: bytes) -> list[dict]:
             reason = "La matrícula debe contener exactamente 9 dígitos."
         elif not nombre:
             reason = "El nombre no puede estar vacío."
+        elif len(nombre) > MAX_CSV_NAME or '\x00' in nombre:
+            reason = 'El nombre admite hasta 150 caracteres y no puede contener NUL.'
         elif matricula in seen:
             reason = "La matrícula está repetida dentro del archivo."
         seen.add(matricula)
         rows.append({"fila": line, "matricula": matricula, "nombre": nombre, "razon": reason})
+    if not rows:
+        raise ApplicationError(422, 'El CSV no contiene alumnos.')
     return rows
+
+
+async def read_student_csv(file):
+    return parse_student_csv(await file.read(MAX_CSV_BYTES + 1))
 
 
 async def list_careers(user, *, runtime):
@@ -86,7 +108,7 @@ async def _analyze(cur, group_id, period_id, rows):
 
 
 async def preview_csv(group_id, period_id, file, user, *, runtime):
-    rows = parse_student_csv(await file.read())
+    rows = await read_student_csv(file)
     async with runtime.database.read() as cur:
         context, valid, repeated, errors = await _analyze(cur, group_id, period_id, rows)
     return {"grupo": context["nomenclatura"], "periodo": context["periodo_label"],
@@ -95,7 +117,7 @@ async def preview_csv(group_id, period_id, file, user, *, runtime):
 
 
 async def apply_csv(group_id, period_id, file, user, *, runtime):
-    rows = parse_student_csv(await file.read())
+    rows = await read_student_csv(file)
     async with runtime.database.transaction() as cur:
         _, valid, repeated, errors = await _analyze(cur, group_id, period_id, rows)
         if errors:

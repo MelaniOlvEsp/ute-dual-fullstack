@@ -96,7 +96,7 @@
   .select-carrera { max-width: 320px; text-overflow: ellipsis; }
   .select-grupo { max-width: 160px; }
   .select-estado { max-width: 150px; }
-  .btn-actualizar { white-space: nowrap; padding: 10px 16px; font-size: 14px; height: 40px; display: flex; align-items: center; }
+  .btn-actualizar { white-space: nowrap; padding: 10px 16px; height: 40px; }
 
   @media (max-width: 768px) {
     .filters-row { flex-direction: column; align-items: stretch; }

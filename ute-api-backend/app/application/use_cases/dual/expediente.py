@@ -6,6 +6,7 @@ from app.application.errors import ApplicationError
 from app.application.use_cases.dual.archivado import exigir_vigente
 from app.application.responses import FileResult
 from app.domain import archive, calendar, grading
+from app.domain.organization import canonical_career
 
 SITUACIONES = ("todos", "activos", "baja")
 LIMITE_MAXIMO = 200
@@ -163,7 +164,7 @@ async def descargar_aprobado(reporte_id, numero, documento, user, *, runtime):
                  f'inline; filename="{archive.nombre_seguro(datos["matricula"])}-v{int(numero)}{sufijo}.pdf"'})
 
 
-async def directorio(cuatrimestre, grupo, busqueda, situacion, limite, desplazamiento, user, *, runtime):
+async def directorio(cuatrimestre, grupo, busqueda, situacion, limite, desplazamiento, user, *, runtime, carrera=None):
     """Directorio del personal paginado por servidor; incluye a los dados de baja con su indicador."""
     if situacion not in SITUACIONES:
         raise ApplicationError(status_code=422, detail="La situación debe ser todos, activos o baja.")
@@ -171,14 +172,22 @@ async def directorio(cuatrimestre, grupo, busqueda, situacion, limite, desplazam
         raise ApplicationError(
             status_code=422,
             detail=f"El límite debe estar entre 1 y {LIMITE_MAXIMO} y el desplazamiento entre 0 y {DESPLAZAMIENTO_MAXIMO}.")
-    validar_texto(cuatrimestre, grupo, busqueda, campo="El filtro")
+    validar_texto(cuatrimestre, grupo, busqueda, carrera, campo="El filtro")
+    try:
+        codigo = canonical_career(carrera).code if carrera else None
+    except ValueError as exc:
+        raise ApplicationError(422, str(exc)) from exc
     texto = _escapar_like(busqueda.strip()) if busqueda and busqueda.strip() else None
-    parametros = (cuatrimestre, cuatrimestre, cuatrimestre, cuatrimestre, cuatrimestre, cuatrimestre,
-                  grupo, grupo, texto, texto, texto, situacion, situacion, situacion, limite, desplazamiento)
+    filtros = (cuatrimestre, cuatrimestre, cuatrimestre, grupo, grupo, codigo, codigo,
+               texto, texto, texto, situacion, situacion, situacion)
+    parametros = (cuatrimestre, cuatrimestre, cuatrimestre, cuatrimestre, *filtros, limite, desplazamiento)
     async with runtime.database.read() as cur:
         await cur.execute("dual.expediente.directorio", parametros)
         filas = [dict(f) for f in await cur.fetchall()]
-    total = filas[0]["total"] if filas else 0
+        await cur.execute('dual.expediente.directorio_total', filtros)
+        total = (await cur.fetchone() or {}).get('total', 0)
+        await cur.execute('dual.expediente.grupos_catalogo', (codigo, codigo))
+        grupos = [f['nomenclatura'] for f in await cur.fetchall()]
     for fila in filas:
         fila.pop("total", None)
-    return {"items": filas, "total": total, "limite": limite, "desplazamiento": desplazamiento}
+    return {"items": filas, "total": total, "limite": limite, "desplazamiento": desplazamiento, "grupos": grupos}

@@ -49,6 +49,7 @@ async def listar_periodos(user=Depends(get_coordinador_carrera)):
 @router.get("/alumnos")
 async def listar_alumnos(
     cuatrimestre: str | None = None,
+    carrera: str | None = None,
     grupo: str | None = None,
     q: str | None = None,
     situacion: str = "todos",
@@ -58,7 +59,7 @@ async def listar_alumnos(
 ):
     return to_http_response(
         await expediente_cases.directorio(
-            cuatrimestre=cuatrimestre, grupo=grupo, busqueda=q, situacion=situacion,
+            cuatrimestre=cuatrimestre, grupo=grupo, busqueda=q, situacion=situacion, carrera=carrera,
             limite=limite, desplazamiento=desplazamiento, user=user, runtime=get_runtime(),
         )
     )

@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte'
   import { api } from '../../../composition/api.js'
   import LoadingSpinner from '../ui/LoadingSpinner.svelte'
+  import { modalFocus } from '../ui/modalFocus.js'
 
   export let show = false
   export let mensajeId = null
@@ -39,7 +40,6 @@
     respuestaTexto = ''
   }
 
-  function handleOverlayKeydown(e) { if (e.key === 'Escape') cerrarModal() }
 
   async function enviarRespuesta() {
     const texto = respuestaTexto.trim()
@@ -112,8 +112,7 @@
 </script>
 
 {#if show}
-  <div class="modal-overlay" role="presentation" on:click|self={cerrarModal} on:keydown={handleOverlayKeydown}>
-    <div class="modal-card" on:click|stopPropagation role="dialog" aria-modal="true" aria-label="Detalle del mensaje">
+  <dialog class="modal-card" use:modalFocus={cerrarModal} aria-label="Detalle del mensaje" tabindex="-1">
 
       {#if cargando}
         <LoadingSpinner />
@@ -189,12 +188,12 @@
         </svg>
       </button>
 
-    </div>
-  </div>
+  </dialog>
 {/if}
 
 <style>
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 24px; backdrop-filter: blur(2px); border: none; cursor: default; width: 100%; text-align: left; }
+  .modal-card::backdrop { background: rgba(0,0,0,0.35); backdrop-filter: blur(2px); }
+  dialog.modal-card { margin: auto; border: 1px solid var(--border); color: var(--text-primary); width: min(480px, calc(100% - 32px)); }
   /* C12: los botones con aspecto de enlace no deben heredar el fondo gris del navegador (en oscuro quedaba naranja sobre gris, 2:1). */
   button.link-orange { background: none; border: none; padding: 0; font: inherit; font-weight: 600; cursor: pointer; }
   button.link-orange:disabled { opacity: 0.5; cursor: wait; }

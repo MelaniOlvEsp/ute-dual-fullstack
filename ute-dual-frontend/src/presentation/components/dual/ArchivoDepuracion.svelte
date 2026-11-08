@@ -174,9 +174,6 @@
   .estado-programada { color: var(--orange); }
   .estado-depurado { color: var(--text-disabled); }
   .acciones { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
-  .btn-link { background: none; border: none; padding: 0; color: var(--orange); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; text-align: left; }
-  .btn-link:disabled { opacity: 0.5; cursor: wait; }
-  .btn-link:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
   .historial { font-size: 13px; color: var(--text-secondary); }
   .historial ul { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
   .error-msg { color: var(--error-text); margin: 0; font-size: 13px; }

@@ -482,7 +482,7 @@
                     </td>
                     <td class="td-fecha">{formatFecha(r.created_at)}</td>
                     <td class="col-accion" style="text-align: right;">
-                      <button class="btn-revisar" on:click={() => abrirRevision(r)}>
+                      <button class="btn-outline btn-sm btn-auto" on:click={() => abrirRevision(r)}>
                         {r.estado === 'Pendiente' ? 'Revisar' : 'Ver'}
                       </button>
                     </td>
@@ -835,7 +835,7 @@
                 </button>
                 {#if alumnoPreview.es_alumno_dual}
                   <button
-                    class="btn-outline btn-danger"
+                    class="btn-danger-outline"
                     style="flex:1"
                     on:click={() => confirmandoBaja = true}
                     disabled={guardandoAsignacion}
@@ -919,16 +919,10 @@
   .td-cal { font-weight: 700; color: var(--orange); font-size: 15px; }
   .td-fecha { color: var(--text-secondary); font-size: 13px; white-space: nowrap; }
 
-  .btn-revisar { background: transparent; border: 1.5px solid var(--border-input); border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--text-primary); cursor: pointer; transition: all 0.2s ease; }
-  .btn-revisar:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-light); }
-
   .count-label { font-size: 12px; color: var(--text-disabled); text-align: right; margin-top: 4px; font-weight: 500; }
 
   .revision-wrap { display: flex; flex-direction: column; height: calc(100vh - 56px); overflow: hidden; background: var(--bg-page); }
   .revision-topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; background: var(--bg-card); border-bottom: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
-  
-  .btn-back { background: none; border: none; cursor: pointer; font-family: var(--font); font-size: 14px; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; transition: color 0.15s; }
-  .btn-back:hover { color: var(--orange); }
   
   .split-layout { display: grid; grid-template-columns: 1fr 360px; flex: 1; overflow: hidden; }
   .panel-pdf { display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow: hidden; background: #1e293b; min-height: 0; }
@@ -962,7 +956,6 @@
   .tab-doc.activo { border-color: var(--orange); color: var(--orange); }
   .historial-versiones { padding: 16px 20px; border-top: 1px solid var(--border); }
   .lista-versiones { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-  .lista-versiones .btn-link { background: none; border: none; padding: 0; color: var(--orange); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
   .lista-versiones .btn-link.activo { color: var(--text-primary); text-decoration: none; cursor: default; }
   .ver-estado { display: block; font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
   .btn-decision:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -981,9 +974,6 @@
   .status-final { font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
   .text-verde { color: var(--success-text); }
   .text-rojo { color: var(--error-text); }
-  
-  .btn-danger { color: var(--error-text) !important; border-color: rgba(239, 68, 68, 0.3) !important; }
-  .btn-danger:hover { background: var(--error) !important; color: white !important; border-color: var(--error) !important; }
 
   .empresas-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 8px; }
   .card-seccion { background: var(--bg-card); border-radius: var(--radius-card); box-shadow: var(--shadow-card); padding: 28px; display: flex; flex-direction: column; gap: 16px; border: 1px solid var(--border); }

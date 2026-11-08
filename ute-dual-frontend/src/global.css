@@ -132,10 +132,123 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   transition: all 0.2s ease;
 }
 
-.btn-outline:hover {
+.btn-outline:hover:not(:disabled) {
   border-color: var(--orange);
   color: var(--orange);
   background: var(--orange-light);
+}
+
+.btn-outline:disabled {
+  color: var(--text-disabled);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+/* C17: kit de botones. Una sola definición con los valores de la base original (becas-ute-app): 14 px, peso 600,
+   radio 10 px. El primario conserva el ancho completo del original (formularios); `.btn-auto` lo ajusta al contenido
+   y `.btn-sm` es la versión compacta para filas de tabla y barras. El naranja de acción es el de C11 (contraste). */
+.btn-danger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--error);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-btn);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #B91C1C;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.btn-danger:disabled {
+  background: var(--border-input);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-danger-outline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: transparent;
+  color: var(--error-text);
+  border: 1.5px solid var(--error);
+  border-radius: var(--radius-btn);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-danger-outline:hover:not(:disabled) {
+  background: var(--error);
+  color: #fff;
+}
+
+.btn-danger-outline:disabled {
+  color: var(--text-disabled);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--orange);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.btn-link:hover:not(:disabled) { color: var(--orange-hover); }
+.btn-link:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.btn-back:hover { color: var(--orange); }
+
+/* Modificadores: después de las variantes para ganar por orden. */
+.btn-sm { padding: 6px 14px; font-size: 13px; border-radius: 8px; white-space: nowrap; }
+.btn-auto { display: inline-flex; width: auto; }
+
+.btn-primary:focus-visible,
+.btn-outline:focus-visible,
+.btn-danger:focus-visible,
+.btn-danger-outline:focus-visible,
+.btn-link:focus-visible,
+.btn-back:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
 }
 
 /* Inputs refinados */

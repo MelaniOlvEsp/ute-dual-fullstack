@@ -366,7 +366,6 @@
   .tabla-versiones tbody tr:last-child td { border-bottom: none; }
   .corregido { display: block; margin-top: 2px; font-size: 11px; color: var(--orange); }
   .acciones-version { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
-  .btn-link { background: none; border: none; padding: 0; color: var(--orange); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; white-space: nowrap; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
   @media (max-width: 768px) {

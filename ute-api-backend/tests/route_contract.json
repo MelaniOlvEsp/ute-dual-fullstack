@@ -13,8 +13,7 @@
       "method": "POST",
       "path": "/login",
       "params": [
-        "data",
-        "_rl"
+        "data"
       ]
     },
     {
@@ -351,6 +350,7 @@
       "path": "/alumnos",
       "params": [
         "cuatrimestre",
+        "carrera",
         "grupo",
         "q",
         "situacion",

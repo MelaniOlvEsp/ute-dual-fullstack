@@ -18,10 +18,10 @@
 </script>
 
 <Router>
-  <Route path="/" component={HomeRedirect} />
-  <Route path="/login" component={Login} />
-  <Route path="/register" component={Register} />
-  <Route path="/cambiar-password" component={ChangePassword} />
+  <Route path="/"><HomeRedirect /></Route>
+  <Route path="/login"><Login /></Route>
+  <Route path="/register"><Register /></Route>
+  <Route path="/cambiar-password"><ChangePassword /></Route>
   <Route path="/foro">
     <ProtectedPage><Forum /></ProtectedPage>
   </Route>
@@ -49,5 +49,5 @@
   <Route path="/dual/tutores">
     <ProtectedPage permission="coordinator"><ManageUsers /></ProtectedPage>
   </Route>
-  <Route component={NotFound} />
+  <Route><NotFound /></Route>
 </Router>

@@ -95,7 +95,7 @@
                 {#each tutores as tutor}
                   <tr>
                     <td>{tutor.nombre}</td><td>{tutor.email}</td>
-                    <td class="col-accion"><button class="btn-outline" on:click={() => eliminar(tutor.id)}>Dar de baja</button></td>
+                    <td class="col-accion"><button class="btn-outline btn-sm btn-auto" on:click={() => eliminar(tutor.id)}>Dar de baja</button></td>
                   </tr>
                 {/each}
               </tbody>

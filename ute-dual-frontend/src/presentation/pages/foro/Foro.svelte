@@ -368,7 +368,7 @@
 
               {#if hiloAnterior}
                 <p class="hilo-enlazado" role="status">Continúas el hilo cerrado «{hiloAnterior.asunto}».
-                  <button type="button" class="link-quitar" on:click={() => { hiloAnterior = null }}>Quitar enlace</button></p>
+                  <button type="button" class="btn-link link-quitar" on:click={() => { hiloAnterior = null }}>Quitar enlace</button></p>
               {/if}
 
               <div class="input-group">
@@ -722,7 +722,7 @@
     color: var(--text-primary);
   }
   .hilo-enlazado { margin: 0 0 8px; padding: 8px 12px; font-size: 13px; border: 1px solid var(--border); border-left: 3px solid var(--orange); border-radius: 8px; background: var(--bg-page); color: var(--text-primary); }
-  .link-quitar { background: none; border: none; padding: 0; margin-left: 6px; color: var(--orange); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+  .link-quitar { margin-left: 6px; }
   .buzon-hint {
     font-size: 13px;
     color: var(--text-secondary);

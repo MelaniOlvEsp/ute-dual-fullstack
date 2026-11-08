@@ -43,6 +43,8 @@
   let filtroCarrera = ''
   let filtroEstado = ''
   let filtroSituacion = 'todos'
+  let grupos = []
+  let solicitudDirectorio = 0
 
   let alumnoSeleccionado = null
   let expedienteDatos = null
@@ -142,6 +144,7 @@
   }
 
   async function cargarAlumnos(reiniciar = true) {
+    const solicitud = ++solicitudDirectorio
     if (reiniciar) desplazamiento = 0
     loading = true
     error = ''
@@ -149,17 +152,20 @@
       const params = new URLSearchParams()
       if (filtroCuatrimestre) params.append('cuatrimestre', filtroCuatrimestre)
       if (filtroGrupo) params.append('grupo', filtroGrupo)
+      if (filtroCarrera) params.append('carrera', filtroCarrera)
       if (filtroBusqueda.trim()) params.append('q', filtroBusqueda.trim())
       params.append('situacion', filtroSituacion)
       params.append('limite', String(LIMITE))
       params.append('desplazamiento', String(desplazamiento))
       const respuesta = await api.dual.listarAlumnos(params.toString())
+      if (solicitud !== solicitudDirectorio) return
       alumnos = respuesta.items
       total = respuesta.total
+      grupos = respuesta.grupos || []
     } catch (e) {
-      error = e.message || 'Error al cargar alumnos.'
+      if (solicitud === solicitudDirectorio) error = e.message || 'Error al cargar alumnos.'
     } finally {
-      loading = false
+      if (solicitud === solicitudDirectorio) loading = false
     }
   }
 
@@ -174,20 +180,9 @@
   // distintos pueden compartirla, así que los selectores lo muestran como texto aparte.
   const etiquetaGrupo = (g) => (g.ciclo_ingreso ? `${g.nomenclatura} · ingreso ${g.ciclo_ingreso}` : g.nomenclatura)
 
-  $: carreras = [...new Set(alumnos.map(a => a.carrera).filter(Boolean))].sort()
-  $: grupos = [...new Set(alumnos.map(a => a.nomenclatura || a.grupo).filter(Boolean))].sort()
-
-  // La búsqueda por nombre o matrícula la hace el servidor; aquí solo se filtra por carrera la página visible.
-  $: alumnosFiltrados = alumnos.filter(a => {
-    const matchBusqueda = true
-    const carreraStr = filtroCarrera.toLowerCase()
-    const matchCarrera = filtroCarrera
-      ? (a.carrera && a.carrera.toLowerCase() === carreraStr) || 
-        (a.nomenclatura && a.nomenclatura.toLowerCase().includes(carreraStr))
-      : true
-      
-    return matchBusqueda && matchCarrera
-  })
+  $: carreras = carrerasInstitucionales.map(c => c.nombre).sort()
+  // Todos los filtros se aplican antes de paginar; nunca se vuelve a filtrar esta página en memoria.
+  $: alumnosFiltrados = alumnos
 
   async function abrirExpediente(alumno) {
     alumnoSeleccionado = alumno
@@ -556,7 +551,7 @@
                   <td class="td-center">{a.reportes_aprobados}</td>
                   <td class="td-center">{a.promedio ?? 'Sin calificación'}</td>
                   <td class="col-accion" style="text-align: right;">
-                    <button class="btn-ver" on:click={() => abrirExpediente(a)}>
+                    <button class="btn-outline btn-sm btn-auto"on:click={() => abrirExpediente(a)}>
                       Ver Expediente
                     </button>
                   </td>
@@ -810,13 +805,13 @@
                     <input type="text" class="input-plain" placeholder="Nombre completo" bind:value={fila.nombre} />
                   </div>
                 {/each}
-                <button class="btn-add-fila" on:click={agregarFila}>+ Agregar otro</button>
+                <button class="btn-link btn-add-fila"on:click={agregarFila}>+ Agregar otro</button>
               </div>
 
               <div class="acciones-individuales">
                 <button class="btn-outline" on:click={() => prepararAccion('agregar')}>Agregar</button>
                 <button class="btn-outline" on:click={() => prepararAccion('actualizar')}>Actualizar</button>
-                <button class="btn-eliminar" on:click={prepararEliminar}>Desactivar acceso</button>
+                <button class="btn-danger-outline btn-auto" on:click={prepararEliminar}>Desactivar acceso</button>
               </div>
             {/if}
           </div>
@@ -879,7 +874,7 @@
           Se desactivará el acceso de <strong>{modalEliminar.nombre || modalEliminar.matricula}</strong> y se revocarán sus sesiones. Sus datos, reportes y asignaciones se conservan. Esto no da de baja su incorporación Dual.
         </p>
         <div class="modal-acciones">
-          <button class="btn-eliminar" disabled={procesandoIndividual} on:click={confirmarEliminar}>
+          <button class="btn-danger-outline btn-auto" disabled={procesandoIndividual} on:click={confirmarEliminar}>
             {procesandoIndividual ? 'Desactivando...' : 'Sí, desactivar acceso'}
           </button>
           <button class="btn-outline" disabled={procesandoIndividual} on:click={() => modalEliminar = null}>
@@ -924,8 +919,6 @@
 
   .chip-reportes { display: inline-block; background: rgba(249, 115, 22, 0.08); color: var(--orange); font-weight: 700; font-size: 12px; border-radius: 6px; padding: 2px 10px; border: 1px solid rgba(249, 115, 22, 0.2); }
   
-  .btn-ver { background: transparent; border: 1.5px solid var(--border-input); border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: var(--text-primary); cursor: pointer; transition: all 0.2s ease; }
-  .btn-ver:hover { border-color: var(--orange); color: var(--orange); background: var(--orange-light); }
 
   .btn-pdf { display: inline-block; background: transparent; border: 1.5px solid var(--border-input); border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 600; color: var(--orange); text-decoration: none; transition: all 0.2s ease; }
   .btn-pdf:hover { background: var(--orange-action-hover); color: white; border-color: var(--orange-hover); }
@@ -947,8 +940,6 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   .expediente-topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  .btn-back { background: none; border: none; cursor: pointer; padding: 0; font-family: var(--font); font-size: 14px; font-weight: 600; color: var(--text-secondary); transition: color 0.15s; }
-  .btn-back:hover { color: var(--orange); }
   .periodo-selector { display: flex; align-items: center; gap: 8px; }
   .periodo-label { font-size: 12px; font-weight: 600; color: var(--text-disabled); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
   .periodo-selector select { min-width: 180px; }
@@ -1023,14 +1014,10 @@
   .filas-individuales { display: flex; flex-direction: column; gap: 10px; }
   .fila-alumno { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
   
-  .btn-add-fila { align-self: flex-start; background: none; border: none; padding: 4px 0; font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--orange); cursor: pointer; }
-  .btn-add-fila:hover { color: var(--orange-hover); }
+  .btn-add-fila { align-self: flex-start; padding: 4px 0; font-size: 13px; }
 
   .acciones-individuales { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
   
-  .btn-eliminar { padding: 9px 18px; border: 1.5px solid var(--error); border-radius: var(--radius-input); background: transparent; color: var(--error-text); font-family: var(--font); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
-  .btn-eliminar:hover { background: var(--error); color: white; }
-  .btn-eliminar:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .preview-individual { background: var(--bg-page); border: 1px solid var(--border); border-radius: var(--radius-input); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
   .preview-titulo { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-disabled); margin: 0; }

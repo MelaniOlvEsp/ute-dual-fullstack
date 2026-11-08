@@ -12,7 +12,8 @@ from app.application.errors import ApplicationError
 from app.application.use_cases.dual import purgas as purgas_cases
 from app.bootstrap import get_runtime
 from app.infrastructure import tareas_purga
-from app.infrastructure.storage.registro import estado_cacheado
+from app.infrastructure.storage.registro import estado_cacheado_async
+from app.presentation.middleware.csv_limit import CsvBodyLimitMiddleware
 from app.infrastructure.config.settings import settings
 from app.infrastructure.database.postgres import init_pool, close_pool, get_cursor
 from app.presentation.middleware.security import (
@@ -61,6 +62,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(CsvBodyLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
@@ -103,4 +105,4 @@ async def health():
     except (DatabaseError, PoolTimeout):
         return JSONResponse(status_code=503, content={'status': 'database_unavailable'})
     # C10A: el estado del almacenamiento se informa sin secretos y no tumba la API (consulta cacheada).
-    return {'status': 'ok', 'app': settings.app_name, 'almacenamiento': estado_cacheado()}
+    return {'status': 'ok', 'app': settings.app_name, 'almacenamiento': await estado_cacheado_async()}

@@ -26,6 +26,8 @@ El plan maestro conserva la secuencia acordada; sus frases de estado inicial des
 
 ## Ajuste visual separado
 
-- [UI01 — Navegación y cuenta](UI01-navegacion-y-cuenta/spec.md): IN_PROGRESS. Menú/perfil de coordinador comprobados; recorridos de alumno/tutor y móvil pendientes. El cierre de C01 no cierra UI01.
+- [UI01 — Navegación y cuenta](UI01-navegacion-y-cuenta/spec.md): DONE (2026-11-08, cerrada con C17); cambio obligatorio de contraseña sin comprobar en navegador.
+- [C17 — Kit visual y botones coherentes](C17-kit-visual-botones/spec.md): DONE (2026-11-08). Un solo juego de botones con los valores de la base original `becas-ute-app`.
+- [C16 — Operación multiusuario y frontend](C16-operacion-y-frontend/spec.md): IN_PROGRESS; C17 corrigió dos defectos de su imagen web (`web-config.sh` y rutas `component=`) que deben confirmarse al cerrarla.
 
 No se hicieron commit ni push.

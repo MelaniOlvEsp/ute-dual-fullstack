@@ -23,7 +23,7 @@
   <div class="notfound">
     <h1 class="code">404</h1>
     <p class="msg">Esta página no existe o fue movida.</p>
-    <button class="btn-primary" on:click={irInicio}>
+    <button class="btn-primary btn-auto" on:click={irInicio}>
       Volver al inicio
     </button>
   </div>
@@ -53,20 +53,5 @@
     font-size: 16px;
     color: var(--text-secondary);
     margin: 0 0 24px;
-  }
-  .btn-primary {
-    font-family: var(--font);
-    font-size: 14px;
-    font-weight: 600;
-    padding: 12px 24px;
-    background: var(--orange-action);
-    color: #fff;
-    border: none;
-    border-radius: var(--radius-input);
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .btn-primary:hover {
-    background: var(--orange-action-hover);
   }
 </style>

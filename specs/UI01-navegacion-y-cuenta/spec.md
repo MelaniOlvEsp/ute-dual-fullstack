@@ -1,6 +1,6 @@
 # UI01 — Navegación y cuenta con continuidad visual
 
-Estado: IN_PROGRESS
+Estado: DONE (2026-11-08, cerrada con [C17](../C17-kit-visual-botones/spec.md))
 Fecha: 2026-10-14
 Aprobación de implementación: recibida en este chat; DRAFT → READY → IN_PROGRESS el 2026-10-14. Ajuste aprobado: tarjeta Mi perfil con estilo del perfil académico existente para coordinador y tutor, conservando perfil del alumno.
 Dependencias: base local C01; coordinar su ejecución sin declarar C01 cerrado.
@@ -54,7 +54,7 @@ Resultados: NO_VERIFICADA; solo comparación de código realizada. Presentar pre
 ## Revisión y cierre
 
 Revisión: pendiente. Aprobación humana de cierre: pendiente.
-C01 sigue IN_PROGRESS. UI01 no sustituye C02 ni completa el producto.
+UI01 se cerró el 2026-11-08 junto con C17, cuyo recorrido visual real (coordinador, tutor y alumno, escritorio y móvil, claro y oscuro, cambio voluntario de contraseña) cubrió lo que faltaba (AC3, AC4 y AC6). Limitación: el cambio **obligatorio** de contraseña (AC5) no se comprobó en el navegador, solo con las pruebas de guardas del frontend; ver [evidencia C17](../C17-kit-visual-botones/evidencia.md). UI01 no sustituye C02 ni completa el producto.
 Commit/push: no autorizados.
 
 ## Evidencia de implementación — 2026-10-14

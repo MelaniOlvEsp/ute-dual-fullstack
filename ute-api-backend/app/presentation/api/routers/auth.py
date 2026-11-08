@@ -13,7 +13,7 @@ from app.application.use_cases import auth as use_cases
 from app.bootstrap import get_runtime
 from app.domain.roles import has_role
 from app.infrastructure.security.jwt_passwords import verificar_token
-from app.presentation.middleware.rate_limit import limitar_intentos
+from app.presentation.middleware.rate_limit import login_failures
 
 router = APIRouter()
 bearer = HTTPBearer()
@@ -75,13 +75,10 @@ async def register(data: RegisterSchema):
 
 
 @router.post('/login', response_model=TokenSchema)
-async def login(
-    data: LoginSchema,
-    _rl=Depends(limitar_intentos('login', max_intentos=8,
-                                ventana_segundos=300)),
-):
+async def login(data: LoginSchema):
     # Inicia sesión sin verificación por correo.
-    return await use_cases.login(data, _rl, runtime=get_runtime())
+    async with login_failures.attempt(data.email):
+        return await use_cases.login(data, None, runtime=get_runtime())
 
 
 @router.get('/me', response_model=UsuarioOut)

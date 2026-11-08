@@ -8,7 +8,7 @@ import { createForumRepository } from '../infrastructure/repositories/forumRepos
 import { createDualRepository } from '../infrastructure/repositories/dualRepository.js'
 import { createApplication } from '../application/use-cases/index.js'
 
-const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const baseUrl = window.__UTE_CONFIG__?.apiUrl || import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const http = createHttpClient({
   baseUrl,
   fetcher: (...args) => fetch(...args),

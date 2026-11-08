@@ -262,9 +262,6 @@
   .num { text-align: right; white-space: nowrap; }
   .corregida { display: block; font-size: 11px; color: var(--orange); white-space: normal; text-align: right; }
   .acciones { display: flex; gap: 12px; flex-wrap: wrap; }
-  .btn-link { background: none; border: none; padding: 0; color: var(--orange); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
-  .btn-link:disabled { opacity: 0.5; cursor: wait; }
-  .btn-link:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
   .visor { min-height: 60vh; display: flex; }
   .nota-visor { margin: 0; font-size: 13px; color: var(--text-disabled); font-style: italic; }
   .error-msg { color: var(--error-text); margin: 0; }

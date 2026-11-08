@@ -249,19 +249,19 @@
               <h3 id="confirmar-titulo">{confirmando === 'cierre' ? 'Cerrar recepción' : 'Finalizar evaluación'} · {$cierre.confirmacion.etiqueta}</h3>
               <p id="confirmar-texto">{confirmando === 'cierre' ? mensajeCierre(periodo, conteos) : mensajeFinalizacion(periodo, alumnos)}</p>
               <div class="acciones">
-                <button class="btn-danger" disabled={ejecutando} on:click={ejecutar}>
+                <button class="btn-danger btn-auto" disabled={ejecutando} on:click={ejecutar}>
                   {ejecutando ? 'Procesando...' : 'Confirmar'}
                 </button>
-                <button class="btn-outline" disabled={ejecutando} on:click={() => cierre.cancelar()}>Cancelar</button>
+                <button class="btn-outline btn-auto" disabled={ejecutando} on:click={() => cierre.cancelar()}>Cancelar</button>
               </div>
             </div>
           {:else}
             <div class="acciones">
               {#if resumen.puede_cerrar_recepcion}
-                <button class="btn-danger" disabled={ejecutando || abriendo} on:click={() => cierre.confirmar('cierre')}>Cerrar recepción</button>
+                <button class="btn-danger btn-auto" disabled={ejecutando || abriendo} on:click={() => cierre.confirmar('cierre')}>Cerrar recepción</button>
               {/if}
               {#if periodo.recepcion === 'cerrada' && periodo.evaluacion !== 'finalizada'}
-                <button class="btn-primary" disabled={!resumen.puede_finalizar || ejecutando || abriendo}
+                <button class="btn-primary btn-auto" disabled={!resumen.puede_finalizar || ejecutando || abriendo}
                   on:click={() => cierre.confirmar('finalizar')}>
                   Finalizar evaluación
                 </button>
@@ -305,8 +305,6 @@
   .acciones { display: flex; gap: 10px; flex-wrap: wrap; }
   .confirmacion { border: 1px solid var(--error); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: color-mix(in srgb, var(--error) 6%, transparent); }
   .confirmacion h3 { font-size: 15px; color: var(--text-primary); }
-  .btn-danger { background: var(--error); color: white; border: none; border-radius: var(--radius-btn); padding: 12px 20px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font); }
-  .btn-danger:disabled, .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .success-msg { color: var(--text-primary); border-left: 3px solid var(--success); padding-left: 10px; }
   .error-msg { color: var(--error-text); }
   @media (max-width: 860px) { .fila-abrir { grid-template-columns: 1fr; } }

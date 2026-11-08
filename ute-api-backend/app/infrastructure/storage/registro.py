@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import threading
+import asyncio
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -13,6 +14,19 @@ _actual: Almacenamiento | None = None
 _estado: tuple[float, dict] | None = None
 _cerrojo = threading.Lock()
 TTL_ESTADO = 60.0
+_consulta_estado = None
+
+
+async def estado_cacheado_async(timeout=1.0) -> dict:
+    """Comparte una consulta en hilo y limita la espera sin cancelar el trabajo subyacente."""
+    global _consulta_estado
+    loop = asyncio.get_running_loop()
+    if _consulta_estado is None or _consulta_estado.done() or _consulta_estado.get_loop() is not loop:
+        _consulta_estado = asyncio.create_task(asyncio.to_thread(estado_cacheado))
+    try:
+        return await asyncio.wait_for(asyncio.shield(_consulta_estado), timeout)
+    except TimeoutError:
+        return {'tipo': settings.almacenamiento, 'estado': 'no_disponible', 'motivo': 'tiempo_agotado'}
 
 
 def _construir() -> Almacenamiento:

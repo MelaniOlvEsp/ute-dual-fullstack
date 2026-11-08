@@ -13,8 +13,8 @@ class Upload:
     def __init__(self, content):
         self.content = content
 
-    async def read(self):
-        return self.content
+    async def read(self, size=-1):
+        return self.content if size < 0 else self.content[:size]
 
 
 class Cursor:
@@ -38,7 +38,7 @@ class Database:
         self.cursor = cursor
 
     @asynccontextmanager
-    async def read(self):
+    async def read(self, size=-1):
         yield self.cursor
 
     @asynccontextmanager
