@@ -239,10 +239,12 @@ def main():
         assert expect(client.get("/dual/carrera/alumnos", headers=tutor,
                                  params={**base_q, "q": "%_\\"}), 200)["total"] == 0, "Los comodines se escapan"
         en_g1 = expect(client.get("/dual/carrera/alumnos", headers=tutor, params={**base_q, "grupo": nom1}), 200)
-        assert en_g1["total"] == 3, ("grupo actual: A ya está en el segundo", nom1, nom2,
+        # C16 (H04): el filtro por grupo con un período usa el grupo que el alumno tenía EN ESE período (pertenencia
+        # histórica): A seguía en el primer grupo durante p1 aunque ahora esté en el segundo.
+        assert en_g1["total"] == 4, ("grupo histórico de p1: A estaba en el primero", nom1, nom2,
                                      [(x["matricula"], x["nomenclatura"]) for x in en_g1["items"]], matriculas)
         assert expect(client.get("/dual/carrera/alumnos", headers=tutor,
-                                 params={**base_q, "grupo": nom2}), 200)["total"] == 1
+                                 params={**base_q, "grupo": nom2}), 200)["total"] == 0, "En p1 nadie estaba en el segundo grupo"
         assert expect(client.get("/dual/carrera/alumnos", headers=tutor,
                                  params={"cuatrimestre": p2["label"], "grupo": nom2}), 200)["total"] == 1
         for parametros in ({"limite": 0}, {"limite": 201}, {"desplazamiento": -1}, {"situacion": "otro"},
