@@ -1,0 +1,70 @@
+# Demo temporal: frontend estático + API gratuita en Render.
+# PostgreSQL se crea por separado en Supabase Free; no crear Render Postgres (expira a 30 días).
+services:
+  - type: web
+    name: ute-dual-api-demo
+    runtime: python
+    rootDir: ute-api-backend
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: APP_NAME
+        value: Portal UTE — Demo
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_NAME
+        sync: false
+      - key: DB_MIN_SIZE
+        value: "1"
+      - key: DB_MAX_SIZE
+        value: "3"
+      - key: DB_TIMEOUT_CONN
+        value: "45"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALMACENAMIENTO
+        value: drive
+      - key: DRIVE_TOKEN_FILE
+        value: /etc/secrets/drive_token.json
+      - key: DRIVE_CARPETA_ID
+        sync: false
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: ute-dual-web-demo
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: CORS_ORIGINS
+        fromService:
+          type: web
+          name: ute-dual-web-demo
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: LOG_FORMAT
+        value: json
+
+  - type: web
+    name: ute-dual-web-demo
+    runtime: static
+    rootDir: ute-dual-frontend
+    plan: free
+    buildCommand: npm ci --no-audit --no-fund && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: ute-dual-api-demo
+          envVarKey: RENDER_EXTERNAL_URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
