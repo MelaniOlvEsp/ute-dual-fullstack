@@ -54,7 +54,6 @@ services:
     name: ute-dual-web-demo
     runtime: static
     rootDir: ute-dual-frontend
-    plan: free
     buildCommand: npm ci --no-audit --no-fund && npm run build
     staticPublishPath: dist
     envVars:
@@ -67,4 +66,3 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
-
